@@ -71,8 +71,8 @@
                   aria-labelledby="nav-masuk-tab"
                 >
                   <form
-                    id="wrapped"
-                    @submit.prevent="handleSubmit"
+                    id="form-masuk"
+                    @submit.prevent="handleSubmitMasuk"
                     autocomplete="off"
                     style="margin-bottom: 24px; height: 100%; width: 100%"
                   >
@@ -86,22 +86,15 @@
                         </h3>
 
                         <div class="form-group">
-                          <label for="nomortiket">Nomor Tiket Keluar</label>
+                          <label for="nomortiket">Nomor Tiket</label>
                           <input
-                            type="number"
+                            type="text"
                             id="nomortiket"
-                            v-model="form.nomortiket"
+                            v-model="formMasuk.nomor_tiket"
                             class="form-control"
-                            min="0"
-                            @input="validateNomorTiket"
-                            @keypress="preventNonNumeric"
-                            pattern="[0-9]*"
-                            inputmode="numeric"
-                            placeholder="Hanya angka"
+                            @input="formMasuk.nomor_tiket = formMasuk.nomor_tiket.replace(/\D/g, '')"
+                            required
                           />
-                          <small v-if="ticketError" class="text-danger">{{
-                            ticketError
-                          }}</small>
                         </div>
 
                         <div class="form-group">
@@ -109,10 +102,12 @@
                           <input
                             type="text"
                             id="platnomor"
-                            v-model="form.platnomor"
+                            v-model="formMasuk.plat_nomor"
                             class="form-control"
+                            required
                           />
                         </div>
+
                         <div class="form-group">
                           <label for="pilihfoto">Unggah foto dari galeri</label>
                           <div class="input-group">
@@ -127,7 +122,7 @@
                             <div class="input-group-append w-100">
                               <button
                                 type="button"
-                                class="form-control w-100 d-flex align-items-center justify-content-right"
+                                class="form-control w-100 d-flex align-items-center justify-content-center"
                                 @click="triggerFileInput"
                                 style="height: 48px"
                               >
@@ -138,20 +133,18 @@
                                 Pilih Foto
                               </button>
                             </div>
-                            <small
-                              class="form-text text-muted w-100"
-                              v-if="selectedFileName"
-                            >
-                              File terpilih: {{ selectedFileName }}
-                            </small>
                           </div>
-                        </div>
-                        <div class="form-group">
-                          <label>Deteksi Plat Nomor via Kamera</label><br />
                           <small
-                            >Kamera akan diaktifkan untuk mendeteksi plat
-                            nomor.</small
-                          ><br />
+                            class="form-text text-muted w-100"
+                            v-if="selectedFileName"
+                          >
+                            File terpilih: {{ selectedFileName }}
+                          </small>
+                        </div>
+
+                        <div class="form-group">
+                          <label>Ambil Foto dengan Kamera</label><br />
+                          <small>Kamera akan diaktifkan untuk mengambil foto kendaraan.</small><br />
                           <video
                             id="video"
                             width="100%"
@@ -160,33 +153,37 @@
                             muted
                             playsinline
                             style="margin-top: 10px"
-                          ></video
-                          ><br />
+                            v-show="showCamera"
+                          ></video><br />
                           <div style="text-align: center; margin-top: 10px">
                             <button
                               type="button"
                               class="submit-secondary"
-                              @click="capturePlate"
+                              @click="capturePhoto"
+                              v-if="showCamera"
+                              style="height: 48px; width: 100%;"
+
                             >
-                              <i
-                                class="fas fa-camera"
-                                style="color: #ffcc00"
-                              ></i>
-                              Ambil & Deteksi Plat Nomor
+                              <i class="fas fa-camera" style="color: #ffcc00"></i>
+                              Ambil Foto
+                            </button>
+                            <button
+                              type="button"
+                              class="submit-secondary"
+                              @click="toggleCamera"
+                              v-if="!showCamera"
+                              style="height: 48px; width: 100%;"
+                            >
+                              <i class="fas fa-video" style="color: #ffcc00"></i>
+                              Aktifkan Kamera
                             </button>
                           </div>
                           <canvas ref="canvas" style="display: none"></canvas>
                         </div>
 
-                        <div class="form-group" v-if="apiStatus">
-                          <label>Status API:</label>
-                          <div
-                            :class="
-                              apiStatus.success ? 'text-success' : 'text-danger'
-                            "
-                          >
-                            {{ apiStatus.message }}
-                          </div>
+                        <div class="form-group" v-if="capturedPhoto">
+                          <label>Foto yang Diambil:</label>
+                          <img :src="capturedPhoto" style="width: 100%; max-height: 200px; object-fit: cover;" />
                         </div>
                       </div>
                     </div>
@@ -195,10 +192,9 @@
                       <button
                         type="submit"
                         class="submit"
-                        :disabled="!isFormValid"
-                        data-form-type="formMasuk"
+                        :disabled="!isFormMasukValid"
                       >
-                        Submit
+                        Submit Masuk
                       </button>
                     </div>
                   </form>
@@ -210,36 +206,32 @@
                   aria-labelledby="nav-keluar-tab"
                 >
                   <form
-                    id="wrapped"
-                    @submit.prevent="handleSubmit"
+                    id="form-keluar"
+                    @submit.prevent="handleSubmitKeluar"
                     autocomplete="off"
                     style="margin-bottom: 24px; height: 100%; width: 100%"
                   >
                     <input id="website" name="website" type="text" value="" />
                     <div id="middle-wizard">
-                      <div class="submit step">
+                      <div class="submit step keluar">
                         <h3 class="main_question">
-                          <strong>Keluarkan Kendaraan</strong>Harap Isi Detail
-                          Kendaraan yang Keluar
+                          <strong>Keluarkan Kendaraan</strong>Harap Masukkan
+                          Nomor Tiket Parkir
                         </h3>
 
                         <div class="form-group">
-                          <label for="nomortiket">Nomor Tiket Keluar</label>
+                          <label for="nomortiketkeluar">Nomor Tiket</label>
                           <input
-                            type="number"
-                            id="nomortiket"
-                            v-model="form.nomortiket"
+                            type="text"
+                            id="nomortiketkeluar"
+                            v-model="formKeluar.nomor_tiket"
                             class="form-control"
-                            min="0"
-                            @input="validateNomorTiket"
-                            @keypress="preventNonNumeric"
-                            pattern="[0-9]*"
-                            inputmode="numeric"
-                            placeholder="Hanya angka"
+                            @input="formKeluar.nomor_tiket = formKeluar.nomor_tiket.replace(/\D/g, '')"
+                            required
                           />
-                          <small v-if="ticketError" class="text-danger">{{
-                            ticketError
-                          }}</small>
+                          <small class="form-text text-muted-colored" style="color: #f5e141;">
+                            Masukkan nomor tiket yang sama dengan saat parkir masuk
+                          </small>
                         </div>
                       </div>
                     </div>
@@ -247,9 +239,9 @@
                       <button
                         type="submit"
                         class="submit"
-                        data-form-type="formKeluar"
+                        :disabled="!isFormKeluarValid"
                       >
-                        Submit
+                        Submit Keluar
                       </button>
                     </div>
                   </form>
@@ -260,12 +252,44 @@
           <!-- /col -->
         </div>
         <!-- /row -->
+        
+        <!-- Log Parkir Section -->
+        <div class="row mt-5" v-if="logParkir.length > 0">
+          <div class="col-12">
+            <h4>Log Parkir Aktif</h4>
+            <div class="table-responsive">
+              <table class="table table-striped">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Nomor Tiket</th>
+                    <th>Plat Nomor</th>
+                    <th>Waktu Masuk</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="log in activeLogParkir" :key="log.id">
+                    <td>{{ log.id }}</td>
+                    <td>{{ log.nomor_tiket }}</td>
+                    <td>{{ log.plat_nomor }}</td>
+                    <td>{{ formatDateTime(log.waktu_masuk) }}</td>
+                    <td>
+                      <span class="badge bg-success">Masih Parkir</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       </div>
       <!-- /container -->
     </div>
     <!-- /container_centering -->
   </div>
   <!-- /wrapper_centering -->
+  
   <div>
     <footer>
       <div class="container-fluid">
@@ -281,7 +305,7 @@
               margin-bottom: 6px;
             "
           >
-            ©2025 Glorian Hilarius - Built with Vue and Flask
+            ©2025 Glorian Hilarius - Built with Vue and Node.js
           </div>
         </div>
         <!-- /row -->
@@ -297,100 +321,69 @@ import Swal from "sweetalert2";
 // Import FontAwesome icons
 import "@fortawesome/fontawesome-free/css/all.min.css";
 
-import Dexie from "dexie";
-
-const db = new Dexie("ParkirDB");
-db.version(1).stores({
-  parkirMasuk: "++id, nomortiket, platnomor, tanggal, isKeluar",
-  parkirKeluar: "++id, nomortiket, tanggal",
-});
-
 export default {
   name: "ParkingForm",
   setup() {
-    const form = ref({
-      nomortiket: "",
-      platnomor: "",
-      formType: "formMasuk", // Default to entry form
+    const formMasuk = ref({
+      nomor_tiket: "",
+      plat_nomor: "",
     });
+    
+    const formKeluar = ref({
+      nomor_tiket: "",
+    });
+
     const videoStream = ref(null);
-    const ticketError = ref("");
     const canvas = ref(null);
-    const plateNumber = ref("");
     const selectedImage = ref(null);
     const selectedFileName = ref("");
     const fileInput = ref(null);
-    const apiStatus = ref(null);
-    const isLoading = ref(false);
+    const showCamera = ref(false);
+    const capturedPhoto = ref("");
+    const logParkir = ref([]);
 
-    const isFormValid = computed(() => {
-      // Different validation rules based on form type
-      if (form.value.formType === "formKeluar") {
-        return form.value.nomortiket && !ticketError.value;
-      } else {
-        // For entry form (formMasuk), require both fields
-        return (
-          form.value.nomortiket && form.value.platnomor && !ticketError.value
-        );
-      }
+    const isFormMasukValid = computed(() => {
+      return formMasuk.value.nomor_tiket.trim() !== "" && 
+             formMasuk.value.plat_nomor.trim() !== "";
     });
 
-    const validateNomorTiket = (event) => {
-      console.log("Validating nomor tiket:", event.target.value);
-      // Stronger validation
-      const value = event.target.value;
+    const isFormKeluarValid = computed(() => {
+      return formKeluar.value.nomor_tiket.trim() !== "";
+    });
 
-      // Check if there's any non-numeric character
-      if (/\D/.test(value)) {
-        ticketError.value = "Hanya masukkan angka";
-        console.warn("Validation error: Non-numeric characters detected");
-        // Clean up any non-numeric characters
-        form.value.nomortiket = value.replace(/\D/g, "");
-      } else {
-        ticketError.value = "";
-        console.log("Nomor tiket valid:", value);
-      }
+    const activeLogParkir = computed(() => {
+      return logParkir.value.filter(log => !log.waktu_keluar);
+    });
+
+    const formatDateTime = (dateString) => {
+      if (!dateString) return "";
+      const date = new Date(dateString);
+      return date.toLocaleString('id-ID');
     };
 
-    const preventNonNumeric = (event) => {
-      // Prevent input of non-numeric characters
-      const charCode = event.which ? event.which : event.keyCode;
-      if (charCode > 31 && (charCode < 48 || charCode > 57)) {
-        console.warn("Prevented non-numeric input:", charCode);
-        event.preventDefault();
-        return false;
-      }
-      return true;
-    };
-
-    const initCamera = () => {
-      // Only initialize camera for entry form
-      if (form.value.formType === "formKeluar") {
-        console.log("Skipping camera initialization for exit form");
-        return;
-      }
-
+    const initCamera = async () => {
       console.log("Initializing camera...");
       const video = document.getElementById("video");
+      
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        console.log("Camera API available, requesting permissions...");
-        navigator.mediaDevices;
-        navigator.mediaDevices
-          .getUserMedia({ video: { facingMode: "environment" } })
-          .then((stream) => {
-            console.log("Camera permission granted, stream active");
-            videoStream.value = stream;
-            video.srcObject = stream;
-          })
-          .catch((err) => {
-            console.error("Failed to access camera:", err);
-            Swal.fire({
-              icon: "error",
-              title: "Akses Kamera Gagal",
-              text: "Izin kamera ditolak atau tidak tersedia.",
-              confirmButtonText: "Tutup",
-            });
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: "environment" } 
           });
+          
+          console.log("Camera permission granted, stream active");
+          videoStream.value = stream;
+          video.srcObject = stream;
+          showCamera.value = true;
+        } catch (err) {
+          console.error("Failed to access camera:", err);
+          Swal.fire({
+            icon: "error",
+            title: "Akses Kamera Gagal",
+            text: "Izin kamera ditolak atau tidak tersedia.",
+            confirmButtonText: "Tutup",
+          });
+        }
       } else {
         console.error("getUserMedia API not supported in this browser");
         Swal.fire({
@@ -402,156 +395,156 @@ export default {
       }
     };
 
-    // Function to resize image to 640x640
-    const resizeImageTo640x640 = (originalCanvas) => {
-      console.log("Resizing image to 640x640...");
-      const resizeCanvas = document.createElement("canvas");
-      const resizeContext = resizeCanvas.getContext("2d");
-
-      // Set canvas dimensions to 640x640
-      resizeCanvas.width = 640;
-      resizeCanvas.height = 640;
-
-      // Calculate aspect ratio to maintain proportions
-      const originalWidth = originalCanvas.width;
-      const originalHeight = originalCanvas.height;
-      const aspectRatio = originalWidth / originalHeight;
-
-      let drawWidth,
-        drawHeight,
-        offsetX = 0,
-        offsetY = 0;
-
-      // Determine dimensions for centered crop
-      if (aspectRatio > 1) {
-        // Original is wider than tall
-        drawHeight = 640;
-        drawWidth = drawHeight * aspectRatio;
-        offsetX = -(drawWidth - 640) / 2;
+    const toggleCamera = () => {
+      if (showCamera.value) {
+        // Stop camera
+        if (videoStream.value) {
+          videoStream.value.getTracks().forEach((track) => {
+            track.stop();
+          });
+          videoStream.value = null;
+        }
+        showCamera.value = false;
       } else {
-        // Original is taller than wide
-        drawWidth = 640;
-        drawHeight = drawWidth / aspectRatio;
-        offsetY = -(drawHeight - 640) / 2;
+        // Start camera
+        initCamera();
       }
-
-      // Fill with black background to ensure we have a 640x640 image
-      resizeContext.fillStyle = "#000000";
-      resizeContext.fillRect(0, 0, 640, 640);
-
-      // Draw the image centered
-      resizeContext.drawImage(
-        originalCanvas,
-        offsetX,
-        offsetY,
-        drawWidth,
-        drawHeight
-      );
-
-      console.log("Image resized to 640x640");
-      return resizeCanvas;
     };
 
-    // Function to convert canvas to base64 image data (for storing in Google Sheets)
-    const canvasToBase64 = (canvas) => {
-      return canvas.toDataURL("image/jpeg", 0.7);
+    const resizeImage = (canvas, maxWidth = 800, maxHeight = 600) => {
+      const { width, height } = canvas;
+      
+      // Calculate new dimensions
+      let newWidth = width;
+      let newHeight = height;
+      
+      if (width > height) {
+        if (width > maxWidth) {
+          newHeight = (height * maxWidth) / width;
+          newWidth = maxWidth;
+        }
+      } else {
+        if (height > maxHeight) {
+          newWidth = (width * maxHeight) / height;
+          newHeight = maxHeight;
+        }
+      }
+      
+      // Create new canvas with resized dimensions
+      const resizedCanvas = document.createElement('canvas');
+      const ctx = resizedCanvas.getContext('2d');
+      resizedCanvas.width = newWidth;
+      resizedCanvas.height = newHeight;
+      
+      // Draw resized image
+      ctx.drawImage(canvas, 0, 0, newWidth, newHeight);
+      
+      return resizedCanvas;
     };
 
-    const capturePlate = async () => {
-      // Should only be called when in entry form mode
-      if (form.value.formType === "formKeluar") {
-        console.warn("Capture plate attempted in exit form mode");
-        return;
-      }
-
-      console.log("Capturing plate image...");
+    const capturePhoto = () => {
+      console.log("Capturing photo...");
       const video = document.getElementById("video");
       const canvasElement = canvas.value;
 
       if (video && canvasElement) {
-        console.log(
-          "Video dimensions:",
-          video.videoWidth,
-          "x",
-          video.videoHeight
-        );
         const context = canvasElement.getContext("2d");
         canvasElement.width = video.videoWidth;
         canvasElement.height = video.videoHeight;
-        context.drawImage(
-          video,
-          0,
-          0,
-          canvasElement.width,
-          canvasElement.height
-        );
-        console.log("Image captured to canvas");
-
-        // Resize the image to 640x640
-        const resizedCanvas = resizeImageTo640x640(canvasElement);
-
-        // Show loading indicator using SweetAlert2
+        context.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
+        
+        // Resize image to reduce file size
+        const resizedCanvas = resizeImage(canvasElement, 800, 600);
+        
+        // Convert to base64 with higher compression
+        const imageData = resizedCanvas.toDataURL("image/jpeg", 0.6);
+        capturedPhoto.value = imageData;
+        selectedImage.value = imageData;
+        
+        console.log("Photo captured and compressed successfully");
+        console.log("Image size:", Math.round(imageData.length / 1024), "KB");
+        
         Swal.fire({
-          title: "Memproses...",
-          text: "Sedang mendeteksi plat nomor",
-          allowOutsideClick: false,
-          allowEscapeKey: false,
-          allowEnterKey: false,
-          didOpen: () => {
-            Swal.showLoading();
-          },
-        });
-
-        // Convert resized canvas to blob for API request
-        resizedCanvas.toBlob(async (blob) => {
-          if (blob) {
-            console.log("Image converted to blob, size:", blob.size, "bytes");
-            selectedImage.value = blob;
-
-            // Store the base64 image data for submission to Google Sheets
-            const base64Image = canvasToBase64(resizedCanvas);
-            selectedImage.base64 = base64Image;
-
-            // Proceed directly to plate detection
-            try {
-              await handlePlateDetection(blob);
-            } catch (error) {
-              console.error("Error in capture and detect flow:", error);
-              Swal.fire({
-                icon: "error",
-                title: "Error",
-                text: "Terjadi kesalahan saat memproses gambar.",
-                confirmButtonText: "Tutup",
-              });
-            }
-          } else {
-            console.error("Failed to create blob from canvas");
-            Swal.fire({
-              icon: "error",
-              title: "Error",
-              text: "Gagal memproses gambar dari kamera.",
-              confirmButtonText: "Tutup",
-            });
-          }
-        });
-      } else {
-        console.error("Video or canvas element not found", {
-          video: !!video,
-          canvas: !!canvasElement,
-        });
-        Swal.fire({
-          icon: "error",
-          title: "Error",
-          text: "Komponen kamera tidak ditemukan.",
-          confirmButtonText: "Tutup",
+          icon: "success",
+          title: "Foto Berhasil Diambil!",
+          text: "Foto kendaraan telah disimpan.",
+          confirmButtonText: "OK",
         });
       }
     };
 
-    // Updated handleSubmit function in the setup() method
-    // Replace the existing handleSubmit function with this one
+    const handleImageUpload = (event) => {
+      const file = event.target.files[0];
+      if (file) {
+        // Check file size (limit to 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+          Swal.fire({
+            icon: "error",
+            title: "File Terlalu Besar",
+            text: "Ukuran file maksimal 5MB.",
+          });
+          return;
+        }
+        
+        selectedFileName.value = file.name;
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            // Create canvas to resize image
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Calculate new dimensions
+            const maxWidth = 800;
+            const maxHeight = 600;
+            let { width, height } = img;
+            
+            if (width > height) {
+              if (width > maxWidth) {
+                height = (height * maxWidth) / width;
+                width = maxWidth;
+              }
+            } else {
+              if (height > maxHeight) {
+                width = (width * maxHeight) / height;
+                height = maxHeight;
+              }
+            }
+            
+            canvas.width = width;
+            canvas.height = height;
+            
+            // Draw and compress
+            ctx.drawImage(img, 0, 0, width, height);
+            const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.6);
+            
+            selectedImage.value = compressedDataUrl;
+            capturedPhoto.value = compressedDataUrl;
+            
+            console.log("Image uploaded and compressed, size:", Math.round(compressedDataUrl.length / 1024), "KB");
+          };
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+    };
 
-    const handleSubmit = async () => {
+    const triggerFileInput = () => {
+      fileInput.value.click();
+    };
+
+    const handleSubmitMasuk = async () => {
+      if (!isFormMasukValid.value) {
+        Swal.fire({
+          icon: "error",
+          title: "Form Tidak Valid",
+          text: "Harap isi nomor tiket dan plat nomor kendaraan.",
+        });
+        return;
+      }
+
       Swal.fire({
         title: "Memproses...",
         text: "Mohon tunggu sebentar",
@@ -560,41 +553,75 @@ export default {
       });
 
       try {
-        const today = new Date();
-        const tanggal = today.toISOString().split("T")[0];
-        const formType = form.value.formType;
-        const nomortiket = form.value.nomortiket;
+        const waktu_masuk = new Date().toISOString().slice(0, 19).replace('T', ' ');
+        
+        // Create FormData for multipart upload or JSON for base64
+        let requestData;
+        let requestOptions = {
+          method: "POST"
+        };
 
-        if (!/^\d+$/.test(nomortiket)) {
-          ticketError.value = "Nomor tiket harus berupa angka";
-          Swal.close();
-          return;
+        if (selectedImage.value && selectedImage.value.startsWith('data:')) {
+          // For base64 data (camera capture), send as JSON
+          console.log("Sending base64 image, size:", Math.round(selectedImage.value.length / 1024), "KB");
+          
+          // Check if image is too large
+          if (selectedImage.value.length > 10 * 1024 * 1024) { // 10MB limit
+            throw new Error("Gambar terlalu besar. Silakan coba lagi atau gunakan gambar yang lebih kecil.");
+          }
+          
+          requestData = {
+            nomor_tiket: formMasuk.value.nomor_tiket.trim().toUpperCase(),
+            plat_nomor: formMasuk.value.plat_nomor.trim().toUpperCase(),
+            waktu_masuk: waktu_masuk,
+            foto_base64: selectedImage.value
+          };
+          
+          requestOptions.headers = {
+            "Content-Type": "application/json"
+          };
+          requestOptions.body = JSON.stringify(requestData);
+        } else if (fileInput.value && fileInput.value.files[0]) {
+          // For file upload, use FormData
+          const formData = new FormData();
+          formData.append('nomor_tiket', formMasuk.value.nomor_tiket);
+          formData.append('plat_nomor', formMasuk.value.plat_nomor.trim().toUpperCase());
+          formData.append('waktu_masuk', waktu_masuk);
+          formData.append('foto_masuk', fileInput.value.files[0]);
+          
+          requestOptions.body = formData;
+        } else {
+          // No photo
+          requestData = {
+            nomor_tiket: formMasuk.value.nomor_tiket,
+            plat_nomor: formMasuk.value.plat_nomor.trim().toUpperCase(),
+            waktu_masuk: waktu_masuk
+          };
+          
+          requestOptions.headers = {
+            "Content-Type": "application/json"
+          };
+          requestOptions.body = JSON.stringify(requestData);
         }
 
-        let response;
-        if (formType === "formMasuk") {
-          const platnomor = form.value.platnomor || "";
+        console.log("Sending request to /api/parkirMasuk");
 
-          response = await fetch(
-            "https://sipatuh.domcloud.dev/api/parkirMasuk",
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ nomortiket, platnomor, tanggal }),
-            }
-          );
-        } else if (formType === "formKeluar") {
-          response = await fetch(
-            "https://sipatuh.domcloud.dev/api/parkirKeluar",
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ nomortiket, tanggal }),
-            }
-          );
+        const response = await fetch("http://localhost:3000/api/parkirMasuk", requestOptions);
+
+        // Check if response is JSON
+        const contentType = response.headers.get("content-type");
+        let data;
+        
+        if (contentType && contentType.indexOf("application/json") !== -1) {
+          data = await response.json();
+        } else {
+          // If not JSON, get text to see error message
+          const text = await response.text();
+          console.error("Non-JSON response:", text);
+          throw new Error("Server mengembalikan respons yang tidak valid");
         }
-
-        const data = await response.json();
+        
+        console.log("Response:", data);
 
         if (!response.ok) {
           throw new Error(data.error || "Gagal memproses data");
@@ -603,20 +630,26 @@ export default {
         Swal.fire({
           icon: "success",
           title: "Berhasil",
-          text:
-            formType === "formKeluar"
-              ? "Data keluar ditambahkan dan status masuk diupdate."
-              : "Data masuk berhasil ditambahkan.",
+          text: "Data parkir masuk berhasil ditambahkan.",
         });
 
         // Reset form
-        form.value.nomortiket = "";
-        if (formType === "formMasuk") form.value.platnomor = "";
-        ticketError.value = "";
-        apiStatus.value = null;
+        formMasuk.value.nomor_tiket = "";
+        formMasuk.value.plat_nomor = "";
         selectedImage.value = null;
         selectedFileName.value = "";
+        capturedPhoto.value = "";
+        
+        // Reset file input
+        if (fileInput.value) {
+          fileInput.value.value = "";
+        }
+
+        // Refresh log parkir
+        await fetchLogParkir();
+
       } catch (err) {
+        console.error("Error in handleSubmitMasuk:", err);
         Swal.fire({
           icon: "error",
           title: "Error",
@@ -625,472 +658,164 @@ export default {
       }
     };
 
-    const generateUniqueId = async (existingIds) => {
-      const numericIds = existingIds.map(Number).filter((id) => !isNaN(id));
-      return numericIds.length > 0 ? Math.max(...numericIds) + 1 : 1;
-    };
-
-    const triggerFileInput = () => {
-      fileInput.value.click();
-    };
-
-    // Function to resize uploaded images
-    const resizeUploadedImage = (file) => {
-      return new Promise((resolve, reject) => {
-        console.log("Resizing uploaded image...");
-        const img = new Image();
-        img.onload = () => {
-          // Create a canvas to draw the uploaded image
-          const tempCanvas = document.createElement("canvas");
-          tempCanvas.width = img.width;
-          tempCanvas.height = img.height;
-          const tempCtx = tempCanvas.getContext("2d");
-          tempCtx.drawImage(img, 0, 0);
-
-          // Now resize to 640x640
-          const resizedCanvas = resizeImageTo640x640(tempCanvas);
-
-          // Store the base64 data
-          const base64Image = canvasToBase64(resizedCanvas);
-
-          // Convert to blob and resolve
-          resizedCanvas.toBlob((blob) => {
-            if (blob) {
-              console.log("Upload resized successfully to 640x640");
-              // Add base64 data to the blob object for later use
-              blob.base64 = base64Image;
-              resolve(blob);
-            } else {
-              console.error("Failed to create blob from resized image");
-              reject(new Error("Failed to create blob from resized image"));
-            }
-          });
-        };
-
-        img.onerror = (err) => {
-          console.error("Error loading image for resizing:", err);
-          reject(new Error("Failed to load image for resizing"));
-        };
-
-        // Create URL from the file and set as img source
-        img.src = URL.createObjectURL(file);
-      });
-    };
-
-    const handleImageUpload = async (event) => {
-      // Should only be called when in entry form mode
-      if (form.value.formType === "formKeluar") {
-        console.warn("Image upload attempted in exit form mode");
-        return;
-      }
-
-      console.log("Handling image upload...");
-      const file = event.target.files[0];
-      if (file) {
-        console.log("File selected:", file.name, file.type, file.size, "bytes");
-        selectedFileName.value = file.name;
-
-        // Show loading dialog
+    const handleSubmitKeluar = async () => {
+      if (!isFormKeluarValid.value) {
         Swal.fire({
-          title: "Memproses...",
-          text: "Sedang mendeteksi plat nomor dari foto yang diunggah",
-          allowOutsideClick: false,
-          allowEscapeKey: false,
-          allowEnterKey: false,
-          didOpen: () => {
-            Swal.showLoading();
-          },
+          icon: "error",
+          title: "Form Tidak Valid",
+          text: "Harap isi nomor tiket parkir.",
         });
-
-        try {
-          // Resize the uploaded image to 640x640
-          const resizedBlob = await resizeUploadedImage(file);
-          selectedImage.value = resizedBlob;
-
-          // Save the base64 representation for Google Sheets submission
-          selectedImage.base64 = resizedBlob.base64;
-
-          // Process the resized image with API
-          await handlePlateDetection(resizedBlob);
-        } catch (error) {
-          console.error("Error processing uploaded image:", error);
-          Swal.fire({
-            icon: "error",
-            title: "Error",
-            text: "Terjadi kesalahan saat memproses gambar.",
-            confirmButtonText: "Tutup",
-          });
-        }
-      }
-    };
-
-    // Function to format and validate license plate numbers
-    const formatPlateNumber = (rawPlate) => {
-      if (!rawPlate) return "";
-
-      // Remove all spaces and convert to uppercase
-      let cleaned = rawPlate.toUpperCase().replace(/\s+/g, "");
-
-      // Create regex to match the pattern: up to 2 letters, up to 4 numbers, up to 3 letters
-      const platePattern = /^([A-Z]{1,2})([0-9]{1,4})([A-Z]{0,3})$/;
-      const match = cleaned.match(platePattern);
-
-      if (match) {
-        // Format as "XX AAAA XXX" with proper spacing
-        const [_, letters1, numbers, letters2] = match;
-        const formatted = `${letters1} ${numbers} ${letters2}`.trim();
-        console.log("Plate formatted successfully:", formatted);
-        return formatted;
-      } else {
-        console.warn("Plate format doesn't match expected pattern:", cleaned);
-
-        // Try to extract parts based on character types
-        let letters1 = "";
-        let numbers = "";
-        let letters2 = "";
-        let parsingStage = 0; // 0: first letters, 1: numbers, 2: second letters
-
-        for (let i = 0; i < cleaned.length; i++) {
-          const char = cleaned[i];
-
-          if (/[A-Z]/.test(char)) {
-            if (parsingStage === 0) {
-              // Still in first letter group
-              if (letters1.length < 2) {
-                letters1 += char;
-              } else {
-                parsingStage = 1; // Force move to numbers
-                // Since this should be a number but is a letter, we'll skip it
-              }
-            } else if (parsingStage === 1) {
-              // We've seen numbers, so this is the start of the second letter group
-              parsingStage = 2;
-              letters2 += char;
-            } else if (parsingStage === 2) {
-              // In second letter group
-              if (letters2.length < 3) {
-                letters2 += char;
-              }
-              // Ignore extra letters
-            }
-          } else if (/[0-9]/.test(char)) {
-            if (parsingStage === 0 || parsingStage === 1) {
-              // In first letters or numbers stage
-              if (parsingStage === 0) parsingStage = 1; // Move to numbers stage
-
-              if (numbers.length < 4) {
-                numbers += char;
-              }
-              // Ignore extra numbers
-            } else {
-              // Ignore numbers after second letter group has started
-            }
-          }
-        }
-
-        // Format the best-effort parsed plate
-        if (numbers) {
-          // At minimum we need some numbers
-          const bestEffort = `${letters1} ${numbers} ${letters2}`.trim();
-          console.log("Best effort plate formatting:", bestEffort);
-          return bestEffort;
-        }
-
-        // If we couldn't parse it at all, return original with max 2 spaces
-        const parts = cleaned.match(/.{1,4}/g) || [cleaned];
-        const basic = parts.join(" ").substring(0, 10);
-        console.log("Falling back to basic formatting:", basic);
-        return basic;
-      }
-    };
-
-    // Modify the handlePlateDetection function to use our formatter
-    const handlePlateDetection = async (imageBlob) => {
-      console.log("Plate detection initiated");
-      if (!imageBlob) {
-        console.warn("No image provided for plate detection");
-        Swal.close();
         return;
       }
 
-      console.log("Preparing form data for API request");
-      const formData = new FormData();
-      formData.append("image", imageBlob);
+      Swal.fire({
+        title: "Memproses...",
+        text: "Mohon tunggu sebentar",
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading(),
+      });
 
       try {
-        console.log("Starting API request to detect plate...");
-        apiStatus.value = { success: false, message: "Sedang memproses..." };
-
-        const apiUrl = "https://sipatuh-rapi.sgp.dom.my.id/api/deteksi-plat";
-        console.log("API URL:", apiUrl);
-
-        console.time("plateDetectionAPI");
-        const response = await fetch(apiUrl, {
-          method: "POST",
-          body: formData,
-        });
-        console.timeEnd("plateDetectionAPI");
-
-        console.log("API Response status:", response.status);
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const result = await response.json();
-        console.log("API Response data:", JSON.stringify(result));
-
-        if (result.detected_plates && result.detected_plates.length > 0) {
-          const rawPlateText = result.detected_plates[0].plate_text;
-          console.log("Raw plate detected:", rawPlateText);
-
-          // Format the plate number according to our specifications
-          const formattedPlate = formatPlateNumber(rawPlateText);
-          plateNumber.value = formattedPlate;
-          form.value.platnomor = formattedPlate;
-
-          console.log("Plate detected and formatted:", formattedPlate);
-          apiStatus.value = {
-            success: true,
-            message: `Plat terdeteksi: ${formattedPlate}`,
-          };
-
-          // Close the SweetAlert loading and show success
-          Swal.fire({
-            icon: "success",
-            title: "Deteksi Berhasil!",
-            text: `Plat nomor terdeteksi: ${formattedPlate}`,
-            confirmButtonText: "OK",
-          });
-        } else {
-          console.warn("No plates detected in the image");
-          apiStatus.value = {
-            success: false,
-            message: "Plat nomor tidak terdeteksi",
-          };
-
-          Swal.fire({
-            icon: "warning",
-            title: "Tidak Terdeteksi",
-            text: "Plat nomor tidak dapat terdeteksi. Silakan coba lagi dengan gambar yang lebih jelas.",
-            confirmButtonText: "Tutup",
-          });
-        }
-      } catch (error) {
-        console.error("Error during plate detection:", error);
-        apiStatus.value = {
-          success: false,
-          message: `Error: ${error.message}`,
+        const waktu_keluar = new Date().toISOString().slice(0, 19).replace('T', ' ');
+        
+        const requestData = {
+          nomor_tiket: formKeluar.value.nomor_tiket.trim().toUpperCase(),
+          waktu_keluar: waktu_keluar
         };
 
+        console.log("Sending request to /api/parkirKeluar:", requestData);
+
+        const response = await fetch("http://localhost:3000/api/parkirKeluar", {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(requestData),
+        });
+
+        const data = await response.json();
+        console.log("Response:", data);
+
+        if (!response.ok) {
+          throw new Error(data.error || "Gagal memproses data");
+        }
+
+        Swal.fire({
+          icon: "success",
+          title: "Berhasil",
+          text: "Waktu keluar berhasil dicatat.",
+        });
+
+        // Reset form
+        formKeluar.value.nomor_tiket = "";
+
+        // Refresh log parkir
+        await fetchLogParkir();
+
+      } catch (err) {
+        console.error("Error in handleSubmitKeluar:", err);
         Swal.fire({
           icon: "error",
           title: "Error",
-          text: "Terjadi kesalahan saat memproses gambar.",
-          confirmButtonText: "Tutup",
+          text: err.message,
         });
       }
     };
 
-    // Add a function to manually format and validate plate input
-    const validateAndFormatPlateInput = (event) => {
-      console.log(
-        "Validating and formatting manual plate input:",
-        event.target.value
-      );
-      const input = event.target.value;
-
-      // Don't format if the user is still typing (less than 3 characters)
-      if (input.length < 3) return;
-
-      // Format the plate input
-      const formatted = formatPlateNumber(input);
-
-      // Only update if the format has changed to avoid cursor jump issues
-      if (formatted !== input) {
-        form.value.platnomor = formatted;
-      }
-    };
-
-    // Function to toggle between entry and exit forms
-    const switchFormType = (type) => {
-      console.log(`Switching form type to: ${type}`);
-
-      // Reset form fields and validation
-      form.value.nomortiket = "";
-      form.value.platnomor = "";
-      ticketError.value = "";
-      apiStatus.value = null;
-      selectedImage.value = null;
-      selectedFileName.value = "";
-
-      // Set the form type
-      form.value.formType = type;
-
-      // Show/hide the appropriate form elements based on the type
-      const showForm = () => {
-        // Find the active tab pane
-        const activePane = document.querySelector(".tab-pane.active");
-        if (activePane) {
-          // Find the form step element inside the active pane
-          const formStep = activePane.querySelector(".wizard-step");
-          if (formStep) {
-            // Remove the display:none style to make the form visible
-            formStep.style.display = "block";
-            console.log(`Made form visible in ${activePane.id}`);
-          } else {
-            console.warn("Could not find form step in active tab pane");
-          }
+    const fetchLogParkir = async () => {
+      try {
+        console.log("Fetching log parkir...");
+        const response = await fetch("http://localhost:3000/api/logparkir");
+        
+        if (response.ok) {
+          const data = await response.json();
+          logParkir.value = data;
+          console.log("Log parkir fetched:", data);
         } else {
-          console.warn("Could not find active tab pane");
+          console.error("Failed to fetch log parkir");
         }
-      };
-
-      // Short delay to ensure DOM is updated after tab switch
-      setTimeout(showForm, 50);
-
-      // If switching to entry form, initialize camera
-      if (type === "formMasuk") {
-        initCamera();
-      } else if (type === "formKeluar" && videoStream.value) {
-        // If switching to exit form, stop camera if it's running
-        videoStream.value.getTracks().forEach((track) => {
-          track.stop();
-          console.log("Track stopped due to form type change:", track.kind);
-        });
-        videoStream.value = null;
+      } catch (err) {
+        console.error("Error fetching log parkir:", err);
       }
     };
 
     onMounted(() => {
-      window.onload = () => {
-        console.log("Welcome");
-      };
+      console.log("Component mounted");
       document.body.classList.add("style_2");
+      
+      // Fetch initial log parkir data
+      fetchLogParkir();
 
-      console.log("Initializing camera on component mount");
-      // Only initialize camera if we're in entry form mode
-      if (form.value.formType === "formMasuk") {
-        initCamera();
-      }
-
-      // Inisialisasi Bootstrap tabs
+      // Initialize Bootstrap tabs
       const tabElms = document.querySelectorAll('button[data-bs-toggle="tab"]');
       tabElms.forEach((tab) => {
         tab.addEventListener("click", function (event) {
           event.preventDefault();
-          const bsTab = new bootstrap.Tab(this);
-          bsTab.show();
-
-          // If this tab controls form type, update accordingly
-          if (this.getAttribute("data-form-type")) {
-            switchFormType(this.getAttribute("data-form-type"));
-          } else if (
-            this.getAttribute("id") === "nav-keluar-tab" ||
-            this.getAttribute("aria-controls") === "nav-keluar"
-          ) {
-            // Special handling for exit tab based on the HTML structure provided
-            switchFormType("formKeluar");
-          } else if (
-            this.getAttribute("id") === "nav-masuk-tab" ||
-            this.getAttribute("aria-controls") === "nav-masuk"
-          ) {
-            // Special handling for entry tab based on HTML naming convention
-            switchFormType("formMasuk");
+          
+          // Stop camera when switching tabs
+          if (videoStream.value) {
+            videoStream.value.getTracks().forEach((track) => {
+              track.stop();
+            });
+            videoStream.value = null;
+            showCamera.value = false;
           }
         });
       });
 
-      // Check initial active tab on load and set form type accordingly
-      const checkInitialTab = () => {
-        // See if exit tab is already active
-        const activeExitTab = document.querySelector(
-          "#nav-keluar.active, #nav-keluar.show"
-        );
-        if (activeExitTab) {
-          console.log(
-            "Exit tab is initially active, setting form type to exit"
-          );
-          switchFormType("formKeluar");
-        }
-      };
-
-      // Wait for DOM to be fully loaded
-      setTimeout(checkInitialTab, 100);
-
-      console.log("Setting up window load event handler");
+      // Handle window load
       window.addEventListener("load", () => {
-        console.log("Window loaded, hiding preloaders");
+        console.log("Window loaded");
         const loader = document.querySelector('[data-loader="circle-side"]');
         if (loader) {
           loader.style.display = "none";
-          console.log("Main preloader hidden");
-        } else {
-          console.warn("Main preloader element not found");
         }
 
         const loaderForm = document.getElementById("loader_form");
         if (loaderForm) {
           loaderForm.style.display = "none";
-          console.log("Form loader hidden");
-        } else {
-          console.warn("Form loader element not found");
         }
 
         document.body.style.overflow = "visible";
-        console.log("Body overflow set to visible");
-
-        // Check active tab again after window load
-        checkInitialTab();
       });
     });
 
     onBeforeUnmount(() => {
-      console.log("Component unmounting, cleaning up resources");
+      console.log("Component unmounting");
       document.body.classList.remove("style_2");
 
       if (videoStream.value) {
-        console.log("Stopping video stream tracks");
         videoStream.value.getTracks().forEach((track) => {
           track.stop();
-          console.log("Track stopped:", track.kind);
         });
       }
-
-      console.log("Component cleanup complete");
     });
 
     return {
-      form,
-      ticketError,
+      formMasuk,
+      formKeluar,
       canvas,
       fileInput,
       selectedFileName,
-      apiStatus,
-      isFormValid,
-      isLoading,
-      validateNomorTiket,
-      preventNonNumeric,
-      capturePlate,
+      showCamera,
+      capturedPhoto,
+      logParkir,
+      activeLogParkir,
+      isFormMasukValid,
+      isFormKeluarValid,
       handleImageUpload,
       triggerFileInput,
-      handleSubmit,
-      validateAndFormatPlateInput,
-      switchFormType,
+      toggleCamera,
+      capturePhoto,
+      handleSubmitMasuk,
+      handleSubmitKeluar,
+      formatDateTime,
     };
   },
 };
 </script>
 
 <style scoped>
-input[type="number"]::-webkit-inner-spin-button,
-input[type="number"]::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-input[type="number"] {
-  -moz-appearance: textfield;
-}
 .text-success {
   color: #28a745;
 }
@@ -1114,5 +839,27 @@ input[type="number"] {
 }
 .justify-content-center {
   justify-content: center;
+}
+.table-responsive {
+  margin-top: 1rem;
+}
+.badge {
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.375rem;
+}
+.bg-success {
+  background-color: #28a745 !important;
+  color: white;
+}
+.submit-secondary {
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.submit-secondary:hover {
+  background-color: #5a6268;
 }
 </style>
