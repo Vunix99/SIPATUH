@@ -342,7 +342,7 @@ export default {
     const logParkir = ref([]);
 
     // Get API domain from environment variable or use default
-    const API_DOMAIN = process.env.DOMAIN_SERVER || "http://localhost:3000";
+    const API_DOMAIN = import.meta.env.VITE_DOMAIN_SERVER || "http://localhost:3000";
 
     const isFormMasukValid = computed(() => {
       return formMasuk.value.nomor_tiket.trim() !== "" && 
