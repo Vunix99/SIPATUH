@@ -213,7 +213,7 @@
                   >
                     <input id="website" name="website" type="text" value="" />
                     <div id="middle-wizard">
-                      <div class="submit step keluar">
+                      <div class="exit">
                         <h3 class="main_question">
                           <strong>Keluarkan Kendaraan</strong>Harap Masukkan
                           Nomor Tiket Parkir
