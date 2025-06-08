@@ -341,6 +341,9 @@ export default {
     const capturedPhoto = ref("");
     const logParkir = ref([]);
 
+    // Get API domain from environment variable or use default
+    const API_DOMAIN = process.env.DOMAIN_SERVER || "http://localhost:3000";
+
     const isFormMasukValid = computed(() => {
       return formMasuk.value.nomor_tiket.trim() !== "" && 
              formMasuk.value.plat_nomor.trim() !== "";
@@ -603,9 +606,9 @@ export default {
           requestOptions.body = JSON.stringify(requestData);
         }
 
-        console.log("Sending request to /api/parkirMasuk");
+        console.log(`Sending request to ${API_DOMAIN}/api/parkirMasuk`);
 
-        const response = await fetch("http://localhost:3000/api/parkirMasuk", requestOptions);
+        const response = await fetch(`${API_DOMAIN}/api/parkirMasuk`, requestOptions);
 
         // Check if response is JSON
         const contentType = response.headers.get("content-type");
@@ -682,9 +685,9 @@ export default {
           waktu_keluar: waktu_keluar
         };
 
-        console.log("Sending request to /api/parkirKeluar:", requestData);
+        console.log(`Sending request to ${API_DOMAIN}/api/parkirKeluar:`, requestData);
 
-        const response = await fetch("http://localhost:3000/api/parkirKeluar", {
+        const response = await fetch(`${API_DOMAIN}/api/parkirKeluar`, {
           method: "POST",
           headers: { 
             "Content-Type": "application/json"
@@ -723,8 +726,8 @@ export default {
 
     const fetchLogParkir = async () => {
       try {
-        console.log("Fetching log parkir...");
-        const response = await fetch("http://localhost:3000/api/logparkir");
+        console.log(`Fetching log parkir from ${API_DOMAIN}/api/logparkir...`);
+        const response = await fetch(`${API_DOMAIN}/api/logparkir`);
         
         if (response.ok) {
           const data = await response.json();
@@ -740,6 +743,7 @@ export default {
 
     onMounted(() => {
       console.log("Component mounted");
+      console.log("API Domain:", API_DOMAIN);
       document.body.classList.add("style_2");
       
       // Fetch initial log parkir data
