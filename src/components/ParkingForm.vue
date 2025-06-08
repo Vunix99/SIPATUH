@@ -239,7 +239,6 @@
                       <button
                         type="submit"
                         class="submit"
-                        :disabled="!isFormKeluarValid"
                       >
                         Submit Keluar
                       </button>
