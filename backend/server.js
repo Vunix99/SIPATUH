@@ -687,6 +687,19 @@ async function startServer(rebuild = false) {
       });
     });
 
+    app.get("/api/check-auth", authenticateToken, (req, res) => {
+      // Jika middleware authenticateToken berhasil melewati (artinya token valid),
+      // maka rute ini akan dijangkau dan kita bisa merespons 200 OK.
+      // Anda bisa mengirim kembali informasi admin dasar jika diperlukan di frontend.
+      res
+        .status(200)
+        .json({
+          message: "Authenticated",
+          adminId: req.admin.id,
+          adminEmail: req.admin.email,
+        });
+    });
+
     // Admin Logout
     app.post("/api/admin/logout", authenticateToken, (req, res) => {
       res.clearCookie("token", {
