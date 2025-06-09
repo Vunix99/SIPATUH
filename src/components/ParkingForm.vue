@@ -592,6 +592,7 @@ export default {
     };
 
     const handleSubmitMasuk = async () => {
+      // Existing validation for general form validity
       if (!isFormMasukValid.value) {
         Swal.fire({
           icon: "error",
@@ -599,6 +600,17 @@ export default {
           text: "Harap isi nomor tiket dan plat nomor kendaraan.",
         });
         return;
+      }
+
+      // New validation for "000" ticket number
+      if (formMasuk.value.nomor_tiket === '000') {
+        Swal.fire({
+          icon: "warning",
+          title: "Nomor Tiket Tidak Valid",
+          text: "Nomor tiket tidak boleh '000'. Harap masukkan nomor tiket yang valid.",
+          confirmButtonText: "Tutup",
+        });
+        return; // Stop the submission
       }
 
       Swal.fire({
@@ -939,5 +951,16 @@ export default {
 }
 .submit-secondary:hover {
   background-color: #5a6268;
+}
+/* Sembunyikan panah atas/bawah untuk browser WebKit (Chrome, Safari, Edge) */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Sembunyikan panah atas/bawah untuk Firefox */
+input[type="number"] {
+  -moz-appearance: textfield;
 }
 </style>
