@@ -1,15 +1,17 @@
 <script setup>
 import { onMounted } from 'vue';
-import ParkingForm from './components/ParkingForm.vue';
+// Tidak perlu lagi mengimpor ParkingForm secara langsung di App.vue jika sudah diatur di router
+// import ParkingForm from './components/ParkingForm.vue';
 
 onMounted(() => {
   console.log("App.vue is mounted.");
 });
+
 </script>
 
 <template>
   <div id="app">
-    <ParkingForm />
+    <router-view></router-view>
   </div>
 </template>
 
@@ -18,6 +20,7 @@ onMounted(() => {
 </style>
 
 <style scoped>
+/* Gaya-gaya spesifik App.vue, jika ada */
 .logo {
   height: 6em;
   padding: 1.5em;
@@ -28,6 +31,6 @@ onMounted(() => {
   filter: drop-shadow(0 0 2em #646cffaa);
 }
 .logo.vue:hover {
-  filter: drop-shadow(0 0 2em #42b883aa);
+  filter: drop_shadow(0 0 2em #42b883aa);
 }
 </style>
