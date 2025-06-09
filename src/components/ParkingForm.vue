@@ -192,7 +192,6 @@
                       <button
                         type="submit"
                         class="submit"
-                        :disabled="!isFormMasukValid"
                       >
                         Submit Masuk
                       </button>
