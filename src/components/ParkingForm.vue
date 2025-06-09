@@ -1,5 +1,4 @@
 <template>
-  <!-- Header -->
   <header>
     <div class="container-fluid">
       <div class="row">
@@ -12,7 +11,6 @@
     </div>
   </header>
 
-  <!-- Main Content -->
   <div class="wrapper_centering">
     <div class="container_centering">
       <div class="container">
@@ -88,11 +86,18 @@
                         <div class="form-group">
                           <label for="nomortiket">Nomor Tiket</label>
                           <input
-                            type="text"
+                            type="number"
                             id="nomortiket"
                             v-model="formMasuk.nomor_tiket"
                             class="form-control"
-                            @input="formMasuk.nomor_tiket = formMasuk.nomor_tiket.replace(/\D/g, '')"
+                            @input="
+                              handleTicketNumberInput(
+                                $event,
+                                'formMasuk',
+                                'nomor_tiket'
+                              )
+                            "
+                            onkeydown="return event.keyCode !== 69"
                             required
                           />
                         </div>
@@ -144,7 +149,10 @@
 
                         <div class="form-group">
                           <label>Ambil Foto dengan Kamera</label><br />
-                          <small>Kamera akan diaktifkan untuk mengambil foto kendaraan.</small><br />
+                          <small
+                            >Kamera akan diaktifkan untuk mengambil foto
+                            kendaraan.</small
+                          ><br />
                           <video
                             id="video"
                             width="100%"
@@ -154,17 +162,20 @@
                             playsinline
                             style="margin-top: 10px"
                             v-show="showCamera"
-                          ></video><br />
+                          ></video
+                          ><br />
                           <div style="text-align: center; margin-top: 10px">
                             <button
                               type="button"
                               class="submit-secondary"
                               @click="capturePhoto"
                               v-if="showCamera"
-                              style="height: 48px; width: 100%;"
-
+                              style="height: 48px; width: 100%"
                             >
-                              <i class="fas fa-camera" style="color: #ffcc00"></i>
+                              <i
+                                class="fas fa-camera"
+                                style="color: #ffcc00"
+                              ></i>
                               Ambil Foto
                             </button>
                             <button
@@ -172,9 +183,12 @@
                               class="submit-secondary"
                               @click="toggleCamera"
                               v-if="!showCamera"
-                              style="height: 48px; width: 100%;"
+                              style="height: 48px; width: 100%"
                             >
-                              <i class="fas fa-video" style="color: #ffcc00"></i>
+                              <i
+                                class="fas fa-video"
+                                style="color: #ffcc00"
+                              ></i>
                               Aktifkan Kamera
                             </button>
                           </div>
@@ -183,18 +197,20 @@
 
                         <div class="form-group" v-if="capturedPhoto">
                           <label>Foto yang Diambil:</label>
-                          <img :src="capturedPhoto" style="width: 100%; max-height: 200px; object-fit: cover;" />
+                          <img
+                            :src="capturedPhoto"
+                            style="
+                              width: 100%;
+                              max-height: 200px;
+                              object-fit: cover;
+                            "
+                          />
                         </div>
                       </div>
                     </div>
 
                     <div id="bottom-wizard">
-                      <button
-                        type="submit"
-                        class="submit"
-                      >
-                        Submit Masuk
-                      </button>
+                      <button type="submit" class="submit">Submit Masuk</button>
                     </div>
                   </form>
                 </div>
@@ -221,24 +237,32 @@
                         <div class="form-group">
                           <label for="nomortiketkeluar">Nomor Tiket</label>
                           <input
-                            type="text"
+                            type="number"
                             id="nomortiketkeluar"
                             v-model="formKeluar.nomor_tiket"
                             class="form-control"
-                            @input="formKeluar.nomor_tiket = formKeluar.nomor_tiket.replace(/\D/g, '')"
+                            @input="
+                              handleTicketNumberInput(
+                                $event,
+                                'formKeluar',
+                                'nomor_tiket'
+                              )
+                            "
+                            onkeydown="return event.keyCode !== 69"
                             required
                           />
-                          <small class="form-text text-muted-colored" style="color: #f5e141;">
-                            Masukkan nomor tiket yang sama dengan saat parkir masuk
+                          <small
+                            class="form-text text-muted-colored"
+                            style="color: #f5e141"
+                          >
+                            Masukkan nomor tiket yang sama dengan saat parkir
+                            masuk
                           </small>
                         </div>
                       </div>
                     </div>
                     <div id="bottom-wizard">
-                      <button
-                        type="submit"
-                        class="submit"
-                      >
+                      <button type="submit" class="submit">
                         Submit Keluar
                       </button>
                     </div>
@@ -247,11 +271,7 @@
               </div>
             </div>
           </div>
-          <!-- /col -->
         </div>
-        <!-- /row -->
-        
-        <!-- Log Parkir Section -->
         <div class="row mt-5" v-if="logParkir.length > 0">
           <div class="col-12">
             <h4>Log Parkir Aktif</h4>
@@ -282,12 +302,8 @@
           </div>
         </div>
       </div>
-      <!-- /container -->
     </div>
-    <!-- /container_centering -->
   </div>
-  <!-- /wrapper_centering -->
-  
   <div>
     <footer>
       <div class="container-fluid">
@@ -306,9 +322,7 @@
             ©2025 Glorian Hilarius - Built with Vue and Node.js
           </div>
         </div>
-        <!-- /row -->
       </div>
-      <!-- /container-fluid -->
     </footer>
   </div>
 </template>
@@ -326,7 +340,7 @@ export default {
       nomor_tiket: "",
       plat_nomor: "",
     });
-    
+
     const formKeluar = ref({
       nomor_tiket: "",
     });
@@ -341,11 +355,14 @@ export default {
     const logParkir = ref([]);
 
     // Get API domain from environment variable or use default
-    const API_DOMAIN = import.meta.env.VITE_DOMAIN_SERVER || "http://localhost:3000";
+    const API_DOMAIN =
+      import.meta.env.VITE_DOMAIN_SERVER || "http://localhost:3000";
 
     const isFormMasukValid = computed(() => {
-      return formMasuk.value.nomor_tiket.trim() !== "" && 
-             formMasuk.value.plat_nomor.trim() !== "";
+      return (
+        formMasuk.value.nomor_tiket.trim() !== "" &&
+        formMasuk.value.plat_nomor.trim() !== ""
+      );
     });
 
     const isFormKeluarValid = computed(() => {
@@ -353,25 +370,53 @@ export default {
     });
 
     const activeLogParkir = computed(() => {
-      return logParkir.value.filter(log => !log.waktu_keluar);
+      return logParkir.value.filter((log) => !log.waktu_keluar);
     });
 
     const formatDateTime = (dateString) => {
       if (!dateString) return "";
       const date = new Date(dateString);
-      return date.toLocaleString('id-ID');
+      return date.toLocaleString("id-ID");
+    };
+
+
+    const handleTicketNumberInput = (event, formName, fieldName) => {
+      let value = event.target.value.replace(/\D/g, ''); // Remove non-digits
+
+      // If the current input has 3 digits and the user is trying to type more,
+      // prevent the input.
+      // This is the core logic to stop input when full.
+      if (value.length > 3) {
+        value = value.substring(0, 3); // Truncate to 3 digits
+      }
+
+      // Pad with leading zeros if less than 3 digits
+      // Ensure that if the value is empty, it still becomes "000" or similar,
+      // or handle that case based on whether empty input is allowed.
+      const paddedValue = value.padStart(3, '0');
+
+      // Update the reactive model
+      if (formName === 'formMasuk') {
+        formMasuk.value[fieldName] = paddedValue;
+      } else if (formName === 'formKeluar') {
+        formKeluar.value[fieldName] = paddedValue;
+      }
+      
+      // Update the input field directly
+      // This ensures the displayed value matches the padded value
+      event.target.value = paddedValue;
     };
 
     const initCamera = async () => {
       console.log("Initializing camera...");
       const video = document.getElementById("video");
-      
+
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         try {
-          const stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: "environment" } 
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: "environment" },
           });
-          
+
           console.log("Camera permission granted, stream active");
           videoStream.value = stream;
           video.srcObject = stream;
@@ -414,11 +459,11 @@ export default {
 
     const resizeImage = (canvas, maxWidth = 800, maxHeight = 600) => {
       const { width, height } = canvas;
-      
+
       // Calculate new dimensions
       let newWidth = width;
       let newHeight = height;
-      
+
       if (width > height) {
         if (width > maxWidth) {
           newHeight = (height * maxWidth) / width;
@@ -430,16 +475,16 @@ export default {
           newHeight = maxHeight;
         }
       }
-      
+
       // Create new canvas with resized dimensions
-      const resizedCanvas = document.createElement('canvas');
-      const ctx = resizedCanvas.getContext('2d');
+      const resizedCanvas = document.createElement("canvas");
+      const ctx = resizedCanvas.getContext("2d");
       resizedCanvas.width = newWidth;
       resizedCanvas.height = newHeight;
-      
+
       // Draw resized image
       ctx.drawImage(canvas, 0, 0, newWidth, newHeight);
-      
+
       return resizedCanvas;
     };
 
@@ -452,19 +497,25 @@ export default {
         const context = canvasElement.getContext("2d");
         canvasElement.width = video.videoWidth;
         canvasElement.height = video.videoHeight;
-        context.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
-        
+        context.drawImage(
+          video,
+          0,
+          0,
+          canvasElement.width,
+          canvasElement.height
+        );
+
         // Resize image to reduce file size
         const resizedCanvas = resizeImage(canvasElement, 800, 600);
-        
+
         // Convert to base64 with higher compression
         const imageData = resizedCanvas.toDataURL("image/jpeg", 0.6);
         capturedPhoto.value = imageData;
         selectedImage.value = imageData;
-        
+
         console.log("Photo captured and compressed successfully");
         console.log("Image size:", Math.round(imageData.length / 1024), "KB");
-        
+
         Swal.fire({
           icon: "success",
           title: "Foto Berhasil Diambil!",
@@ -486,22 +537,22 @@ export default {
           });
           return;
         }
-        
+
         selectedFileName.value = file.name;
-        
+
         const reader = new FileReader();
         reader.onload = (e) => {
           const img = new Image();
           img.onload = () => {
             // Create canvas to resize image
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            
+            const canvas = document.createElement("canvas");
+            const ctx = canvas.getContext("2d");
+
             // Calculate new dimensions
             const maxWidth = 800;
             const maxHeight = 600;
             let { width, height } = img;
-            
+
             if (width > height) {
               if (width > maxWidth) {
                 height = (height * maxWidth) / width;
@@ -513,18 +564,22 @@ export default {
                 height = maxHeight;
               }
             }
-            
+
             canvas.width = width;
             canvas.height = height;
-            
+
             // Draw and compress
             ctx.drawImage(img, 0, 0, width, height);
-            const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.6);
-            
+            const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.6);
+
             selectedImage.value = compressedDataUrl;
             capturedPhoto.value = compressedDataUrl;
-            
-            console.log("Image uploaded and compressed, size:", Math.round(compressedDataUrl.length / 1024), "KB");
+
+            console.log(
+              "Image uploaded and compressed, size:",
+              Math.round(compressedDataUrl.length / 1024),
+              "KB"
+            );
           };
           img.src = e.target.result;
         };
@@ -554,65 +609,81 @@ export default {
       });
 
       try {
-        const waktu_masuk = new Date().toISOString().slice(0, 19).replace('T', ' ');
-        
+        const waktu_masuk = new Date()
+          .toISOString()
+          .slice(0, 19)
+          .replace("T", " ");
+
         // Create FormData for multipart upload or JSON for base64
         let requestData;
         let requestOptions = {
-          method: "POST"
+          method: "POST",
         };
 
-        if (selectedImage.value && selectedImage.value.startsWith('data:')) {
+        if (selectedImage.value && selectedImage.value.startsWith("data:")) {
           // For base64 data (camera capture), send as JSON
-          console.log("Sending base64 image, size:", Math.round(selectedImage.value.length / 1024), "KB");
-          
+          console.log(
+            "Sending base64 image, size:",
+            Math.round(selectedImage.value.length / 1024),
+            "KB"
+          );
+
           // Check if image is too large
-          if (selectedImage.value.length > 10 * 1024 * 1024) { // 10MB limit
-            throw new Error("Gambar terlalu besar. Silakan coba lagi atau gunakan gambar yang lebih kecil.");
+          if (selectedImage.value.length > 10 * 1024 * 1024) {
+            // 10MB limit
+            throw new Error(
+              "Gambar terlalu besar. Silakan coba lagi atau gunakan gambar yang lebih kecil."
+            );
           }
-          
+
           requestData = {
             nomor_tiket: formMasuk.value.nomor_tiket.trim().toUpperCase(),
             plat_nomor: formMasuk.value.plat_nomor.trim().toUpperCase(),
             waktu_masuk: waktu_masuk,
-            foto_base64: selectedImage.value
+            foto_base64: selectedImage.value,
           };
-          
+
           requestOptions.headers = {
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
           };
           requestOptions.body = JSON.stringify(requestData);
         } else if (fileInput.value && fileInput.value.files[0]) {
           // For file upload, use FormData
           const formData = new FormData();
-          formData.append('nomor_tiket', formMasuk.value.nomor_tiket);
-          formData.append('plat_nomor', formMasuk.value.plat_nomor.trim().toUpperCase());
-          formData.append('waktu_masuk', waktu_masuk);
-          formData.append('foto_masuk', fileInput.value.files[0]);
-          
+          formData.append("nomor_tiket", formMasuk.value.nomor_tiket);
+          formData.append(
+            "plat_nomor",
+            formMasuk.value.plat_nomor.trim().toUpperCase()
+          );
+          formData.append("waktu_masuk", waktu_masuk);
+          formData.append("foto_masuk", fileInput.value.files[0]);
+
           requestOptions.body = formData;
         } else {
           // No photo
           requestData = {
             nomor_tiket: formMasuk.value.nomor_tiket,
             plat_nomor: formMasuk.value.plat_nomor.trim().toUpperCase(),
-            waktu_masuk: waktu_masuk
+            waktu_masuk: waktu_masuk,
           };
-          
+
           requestOptions.headers = {
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
           };
           requestOptions.body = JSON.stringify(requestData);
         }
 
         console.log(`Sending request to ${API_DOMAIN}/api/parkirMasuk`);
 
-        const response = await fetch(`${API_DOMAIN}/api/parkirMasuk`, requestOptions);
+        const response = await fetch(
+          `${API_DOMAIN}/api/parkirMasuk`,
+          requestOptions
+        );
 
         // Check if response is JSON
         const contentType = response.headers.get("content-type");
         let data;
-        
+
         if (contentType && contentType.indexOf("application/json") !== -1) {
           data = await response.json();
         } else {
@@ -621,7 +692,7 @@ export default {
           console.error("Non-JSON response:", text);
           throw new Error("Server mengembalikan respons yang tidak valid");
         }
-        
+
         console.log("Response:", data);
 
         if (!response.ok) {
@@ -640,7 +711,7 @@ export default {
         selectedImage.value = null;
         selectedFileName.value = "";
         capturedPhoto.value = "";
-        
+
         // Reset file input
         if (fileInput.value) {
           fileInput.value.value = "";
@@ -648,7 +719,6 @@ export default {
 
         // Refresh log parkir
         await fetchLogParkir();
-
       } catch (err) {
         console.error("Error in handleSubmitMasuk:", err);
         Swal.fire({
@@ -677,19 +747,25 @@ export default {
       });
 
       try {
-        const waktu_keluar = new Date().toISOString().slice(0, 19).replace('T', ' ');
-        
+        const waktu_keluar = new Date()
+          .toISOString()
+          .slice(0, 19)
+          .replace("T", " ");
+
         const requestData = {
           nomor_tiket: formKeluar.value.nomor_tiket.trim().toUpperCase(),
-          waktu_keluar: waktu_keluar
+          waktu_keluar: waktu_keluar,
         };
 
-        console.log(`Sending request to ${API_DOMAIN}/api/parkirKeluar:`, requestData);
+        console.log(
+          `Sending request to ${API_DOMAIN}/api/parkirKeluar:`,
+          requestData
+        );
 
         const response = await fetch(`${API_DOMAIN}/api/parkirKeluar`, {
           method: "POST",
-          headers: { 
-            "Content-Type": "application/json"
+          headers: {
+            "Content-Type": "application/json",
           },
           body: JSON.stringify(requestData),
         });
@@ -712,7 +788,6 @@ export default {
 
         // Refresh log parkir
         await fetchLogParkir();
-
       } catch (err) {
         console.error("Error in handleSubmitKeluar:", err);
         Swal.fire({
@@ -727,7 +802,7 @@ export default {
       try {
         console.log(`Fetching log parkir from ${API_DOMAIN}/api/logparkir...`);
         const response = await fetch(`${API_DOMAIN}/api/logparkir`);
-        
+
         if (response.ok) {
           const data = await response.json();
           logParkir.value = data;
@@ -744,7 +819,7 @@ export default {
       console.log("Component mounted");
       console.log("API Domain:", API_DOMAIN);
       document.body.classList.add("style_2");
-      
+
       // Fetch initial log parkir data
       fetchLogParkir();
 
@@ -753,7 +828,7 @@ export default {
       tabElms.forEach((tab) => {
         tab.addEventListener("click", function (event) {
           event.preventDefault();
-          
+
           // Stop camera when switching tabs
           if (videoStream.value) {
             videoStream.value.getTracks().forEach((track) => {
@@ -812,6 +887,7 @@ export default {
       handleSubmitMasuk,
       handleSubmitKeluar,
       formatDateTime,
+      handleTicketNumberInput, // Expose the new handler
     };
   },
 };
