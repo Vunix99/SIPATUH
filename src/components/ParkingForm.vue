@@ -457,7 +457,7 @@ export default {
       }
     };
 
-    const resizeImage = (canvas, maxWidth = 800, maxHeight = 600) => {
+const resizeImage = (canvas, maxWidth = 900, maxHeight = 1200) => {
       const { width, height } = canvas;
 
       // Calculate new dimensions
@@ -506,10 +506,13 @@ export default {
         );
 
         // Resize image to reduce file size
-        const resizedCanvas = resizeImage(canvasElement, 800, 600);
+        // Anda sudah menggunakan 600x800, ini baik untuk orientasi potret.
+        // Jika Anda ingin resolusi lebih tinggi, bisa diubah di sini juga.
+        const resizedCanvas = resizeImage(canvasElement, 900, 1200);
 
-        // Convert to base64 with higher compression
-        const imageData = resizedCanvas.toDataURL("image/jpeg", 0.6);
+        // Convert to base64 with higher compression quality (e.g., 0.9 atau 0.95)
+        // Perbaikan utama ada di baris ini
+        const imageData = resizedCanvas.toDataURL("image/jpeg", 0.9); // <-- Ubah angka ini!
         capturedPhoto.value = imageData;
         selectedImage.value = imageData;
 
@@ -549,8 +552,9 @@ export default {
             const ctx = canvas.getContext("2d");
 
             // Calculate new dimensions
-            const maxWidth = 800;
-            const maxHeight = 600;
+            // Konsisten dengan ukuran kamera jika ingin resolusi seragam
+            const maxWidth = 600;
+            const maxHeight = 800;
             let { width, height } = img;
 
             if (width > height) {
@@ -569,8 +573,9 @@ export default {
             canvas.height = height;
 
             // Draw and compress
+            // Perbaikan utama ada di baris ini
             ctx.drawImage(img, 0, 0, width, height);
-            const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.6);
+            const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.9); // <-- Ubah angka ini!
 
             selectedImage.value = compressedDataUrl;
             capturedPhoto.value = compressedDataUrl;
@@ -643,7 +648,7 @@ export default {
 
           // Check if image is too large
           if (selectedImage.value.length > 10 * 1024 * 1024) {
-            // 10MB limit
+            // 10MB limit (ini adalah ukuran string base64, bukan ukuran file biner)
             throw new Error(
               "Gambar terlalu besar. Silakan coba lagi atau gunakan gambar yang lebih kecil."
             );
