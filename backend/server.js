@@ -10,6 +10,8 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import jwt from "jsonwebtoken";
 import cookieParser from "cookie-parser";
+import crypto from "crypto"; // This imports the entire module, but randomBytes might not be directly exposed as a default export
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
