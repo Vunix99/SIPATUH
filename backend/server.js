@@ -744,3 +744,34 @@ if (args[0] === "--add-admin") {
   const shouldRebuild = process.argv.includes("--rebuild");
   startServer(shouldRebuild);
 }
+
+if (args[0] === "--generate-key") {
+  const envFilePath = path.join(__dirname, ".env");
+  const newSecret = crypto.randomBytes(32).toString("hex"); // Generate 32 bytes (64 hex characters)
+
+  try {
+    let envContent = "";
+    if (fs.existsSync(envFilePath)) {
+      envContent = fs.readFileSync(envFilePath, "utf8");
+    }
+
+    const jwtSecretRegex = /^JWT_SECRET=.*$/m; // Regex to find JWT_SECRET line
+    if (envContent.match(jwtSecretRegex)) {
+      envContent = envContent.replace(jwtSecretRegex, `JWT_SECRET=${newSecret}`);
+      console.log("✅ JWT_SECRET updated in .env file.");
+    } else {
+      envContent += `\nJWT_SECRET=${newSecret}`;
+      console.log("✅ JWT_SECRET added to .env file.");
+    }
+
+    fs.writeFileSync(envFilePath, envContent.trim() + "\n"); // Trim and ensure a newline at end
+    console.log("Generated new JWT Secret and saved to .env.");
+    console.log(`New JWT_SECRET: ${newSecret}`);
+    console.log("⚠️ Remember to restart your server for the changes to take effect.");
+    process.exit(0);
+
+  } catch (err) {
+    console.error("❌ Failed to generate or save JWT_SECRET:", err);
+    process.exit(1);
+  }
+}
