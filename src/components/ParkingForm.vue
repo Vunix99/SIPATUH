@@ -630,6 +630,7 @@ export default {
         let requestData;
         let requestOptions = {
           method: "POST",
+          credentials: 'include'
         };
 
         if (selectedImage.value && selectedImage.value.startsWith("data:")) {
@@ -776,6 +777,7 @@ export default {
 
         const response = await fetch(`${API_DOMAIN}/api/parkirKeluar`, {
           method: "POST",
+          credentials: 'include',
           headers: {
             "Content-Type": "application/json",
           },
