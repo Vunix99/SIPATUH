@@ -4,6 +4,7 @@ import Swal from 'sweetalert2'; // Import SweetAlert2 untuk notifikasi
 // 1. Import komponen-komponen yang akan digunakan sebagai halaman
 import Login from '../components/Index.vue'; // Misal, ini halaman login Anda
 import ParkingForm from '../components/ParkingForm.vue'; // Komponen Parkir Anda yang sudah ada
+import Dashboard from '../components/Dashboard.vue'; // Komponen Parkir Anda yang sudah ada
 
 // 2. Definisikan routes Anda
 const routes = [
@@ -24,10 +25,12 @@ const routes = [
     meta: { requiresAuth: true } // Rute ini MEMERLUKAN otentikasi
   },
   // Anda bisa menambahkan rute-rute lain yang memerlukan otentikasi di sini:
-  // {
-  //   path: '/dashboard',
-  //   name: 'dashboard',
-  //   component: () => import('../components/Dashboard.vue'), // Contoh lazy load
+  {
+    path: '/dashboard',
+    name: 'dashboard',
+    component: Dashboard, // Menggunakan komponen Dashboard Anda
+    meta: { requiresAuth: true } // Rute ini MEMERLUKAN otentikasi
+  },
   //   meta: { requiresAuth: true } // Memerlukan otentikasi
   // },
   // Catch-all route for 404 Not Found (Opsional, tapi disarankan)
