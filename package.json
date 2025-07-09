@@ -32,6 +32,7 @@
     "vue-router": "^4.0.13"
   },
   "devDependencies": {
+    "@types/jquery": "^3.5.32",
     "@vitejs/plugin-vue": "^5.2.3",
     "vite": "^6.3.5"
   }

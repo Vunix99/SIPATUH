@@ -5,6 +5,7 @@ import Swal from 'sweetalert2'; // Import SweetAlert2 untuk notifikasi
 import Login from '../components/Index.vue'; // Misal, ini halaman login Anda
 import ParkingForm from '../components/ParkingForm.vue'; // Komponen Parkir Anda yang sudah ada
 import Dashboard from '../components/Dashboard.vue'; // Komponen Parkir Anda yang sudah ada
+import TambahAdmin from '../components/TambahAdmin.vue'; // Komponen Tambah Admin Anda yang sudah ada
 
 // 2. Definisikan routes Anda
 const routes = [
@@ -31,8 +32,12 @@ const routes = [
     component: Dashboard, // Menggunakan komponen Dashboard Anda
     meta: { requiresAuth: true } // Rute ini MEMERLUKAN otentikasi
   },
-  //   meta: { requiresAuth: true } // Memerlukan otentikasi
-  // },
+  {
+    path: '/tambah-admin',
+    name: 'tambah-admin',
+    component: TambahAdmin, // Menggunakan komponen TambahAdmin Anda
+    meta: { requiresAuth: true } // Rute ini MEMERLUKAN otentikasi
+  },
   // Catch-all route for 404 Not Found (Opsional, tapi disarankan)
   {
     path: '/:pathMatch(.*)*',
@@ -40,6 +45,8 @@ const routes = [
     component: { template: '<div><h1>404 - Halaman Tidak Ditemukan</h1><p>Maaf, halaman yang Anda cari tidak ada.</p><router-link to="/login">Kembali ke Login</router-link></div>' }
   }
 ];
+
+
 
 // 3. Buat instance router
 const router = createRouter({

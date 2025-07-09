@@ -14,6 +14,16 @@
     z-index: 99;
 }
 
+#app {
+  width: 100%;
+  min-height: 100vh;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  z-index: 1;
+  background-color: black;
+}
 
 /*** Spinner ***/
 #spinner {

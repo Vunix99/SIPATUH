@@ -59,7 +59,17 @@
                   >
                     Parkir Keluar
                   </button>
-                </div>
+                  <router-link
+                    to="/dashboard"
+                    class="nav-link"
+                    id="nav-dashboard-tab"
+                    role="tab"
+                    aria-controls="nav-dashboard"
+                    aria-selected="false"
+                  >
+                    Kunjungi Dashboard
+                  </router-link>
+                  </div>
               </nav>
               <div class="tab-content" id="nav-tabContent">
                 <div
@@ -327,12 +337,8 @@
   </div>
 </template>
 
+
 <script>
-// --- Impor File CSS Kustom Anda ---
-import '../assets/css/bootstrap.min.css'; // Jika ini adalah Bootstrap custom/lama, pastikan tidak konflik
-import '../assets/css/style.css';
-import '../assets/css/vendors.css';
-import '../assets/css/custom.css';
 
 // --- Impor File JS Kustom Anda ---
 // Pastikan urutan impor JS benar jika ada dependensi
@@ -340,14 +346,21 @@ import '../assets/js/jquery-3.7.1.min.js'; // JQuery biasanya diimpor sebelum sc
 import '../assets/js/bootstrap.bundle.min.js'; // Bootstrap JS bundle
 import '../assets/js/common_scripts.min.js';
 import '../assets/js/functions.js';
+
 import { ref, onMounted, onBeforeUnmount, computed } from "vue";
 import Swal from "sweetalert2";
 // Import FontAwesome icons
 import "@fortawesome/fontawesome-free/css/all.min.css";
+// Penting: Anda perlu mengimpor `useRouter` dari 'vue-router'
+import { useRouter } from 'vue-router';
+
 
 export default {
   name: "ParkingForm",
   setup() {
+    // Inisialisasi router
+    const router = useRouter(); // <--- TAMBAHKAN INI
+
     const formMasuk = ref({
       nomor_tiket: "",
       plat_nomor: "",
@@ -855,7 +868,8 @@ const resizeImage = (canvas, maxWidth = 900, maxHeight = 1200) => {
       fetchLogParkir();
 
       // Initialize Bootstrap tabs
-      const tabElms = document.querySelectorAll('button[data-bs-toggle="tab"]');
+      // Hapus event listener untuk 'nav-dashboard-tab' karena sekarang itu adalah router-link
+      const tabElms = document.querySelectorAll('#nav-masuk-tab, #nav-keluar-tab'); // Hanya target tab yang sebenarnya
       tabElms.forEach((tab) => {
         tab.addEventListener("click", function (event) {
           event.preventDefault();
@@ -918,13 +932,18 @@ const resizeImage = (canvas, maxWidth = 900, maxHeight = 1200) => {
       handleSubmitMasuk,
       handleSubmitKeluar,
       formatDateTime,
-      handleTicketNumberInput, // Expose the new handler
+      handleTicketNumberInput,
+      // Tidak perlu mengekspos `router` jika hanya digunakan di `setup`
+      // Anda bisa menambahkannya jika ada logika navigasi lain di template atau metode lain.
     };
   },
 };
 </script>
 
 <style scoped>
+
+
+
 .text-success {
   color: #28a745;
 }

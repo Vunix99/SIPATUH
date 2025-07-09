@@ -87,12 +87,9 @@
   </footer>
 </template>
 
+
+
 <script>
-// --- Impor File CSS Kustom Anda ---
-import '../assets/css/bootstrap.min.css'; // Jika ini adalah Bootstrap custom/lama, pastikan tidak konflik
-import '../assets/css/style.css';
-import '../assets/css/vendors.css';
-import '../assets/css/custom.css';
 
 // --- Impor File JS Kustom Anda ---
 // Pastikan urutan impor JS benar jika ada dependensi
