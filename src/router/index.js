@@ -6,6 +6,7 @@ import Login from '../components/Index.vue'; // Misal, ini halaman login Anda
 import ParkingForm from '../components/ParkingForm.vue'; // Komponen Parkir Anda yang sudah ada
 import Dashboard from '../components/Dashboard.vue'; // Komponen Parkir Anda yang sudah ada
 import TambahAdmin from '../components/TambahAdmin.vue'; // Komponen Tambah Admin Anda yang sudah ada
+import Pemasukan from '../components/Pemasukan.vue'; // Komponen Pemasukan Anda yang sudah ada
 
 // 2. Definisikan routes Anda
 const routes = [
@@ -36,6 +37,12 @@ const routes = [
     path: '/tambah-admin',
     name: 'tambah-admin',
     component: TambahAdmin, // Menggunakan komponen TambahAdmin Anda
+    meta: { requiresAuth: true } // Rute ini MEMERLUKAN otentikasi
+  },
+  {
+    path: '/pemasukan',
+    name: 'pemasukan',
+    component: Pemasukan, // Menggunakan komponen Pemasukan Anda
     meta: { requiresAuth: true } // Rute ini MEMERLUKAN otentikasi
   },
   // Catch-all route for 404 Not Found (Opsional, tapi disarankan)

@@ -12,7 +12,6 @@ import jwt from "jsonwebtoken";
 import cookieParser from "cookie-parser";
 import crypto from "crypto"; // This imports the entire module, but randomBytes might not be directly exposed as a default export
 
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -199,6 +198,13 @@ async function createTables(db) {
         waktu_backup DATETIME NOT NULL,
         id_admin INT,
         FOREIGN KEY (id_admin) REFERENCES Admin(id)
+      );
+      
+      CREATE TABLE IF NOT EXISTS PemasukanMingguan (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        tanggal_pemasukan DATE NOT NULL,
+        nominal_pemasukan DECIMAL(15, 0) NOT NULL, -- Diperluas menjadi 15 digit total, tanpa desimal
+        nominal_bersih DECIMAL(15, 0) NOT NULL     -- Diperluas menjadi 15 digit total, tanpa desimal
       );
     `
     );
@@ -658,6 +664,208 @@ async function startServer(rebuild = false) {
       res.json({ message: "Logout berhasil" });
     });
 
+    // POST /api/pemasukanMingguan - Add new income with 20% calculation
+    app.post("/api/pemasukanMingguan", authenticateToken, async (req, res) => {
+      const { tanggal_pemasukan, nominal_pemasukan } = req.body;
+
+      if (
+        !tanggal_pemasukan ||
+        typeof nominal_pemasukan === "undefined" ||
+        nominal_pemasukan < 0
+      ) {
+        return res.status(400).json({
+          error:
+            "Tanggal pemasukan dan nominal pemasukan yang valid wajib diisi.",
+        });
+      }
+
+      try {
+        // Calculate nominal_bersih as 20% of nominal_pemasukan
+        const nominal_bersih = nominal_pemasukan - nominal_pemasukan * 0.2;
+
+        const sql = `INSERT INTO PemasukanMingguan (tanggal_pemasukan, nominal_pemasukan, nominal_bersih) VALUES (?, ?, ?)`;
+        const [result] = await dbPool.query(sql, [
+          tanggal_pemasukan,
+          nominal_pemasukan,
+          nominal_bersih,
+        ]);
+        res.status(201).json({
+          message: "Pemasukan berhasil ditambahkan",
+          id: result.insertId,
+        });
+      } catch (err) {
+        console.error("Error adding pemasukan:", err);
+        res
+          .status(500)
+          .json({ error: "Gagal menambahkan pemasukan: " + err.message });
+      }
+    });
+
+    // DELETE /api/pemasukanMingguan/:id - Delete income by ID
+    app.delete(
+      "/api/pemasukanMingguan/:id",
+      authenticateToken,
+      async (req, res) => {
+        const { id } = req.params;
+
+        try {
+          const sql = `DELETE FROM PemasukanMingguan WHERE id = ?`;
+          const [result] = await dbPool.query(sql, [id]);
+
+          if (result.affectedRows === 0) {
+            return res
+              .status(404)
+              .json({ error: "Data pemasukan tidak ditemukan." });
+          }
+          res.json({ message: "Data pemasukan berhasil dihapus." });
+        } catch (err) {
+          console.error("Error deleting pemasukan:", err);
+          res
+            .status(500)
+            .json({ error: "Gagal menghapus pemasukan: " + err.message });
+        }
+      }
+    );
+
+    // GET PEMASUKAN MINGGUAN BY ID (Existing, moved for better organization)
+    app.get(
+      "/api/pemasukanMingguan/:id",
+      authenticateToken,
+      async (req, res) => {
+        const { id } = req.params;
+
+        try {
+          const [results] = await dbPool.query(
+            `SELECT id, tanggal_pemasukan, nominal_pemasukan, nominal_bersih FROM PemasukanMingguan WHERE id = ?`,
+            [id]
+          );
+
+          if (results.length === 0) {
+            return res
+              .status(404)
+              .json({ error: "Data pemasukan tidak ditemukan" });
+          }
+
+          res.json(results[0]);
+        } catch (err) {
+          console.error("Error fetching pemasukan by ID:", err);
+          res
+            .status(500)
+            .json({ error: "Gagal mengambil data pemasukan: " + err.message });
+        }
+      }
+    );
+
+    app.put(
+      "/api/pemasukanMingguan/:id",
+      authenticateToken,
+      async (req, res) => {
+        const { id } = req.params;
+        const { tanggal_pemasukan, nominal_pemasukan } = req.body;
+
+        if (
+          !tanggal_pemasukan ||
+          nominal_pemasukan === undefined ||
+          nominal_pemasukan < 0
+        ) {
+          return res
+            .status(400)
+            .json({ error: "Tanggal dan nominal pemasukan tidak valid." });
+        }
+
+        const nominal_bersih = nominal_pemasukan - nominal_pemasukan * 0.2;
+
+        try {
+          const [result] = await dbPool.query(
+            `UPDATE PemasukanMingguan SET tanggal_pemasukan = ?, nominal_pemasukan = ?, nominal_bersih = ? WHERE id = ?`,
+            [tanggal_pemasukan, nominal_pemasukan, nominal_bersih, id]
+          );
+
+          if (result.affectedRows === 0) {
+            return res.status(404).json({
+              error: "Data pemasukan tidak ditemukan atau tidak ada perubahan.",
+            });
+          }
+
+          res
+            .status(200)
+            .json({ message: "Data pemasukan berhasil diperbarui." });
+        } catch (err) {
+          console.error("Error updating pemasukan data:", err);
+          res.status(500).json({
+            error: "Gagal memperbarui data pemasukan: " + err.message,
+          });
+        }
+      }
+    );
+
+    // Add this to your server.js or routes file
+
+    // Function to map month numbers to Indonesian month names
+    const getMonthName = (monthNumber) => {
+      const months = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "Mei",
+        "Jun",
+        "Jul",
+        "Ags",
+        "Sep",
+        "Okt",
+        "Nov",
+        "Des",
+      ];
+      return months[monthNumber - 1]; // monthNumber is 1-indexed
+    };
+
+    // NEW: GET endpoint for monthly revenue data
+    app.get("/api/pemasukanBulanan", authenticateToken, async (req, res) => {
+      try {
+        // Query to get total nominal_pemasukan grouped by month
+        const [results] = await dbPool.query(
+          `SELECT
+            MONTH(tanggal_pemasukan) AS month_number,
+            SUM(nominal_pemasukan) AS total_revenue
+         FROM PemasukanMingguan
+         WHERE YEAR(tanggal_pemasukan) = YEAR(CURDATE()) -- Only for the current year
+         GROUP BY MONTH(tanggal_pemasukan)
+         ORDER BY month_number ASC`
+        );
+
+        // Map month numbers to names and ensure all months are present (optional, frontend handles this better)
+        const formattedResults = results.map((row) => ({
+          month_name: getMonthName(row.month_number),
+          total_revenue: row.total_revenue,
+        }));
+
+        res.json(formattedResults);
+      } catch (err) {
+        console.error("Error fetching monthly revenue data:", err);
+        res
+          .status(500)
+          .json({
+            error: "Gagal mengambil data pemasukan bulanan: " + err.message,
+          });
+      }
+    });
+
+    // GET ALL PEMASUKAN MINGGUAN DATA (Existing, moved for better organization)
+    app.get("/api/pemasukanMingguan", authenticateToken, async (req, res) => {
+      try {
+        const [results] = await dbPool.query(
+          `SELECT id, tanggal_pemasukan, nominal_pemasukan, nominal_bersih FROM PemasukanMingguan ORDER BY tanggal_pemasukan DESC`
+        );
+        res.json(results);
+      } catch (err) {
+        console.error("Error fetching all pemasukan:", err);
+        res
+          .status(500)
+          .json({ error: "Gagal mengambil data pemasukan: " + err.message });
+      }
+    });
+
     // BACKUP LOG
     app.post("/api/backup", authenticateToken, async (req, res) => {
       const { waktu_backup } = req.body;
@@ -759,7 +967,10 @@ if (args[0] === "--generate-key") {
 
     const jwtSecretRegex = /^JWT_SECRET=.*$/m; // Regex to find JWT_SECRET line
     if (envContent.match(jwtSecretRegex)) {
-      envContent = envContent.replace(jwtSecretRegex, `JWT_SECRET=${newSecret}`);
+      envContent = envContent.replace(
+        jwtSecretRegex,
+        `JWT_SECRET=${newSecret}`
+      );
       console.log("✅ JWT_SECRET updated in .env file.");
     } else {
       envContent += `\nJWT_SECRET=${newSecret}`;
@@ -769,9 +980,10 @@ if (args[0] === "--generate-key") {
     fs.writeFileSync(envFilePath, envContent.trim() + "\n"); // Trim and ensure a newline at end
     console.log("Generated new JWT Secret and saved to .env.");
     console.log(`New JWT_SECRET: ${newSecret}`);
-    console.log("⚠️ Remember to restart your server for the changes to take effect.");
+    console.log(
+      "⚠️ Remember to restart your server for the changes to take effect."
+    );
     process.exit(0);
-
   } catch (err) {
     console.error("❌ Failed to generate or save JWT_SECRET:", err);
     process.exit(1);

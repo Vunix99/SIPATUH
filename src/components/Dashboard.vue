@@ -1,9 +1,15 @@
+
+
 <template>
   <div class="d-flex">
     <nav :class="['sidebar', sidebarOpen ? 'open' : '']">
-      <div class="sidebar-header d-flex justify-content-between align-items-center">
+      <div
+        class="sidebar-header d-flex justify-content-between align-items-center"
+      >
         <h5 class="text-white m-0">SIPATUH</h5>
-        <button class="btn btn-sm btn-light d-md-none" @click="toggleSidebar">✕</button>
+        <button class="btn btn-sm btn-light d-md-none" @click="toggleSidebar">
+          ✕
+        </button>
       </div>
       <ul class="list-unstyled ps-3">
         <li>
@@ -21,23 +27,41 @@
             <i class="fa-solid fa-square-parking"></i> Data Parkir
           </router-link>
         </li>
+        <li>
+          <router-link to="/pemasukan" class="nav-link">
+            <i class="fa-solid fa-money-bill-wave"></i> Pemasukan Parkir
+          </router-link>
+        </li>
       </ul>
     </nav>
 
     <div class="content flex-grow-1">
       <nav class="navbar navbar-light bg-light px-3">
-        <button class="btn btn-outline-secondary d-md-none" @click="toggleSidebar">☰</button>
-        <h5 class="m-0 ms-2" style="color: #fdfdfd; font-weight: bold;">Dashboard Admin</h5>
+        <button
+          class="btn btn-outline-secondary d-md-none"
+          @click="toggleSidebar"
+        >
+          ☰
+        </button>
+        <h5 class="m-0 ms-2" style="color: #fdfdfd; font-weight: bold">
+          Dashboard Admin
+        </h5>
       </nav>
 
       <div class="container-fluid mt-3">
         <div class="row g-4">
-          <div class="col-md-6 col-xl-3" v-for="stat in statistics" :key="stat.title">
+          <div
+            class="col-md-6 col-xl-3"
+            v-for="stat in statistics"
+            :key="stat.title"
+          >
             <div :class="['card', 'h-100', stat.bg, 'text-white', 'shadow']">
               <div class="card-body">
                 <h5 class="card-title">{{ stat.title }}</h5>
                 <p class="card-text fs-3 fw-bold">{{ stat.value }}</p>
-                <p class="card-text"><small>{{ stat.desc }}</small></p>
+                <p class="card-text">
+                  <small>{{ stat.desc }}</small>
+                </p>
               </div>
             </div>
           </div>
@@ -113,13 +137,22 @@
                       <td>{{ data.masuk }}</td>
                       <td>{{ data.keluar }}</td>
                       <td>
-                        <span :class="['badge', data.status === 'Parkir' ? 'bg-success' : 'bg-secondary']">
+                        <span
+                          :class="[
+                            'badge',
+                            data.status === 'Parkir'
+                              ? 'bg-success'
+                              : 'bg-secondary',
+                          ]"
+                        >
                           {{ data.status }}
                         </span>
                       </td>
                     </tr>
                     <tr v-if="!parkirData.length">
-                      <td colspan="5" class="text-center text-muted">Belum ada data hari ini.</td>
+                      <td colspan="5" class="text-center text-muted">
+                        Belum ada data hari ini.
+                      </td>
                     </tr>
                   </tbody>
                 </table>
@@ -127,55 +160,94 @@
             </div>
           </div>
         </div>
-        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script>
-import { ref, onMounted } from 'vue';
-import Chart from 'chart.js/auto';
+import { ref, onMounted, nextTick } from "vue";
+import Chart from "chart.js/auto"; // Use 'chart.js/auto' for automatic registration of components
+import axios from "axios"; // Import axios for API calls
 
 export default {
-  name: 'Dashboard',
+  name: "Dashboard",
   setup() {
     const sidebarOpen = ref(false);
     const toggleSidebar = () => {
-      sidebarOpen.value = !sidebarOpen.value;
+      sidebarOpen.value = !sidebarSidebarOpen.value;
     };
 
     const statistics = ref([
-      { title: 'Total Parkir', value: 120, desc: 'Hari ini', bg: 'bg-primary' },
-      { title: 'Pendapatan', value: 'Rp 240.000', desc: 'Hari ini', bg: 'bg-success' },
-      { title: 'Admin Aktif', value: 4, desc: 'Dalam sistem', bg: 'bg-warning' },
-      { title: 'Parkir Selesai', value: 80, desc: 'Hari ini', bg: 'bg-info' },
+      { title: "Total Parkir", value: 120, desc: "Hari ini", bg: "bg-primary" },
+      {
+        title: "Pendapatan",
+        value: "Rp 0", // Initialize with 0, will be updated dynamically
+        desc: "Tahun ini",
+        bg: "bg-success",
+      },
+      {
+        title: "Admin Aktif",
+        value: 4,
+        desc: "Dalam sistem",
+        bg: "bg-warning",
+      },
+      { title: "Parkir Selesai", value: 80, desc: "Hari ini", bg: "bg-info" },
     ]);
 
     const activityLog = ref([
-      { user: 'Admin A', action: 'Menambah data parkir', time: '5 menit lalu' },
-      { user: 'Admin B', action: 'Logout sistem', time: '15 menit lalu' },
-      { user: 'Admin C', action: 'Login', time: '20 menit lalu' },
+      { user: "Admin A", action: "Menambah data parkir", time: "5 menit lalu" },
+      { user: "Admin B", action: "Logout sistem", time: "15 menit lalu" },
+      { user: "Admin C", action: "Login", time: "20 menit lalu" },
     ]);
 
     const parkirData = ref([
-      { plat: 'B 1234 XYZ', masuk: '08:00', keluar: '-', status: 'Parkir' },
-      { plat: 'D 5678 ABC', masuk: '07:30', keluar: '09:45', status: 'Selesai' },
-      { plat: 'F 4444 GH', masuk: '06:20', keluar: '-', status: 'Parkir' },
+      { plat: "B 1234 XYZ", masuk: "08:00", keluar: "-", status: "Parkir" },
+      {
+        plat: "D 5678 ABC",
+        masuk: "07:30",
+        keluar: "09:45",
+        status: "Selesai",
+      },
+      { plat: "F 4444 GH", masuk: "06:20", keluar: "-", status: "Parkir" },
     ]);
 
-    // Fungsi untuk merender Chart Parkir Mingguan (Existing)
+    let revenueChartInstance = null; // Declare a variable to hold the Chart.js instance for revenue
+    let parkirChartInstance = null; // Declare a variable for the parking chart instance
+
+    const API_DOMAIN =
+      import.meta.env.VITE_DOMAIN_SERVER || "http://localhost:3000";
+
+    // Function to fetch all pemasukan data
+    const fetchAllPemasukanData = async () => {
+      try {
+        const response = await axios.get(
+          `${API_DOMAIN}/api/pemasukanMingguan`,
+          { withCredentials: true }
+        );
+        return response.data;
+      } catch (error) {
+        console.error("Error fetching all pemasukan data:", error);
+        return [];
+      }
+    };
+
+    // Function to render Chart Parkir Mingguan (Existing)
     const renderChart = () => {
-      const ctx = document.getElementById('parkirChart');
-      new Chart(ctx, {
-        type: 'line',
+      const ctx = document.getElementById("parkirChart");
+      if (parkirChartInstance) {
+        parkirChartInstance.destroy(); // Destroy existing chart before re-rendering
+      }
+      parkirChartInstance = new Chart(ctx, {
+        type: "line",
         data: {
-          labels: ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'],
+          labels: ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"],
           datasets: [
             {
-              label: 'Jumlah Kendaraan',
+              label: "Jumlah Kendaraan",
               data: [20, 35, 25, 40, 30, 50, 45],
-              borderColor: 'rgba(255, 206, 86, 1)', // Warna kuning-oranye solid
-              backgroundColor: 'rgba(255, 206, 86, 0.2)', // Warna kuning-oranye transparan
+              borderColor: "rgba(255, 206, 86, 1)", // Warna kuning-oranye solid
+              backgroundColor: "rgba(255, 206, 86, 0.2)", // Warna kuning-oranye transparan
               fill: true,
               tension: 0.4,
             },
@@ -187,53 +259,96 @@ export default {
           plugins: {
             legend: {
               labels: {
-                color: '#FDFDFD'
-              }
-            }
+                color: "#FDFDFD",
+              },
+            },
           },
           scales: {
             x: {
               ticks: {
-                color: '#FDFDFD'
+                color: "#FDFDFD",
               },
               grid: {
-                color: 'rgba(255, 255, 255, 0.1)'
+                color: "rgba(255, 255, 255, 0.1)",
               },
               title: {
                 display: false,
-                color: '#FDFDFD'
-              }
+                color: "#FDFDFD",
+              },
             },
             y: {
               ticks: {
-                color: '#FDFDFD'
+                color: "#FDFDFD",
               },
               grid: {
-                color: 'rgba(255, 255, 255, 0.1)'
+                color: "rgba(255, 255, 255, 0.1)",
               },
               title: {
                 display: false,
-                color: '#FDFDFD'
-              }
-            }
-          }
+                color: "#FDFDFD",
+              },
+            },
+          },
         },
       });
     };
 
-    // FUNGSI BARU UNTUK CHART PEMASUKAN BULANAN (Warna disamakan)
-    const renderChartMonthlyRevenue = () => {
-      const ctxRevenue = document.getElementById('revenueChart');
-      new Chart(ctxRevenue, {
-        type: 'bar',
+    // FUNGSI BARU UNTUK CHART PEMASUKAN BULANAN (Menggunakan data dari API)
+    const renderChartMonthlyRevenue = async () => {
+      const allPemasukan = await fetchAllPemasukanData();
+      const currentYear = new Date().getFullYear();
+
+      // Aggregate data by month for the current year
+      const monthlyRevenue = {}; // { monthIndex: totalNominalBersih }
+      allPemasukan.forEach((item) => {
+        const date = new Date(item.tanggal_pemasukan);
+        if (date.getFullYear() === currentYear) {
+          const month = date.getMonth(); // 0-indexed month
+          // --- PERBAIKAN DI SINI JUGA ---
+          // Pastikan nominal_bersih adalah angka sebelum menjumlahkan untuk chart
+          monthlyRevenue[month] = (monthlyRevenue[month] || 0) + parseFloat(item.nominal_bersih) || 0;
+        }
+      });
+
+      // Prepare data for Chart.js
+      const labels = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "Mei",
+        "Jun",
+        "Jul",
+        "Ags",
+        "Sep",
+        "Okt",
+        "Nov",
+        "Des",
+      ];
+      const dataValues = [];
+
+      // Populate data values for each month, filling 0 if no data
+      for (let i = 0; i < 12; i++) {
+        dataValues.push(monthlyRevenue[i] || 0);
+      }
+
+      const ctxRevenue = document.getElementById("revenueChart");
+
+      // Destroy existing chart instance if it exists
+      if (revenueChartInstance) {
+        revenueChartInstance.destroy();
+      }
+
+      revenueChartInstance = new Chart(ctxRevenue, {
+        type: "bar",
         data: {
-          labels: ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul'],
+          labels: labels,
           datasets: [
             {
-              label: 'Pendapatan (Rp)',
-              data: [500000, 750000, 600000, 900000, 800000, 1100000, 1250000],
-              backgroundColor: 'rgba(255, 206, 86, 0.6)', // Warna kuning-oranye transparan untuk bar
-              borderColor: 'rgba(255, 206, 86, 1)', // Warna kuning-oranye solid untuk border bar
+              label: "Pendapatan (Rp)",
+              data: dataValues,
+              backgroundColor: "rgba(255, 206, 86, 0.6)", // Warna kuning-oranye transparan untuk bar
+              borderColor: "rgba(255, 206, 86, 1)", // Warna kuning-oranye solid untuk border bar
               borderWidth: 1,
             },
           ],
@@ -244,47 +359,73 @@ export default {
           plugins: {
             legend: {
               labels: {
-                color: '#FDFDFD'
-              }
-            }
+                color: "#FDFDFD",
+              },
+            },
           },
           scales: {
             x: {
               ticks: {
-                color: '#FDFDFD'
+                color: "#FDFDFD",
               },
               grid: {
-                color: 'rgba(255, 255, 255, 0.1)'
+                color: "rgba(255, 255, 255, 0.1)",
               },
               title: {
                 display: false,
-                color: '#FDFDFD'
-              }
+                color: "#FDFDFD",
+              },
             },
             y: {
               beginAtZero: true,
               ticks: {
-                color: '#FDFDFD',
-                callback: function(value) {
-                  return 'Rp ' + value.toLocaleString('id-ID');
-                }
+                color: "#FDFDFD",
+                callback: function (value) {
+                  return "Rp " + value.toLocaleString("id-ID");
+                },
               },
               grid: {
-                color: 'rgba(255, 255, 255, 0.1)'
+                color: "rgba(255, 255, 255, 0.1)",
               },
               title: {
                 display: false,
-                color: '#FDFDFD'
-              }
-            }
-          }
+                color: "#FDFDFD",
+              },
+            },
+          },
         },
       });
     };
 
-    onMounted(() => {
-      renderChart();
-      renderChartMonthlyRevenue();
+    // Function to calculate total annual revenue
+    const calculateAnnualRevenue = async () => {
+      const allPemasukan = await fetchAllPemasukanData();
+      const currentYear = new Date().getFullYear();
+      let totalAnnualRevenue = 0;
+
+      allPemasukan.forEach((item) => {
+        const date = new Date(item.tanggal_pemasukan);
+        if (date.getFullYear() === currentYear) {
+          totalAnnualRevenue += parseFloat(item.nominal_bersih) || 0;
+        }
+      });
+
+      // Update the 'Pendapatan' statistic
+      const pendapatanStatIndex = statistics.value.findIndex(
+        (stat) => stat.title === "Pendapatan"
+      );
+      if (pendapatanStatIndex !== -1) {
+        statistics.value[pendapatanStatIndex].value = `Rp ${totalAnnualRevenue.toLocaleString(
+          "id-ID"
+        )}`;
+        statistics.value[pendapatanStatIndex].desc = `Tahun ${currentYear}`;
+      }
+    };
+
+    onMounted(async () => {
+      renderChart(); // Render weekly parking chart (static for now)
+      await renderChartMonthlyRevenue(); // Fetch and render monthly revenue chart
+      await calculateAnnualRevenue(); // Fetch and calculate annual revenue
     });
 
     return {
@@ -300,23 +441,26 @@ export default {
 
 <style scoped>
 /* Main background for body and content */
-body, .content {
+body,
+.content {
   background-color: #2b0057; /* Existing dark purple background */
-  color: #FDFDFD; /* Changed to FDFDFD for main content text */
+  color: #fdfdfd; /* Changed to FDFDFD for main content text */
 }
 
-.router-link-active, .router-link-exact-active, .nav-link{
+.router-link-active,
+.router-link-exact-active,
+.nav-link {
   margin-right: 20px;
   margin-bottom: 8px;
 }
 h5.card-title {
-  color: #FDFDFD; /* Changed to FDFDFD for card titles */
+  color: #fdfdfd; /* Changed to FDFDFD for card titles */
 }
 
 /* Sidebar style */
 .sidebar {
   background-color: #5a0099; /* Darker purple for sidebar */
-  color: #FDFDFD; /* Changed to FDFDFD */
+  color: #fdfdfd; /* Changed to FDFDFD */
   width: 240px;
   height: 100vh;
   padding-top: 1rem;
@@ -348,7 +492,7 @@ h5.card-title {
 /* Navbar style */
 .navbar {
   background-color: #210038 !important; /* Slightly lighter purple for the navbar */
-  color: #FDFDFD; /* Changed to FDFDFD */
+  color: #fdfdfd; /* Changed to FDFDFD */
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); /* Add a subtle shadow */
 }
 
@@ -364,8 +508,13 @@ h5.card-title {
 
 /* Card styles - adjusted for better contrast and consistency */
 .card {
-  background-color: rgba(0, 0, 0, 0.25); /* Darker transparent background for cards */
-  color: #FDFDFD; /* Changed to FDFDFD */
+  background-color: rgba(
+    0,
+    0,
+    0,
+    0.25
+  ); /* Darker transparent background for cards */
+  color: #fdfdfd; /* Changed to FDFDFD */
   border: none;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); /* More prominent shadow for cards */
 }
@@ -381,15 +530,22 @@ h5.card-title {
 .card.bg-warning,
 .card.bg-info {
   background-color: #4d0073 !important; /* A uniform dark purple for all statistic cards */
-  color: #FDFDFD !important; /* Changed to FDFDFD */
+  color: #fdfdfd !important; /* Changed to FDFDFD */
 }
 
 /* You can still add subtle variations if desired, e.g., slightly different shades on hover or with borders */
-.card.bg-primary { border-left: 5px solid #a64dff; } /* Example: a lighter purple border */
-.card.bg-success { border-left: 5px solid #00cc66; } /* Example: green border for success */
-.card.bg-warning { border-left: 5px solid #fc0; } /* Example: accent yellow border for warning */
-.card.bg-info { border-left: 5px solid #008cba; } /* Example: blue border for info */
-
+.card.bg-primary {
+  border-left: 5px solid #a64dff;
+} /* Example: a lighter purple border */
+.card.bg-success {
+  border-left: 5px solid #00cc66;
+} /* Example: green border for success */
+.card.bg-warning {
+  border-left: 5px solid #fc0;
+} /* Example: accent yellow border for warning */
+.card.bg-info {
+  border-left: 5px solid #008cba;
+} /* Example: blue border for info */
 
 /* Custom button style - if you add more custom buttons */
 .btn-custom {
@@ -404,21 +560,26 @@ h5.card-title {
 
 /* Table style */
 .table {
-  color: #FDFDFD; /* Ensure table text is FDFDFD */
+  color: #fdfdfd; /* Ensure table text is FDFDFD */
 }
 
 .table-dark {
   background-color: #4d0073; /* Darker purple for table header */
-  color: #FDFDFD; /* Ensure header text is FDFDFD */
+  color: #fdfdfd; /* Ensure header text is FDFDFD */
 }
 
 .table-striped > tbody > tr:nth-of-type(odd) {
-  background-color: rgba(255, 255, 255, 0.08); /* Slightly more visible stripe */
+  background-color: rgba(
+    255,
+    255,
+    255,
+    0.08
+  ); /* Slightly more visible stripe */
 }
 
 /* Crucial: Ensure all TD elements in the table body are FDFDFD */
 .table tbody td {
-  color: #FDFDFD !important; /* Force FDFDFD color for all table body cells */
+  color: #fdfdfd !important; /* Force FDFDFD color for all table body cells */
 }
 
 /* Text for the "Belum ada data hari ini." message */
@@ -426,11 +587,10 @@ h5.card-title {
   color: #ccc !important; /* Keep it slightly muted for informational text */
 }
 
-
 /* Activity Log */
 .list-group-item {
   background-color: transparent !important; /* Removed background for list items */
-  color: #FDFDFD; /* Ensure list item text is FDFDFD */
+  color: #fdfdfd; /* Ensure list item text is FDFDFD */
   border-color: rgba(255, 255, 255, 0.1); /* Subtle border for separation */
 }
 
@@ -453,7 +613,7 @@ h5.card-title {
 }
 .badge.bg-secondary {
   background-color: #777 !important; /* A neutral gray for completed status */
-  color: #FDFDFD !important; /* Ensure FDFDFD text on gray */
+  color: #fdfdfd !important; /* Ensure FDFDFD text on gray */
 }
 
 /* Responsive adjustments */
