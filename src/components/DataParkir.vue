@@ -42,26 +42,21 @@
           ☰
         </button>
         <h5 class="m-0 ms-2" style="color: #fdfdfd; font-weight: bold">
-          Pemasukan Parkir
+          Data Parkir
         </h5>
       </nav>
 
       <div class="container-fluid mt-3">
         <div class="card shadow mb-4">
           <div class="card-header">
-            <strong>📊 Data Pemasukan Parkir</strong>
+            <strong>📋 Data Log Parkir</strong>
           </div>
           <div class="card-body">
-            <p class="text-white-50">
-              <i class="fas fa-info-circle me-2"></i>
-              Nominal bersih merupakan nominal pemasukan dikurangi 20% untuk
-              Biaya Admin Aplikasi.
-            </p>
             <div
               class="d-flex justify-content-between align-items-center mb-3"
             >
               <div class="form-group flex-grow-1 me-3">
-                <label for="filterDate" class="form-label text-white-50"
+                <label for="filterDateParkir" class="form-label text-white-50"
                   >Filter Tanggal:</label
                 >
                 <div class="d-flex gap-2 align-items-end">
@@ -69,8 +64,8 @@
                     <input
                       type="date"
                       class="form-control"
-                      id="filterDate"
-                      v-model="filterDate"
+                      id="filterDateParkir"
+                      v-model="filterDateParkir"
                       @change="applyDayFilter"
                     />
                     <i class="fas fa-calendar-alt calendar-icon"></i>
@@ -78,297 +73,212 @@
                   <button
                     class="btn btn-outline-light"
                     @click="clearDayFilter"
-                    v-if="filterDate"
+                    v-if="filterDateParkir"
                   >
                     Clear
                   </button>
                 </div>
               </div>
-
-              <div class="ms-auto">
-                <button class="btn btn-custom" @click="openAddIncomeModal">
-                  <i class="fas fa-plus-circle me-2"></i>Tambah Pemasukan
-                </button>
-              </div>
             </div>
-            <div ref="pemasukanTable" class="tabulator-table-container"></div>
-          </div>
-        </div>
-
-        <div class="card shadow mb-4 mt-4">
-          <div class="card-header">
-            <strong>📈 Pemasukan Bulanan</strong>
-          </div>
-          <div class="card-body">
-            <canvas id="revenueChart"></canvas>
+            <div ref="parkirTable" class="tabulator-table-container"></div>
           </div>
         </div>
       </div>
     </div>
   </div>
-
-  <Teleport to="body">
-    <div
-      class="modal fade"
-      id="incomeModal"
-      tabindex="-1"
-      aria-labelledby="incomeModalLabel"
-      aria-hidden="true"
-      data-bs-backdrop="false"
-      data-bs-keyboard="false"
-      :class="{ show: isModalOpen }"
-      :style="{ display: isModalOpen ? 'block' : 'none' }"
-    >
-      <div class="custom-modal-backdrop" v-if="isModalOpen"></div>
-
-      <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content custom-modal-content">
-          <div class="modal-header custom-modal-header">
-            <h5 class="modal-title" id="incomeModalLabel">
-              {{ isEditing ? 'Edit Pemasukan' : 'Tambah Pemasukan Baru' }}
-            </h5>
-            <button
-              type="button"
-              class="btn-close custom-btn-close"
-              data-bs-dismiss="modal"
-              aria-label="Close"
-            ></button>
-          </div>
-          <div class="modal-body custom-modal-body">
-            <form @submit.prevent="submitIncomeForm">
-              <div class="mb-3">
-                <label for="tanggalPemasukan" class="form-label"
-                  >Tanggal Pemasukan</label
-                >
-                <input
-                  type="date"
-                  class="form-control"
-                  id="tanggalPemasukan"
-                  v-model="newIncome.tanggal_pemasukan"
-                  required
-                />
-              </div>
-              <div class="mb-3">
-                <label for="nominalPemasukan" class="form-label"
-                  >Nominal Pemasukan</label
-                >
-                <input
-                  type="number"
-                  class="form-control"
-                  id="nominalPemasukan"
-                  v-model="newIncome.nominal_pemasukan"
-                  required
-                />
-              </div>
-              <p class="text-white-50 mt-2">
-                Nominal Bersih akan dihitung otomatis:
-                <span class="fw-bold"
-                  >Rp
-                  {{ calculatedNominalBersih.toLocaleString("id-ID") }}</span
-                >
-              </p>
-              <div class="d-grid gap-2">
-                <button type="submit" class="btn btn-custom">
-                  {{ isEditing ? 'Update Pemasukan' : 'Simpan Pemasukan' }}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    </div>
-  </Teleport>
 </template>
 
 <script>
-import { ref, onMounted, computed, watch, nextTick } from "vue";
+import { ref, onMounted, watch } from "vue";
 import { TabulatorFull as Tabulator } from "tabulator-tables";
-import "tabulator-tables/dist/css/tabulator_midnight.min.css";
+import "tabulator-tables/dist/css/tabulator_midnight.min.css"; // Tetap gunakan tema dasar ini
 import axios from "axios";
 import Swal from "sweetalert2";
-import { Modal } from "bootstrap";
-// NEW: Import Chart from chart.js
-import { Chart, registerables } from 'chart.js';
-Chart.register(...registerables); // Register all Chart.js components
+
+// GLightbox imports
+import GLightbox from 'glightbox';
+import 'glightbox/dist/css/glightbox.min.css';
 
 export default {
-  name: "Pemasukan",
+  name: "DataParkir",
   setup() {
     const sidebarOpen = ref(false);
     const toggleSidebar = () => {
       sidebarOpen.value = !sidebarOpen.value;
     };
 
-    const pemasukanTable = ref(null);
+    const parkirTable = ref(null);
     let tabulatorInstance = null;
-    let chartInstance = null; // NEW: To store the Chart.js instance
-
-    const filterDate = ref("");
-
-    const newIncome = ref({
-      id: null, // Add an ID field for editing
-      tanggal_pemasukan: "",
-      nominal_pemasukan: 0,
-    });
-
-    const isModalOpen = ref(false);
-    const isEditing = ref(false); // New state to track if we are in edit mode
-
-    // KONSISTEN: Nominal bersih tetap dihitung di frontend untuk tampilan pratinjau
-    const calculatedNominalBersih = computed(() => {
-      return newIncome.value.nominal_pemasukan - (newIncome.value.nominal_pemasukan * 0.20);
-    });
+    let lightboxInstance = null; // GLightbox instance
+    const filterDateParkir = ref("");
 
     const API_DOMAIN =
       import.meta.env.VITE_DOMAIN_SERVER || "http://localhost:3000";
 
+    const mobileBreakpoint = 768; // Misalnya, di bawah 768px dianggap mobile
+
     // --- Fungsi Helper untuk Formatter ---
-    const formatCurrency = (value) => {
-        return "Rp " + parseFloat(value).toLocaleString("id-ID");
-    };
-
-    const formatDateOnly = (value) => {
+    const formatDateTime = (value) => {
+      if (value) {
         const date = new Date(value);
-        return date.toLocaleDateString("id-ID", {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
+        return date.toLocaleString("id-ID", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
         });
+      }
+      return "Belum Keluar";
     };
 
-    const formatStatusBadge = (status) => {
-        if (status === "active") {
-            return '<span class="badge bg-success">Aktif</span>';
-        } else if (status === "completed") {
-            return '<span class="badge bg-secondary">Selesai</span>';
-        }
-        return status;
+    const formatStatus = (status) => {
+      if (status === "active") {
+        return '<span class="badge bg-success">Aktif</span>';
+      } else if (status === "completed") {
+        return '<span class="badge bg-secondary">Selesai</span>';
+      }
+      return status;
+    };
+
+    // MODIFIKASI FUNGSI INI: menerima parameter isMobileView
+    const formatFotoMasuk = (imageUrl, isMobileView = false) => {
+      if (imageUrl) {
+        // Konten tombol akan berbeda tergantung isMobileView
+        const buttonContent = isMobileView ? 'Lihat Gambar' : '<i class="fa-solid fa-eye"></i>';
+        return `<button type="button" class="btn btn-sm btn-info view-photo-btn" data-image-url="${imageUrl}">${buttonContent}</button>`;
+      }
+      return 'Tidak Ada Foto';
     };
     // --- Akhir Fungsi Helper ---
 
-    const fetchData = async () => {
+    const fetchParkingData = async () => {
       try {
-        const response = await axios.get(
-          `${API_DOMAIN}/api/pemasukanMingguan`,
-          { withCredentials: true }
-        );
-        console.log("Pemasukan data fetched successfully:", response.data);
+        const response = await axios.get(`${API_DOMAIN}/api/logParkir`, {
+          withCredentials: true,
+        });
+        console.log("Parking log data fetched successfully:", response.data);
         return response.data;
       } catch (error) {
-        console.error("Error fetching pemasukan data:", error);
+        console.error("Error fetching parking log data:", error);
         Swal.fire({
           icon: "error",
           title: "Gagal Memuat Data",
           text:
             error.response?.data?.message ||
-            "Terjadi kesalahan saat memuat data pemasukan.",
+            "Terjadi kesalahan saat memuat data parkir.",
           confirmButtonColor: "#fc0",
         });
         return [];
       }
     };
 
-    // NEW: Function to fetch data for the monthly revenue chart
-    const fetchMonthlyRevenueData = async () => {
-      try {
-        const response = await axios.get(`${API_DOMAIN}/api/pemasukanMingguan`, { withCredentials: true });
-        
-        const currentYear = new Date().getFullYear();
-        const monthlyAggregatedData = {}; // { month_index: total_nominal_bersih }
-
-        response.data.forEach(item => {
-            const date = new Date(item.tanggal_pemasukan);
-            if (date.getFullYear() === currentYear) {
-                const monthIndex = date.getMonth(); // 0-indexed (Jan=0, Feb=1, ...)
-                monthlyAggregatedData[monthIndex] = (monthlyAggregatedData[monthIndex] || 0) + parseFloat(item.nominal_bersih) || 0;
-            }
-        });
-
-        return monthlyAggregatedData; 
-
-      } catch (error) {
-        console.error("Error fetching and aggregating monthly revenue data:", error);
-        return {}; // Return empty object on error
-      }
-    };
-
-    const mobileBreakpoint = 768; // Mendefinisikan breakpoint mobile
-
+    // Fungsi utama untuk inisialisasi/ulang inisialisasi Tabulator
     const initializeTabulator = async () => {
-      if (!pemasukanTable.value) {
+      if (!parkirTable.value) {
         console.error("Elemen tabel tidak ditemukan.");
         return;
       }
 
+      // Deteksi apakah layar adalah mobile
       const isMobile = window.matchMedia(`(max-width: ${mobileBreakpoint - 1}px)`).matches;
 
+      // Hancurkan instance Tabulator yang ada jika ada
       if (tabulatorInstance) {
         tabulatorInstance.destroy();
       }
 
-      const data = await fetchData();
+      const data = await fetchParkingData();
 
       const baseColumns = [
+        // Kolom untuk Desktop View
         {
           title: "ID",
           field: "id",
           hozAlign: "center",
-          width: 70,
+          headerWordWrap: true,
+          width: 50,
           headerFilter: false,
           resizable: false,
           responsive: 0, // Selalu tampil
         },
         {
-          title: "Tanggal Pemasukan",
-          field: "tanggal_pemasukan",
+          title: "Plat Kendaraan",
+          field: "plat_nomor",
+          headerWordWrap: true,
           hozAlign: "center",
-          formatter: (cell) => formatDateOnly(cell.getValue()),
           headerFilter: false,
           resizable: false,
           responsive: 0, // Selalu tampil
         },
         {
-          title: "Nominal Pemasukan",
-          field: "nominal_pemasukan",
-          hozAlign: "right",
-          formatter: (cell) => formatCurrency(cell.getValue()),
-          headerFilter: false,
-          resizable: false,
-          responsive: 1, // Prioritas sembunyi/collapse
-        },
-        {
-          title: "Nominal Bersih",
-          field: "nominal_bersih",
-          hozAlign: "right",
-          formatter: (cell) => formatCurrency(cell.getValue()),
-          headerFilter: false,
-          resizable: false,
-          responsive: 1, // Prioritas sembunyi/collapse
-        },
-        {
-          title: "Aksi",
-          field: "actions",
+          title: "Nomor Tiket",
+          field: "nomor_tiket",
+          headerWordWrap: true,
           hozAlign: "center",
+          headerFilter: false,
           resizable: false,
-          formatter: (cell, formatterParams, onRendered) => {
-            const id = cell.getRow().getData().id;
-            const editBtn = `<button class="btn btn-sm btn-info me-1"><i class="fas fa-edit"></i></button>`;
-            const deleteBtn = `<button class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></button>`;
-
-            const container = document.createElement("div");
-            container.innerHTML = editBtn + deleteBtn;
-
-            container.querySelector(".btn-info").addEventListener("click", () => {
-              editIncome(id);
-            });
-
-            container.querySelector(".btn-danger").addEventListener("click", () => {
-              deleteIncome(id);
-            });
-            return container;
-          },
+          responsive: 1, // Prioritas sembunyi/collapse
+        },
+        {
+          title: "Waktu Masuk",
+          field: "waktu_masuk",
+          headerWordWrap: true,
+          hozAlign: "center",
+          formatter: (cell) => formatDateTime(cell.getValue()),
+          headerFilter: false,
+          resizable: false,
+          responsive: 2, // Prioritas sembunyi/collapse
+        },
+        {
+          title: "Waktu Keluar",
+          field: "waktu_keluar",
+          hozAlign: "center",
+          formatter: (cell) => formatDateTime(cell.getValue()),
+          headerFilter: false,
+          resizable: false,
+          responsive: 3, // Prioritas sembunyi/collapse
+        },
+        {
+          title: "Status",
+          field: "status",
+          hozAlign: "center",
+          headerWordWrap: true,
+          formatter: (cell) => formatStatus(cell.getValue()),
+          headerFilter: false,
+          resizable: false,
+          responsive: 0, // Selalu tampil
+        },
+        {
+          title: "Foto Masuk",
+          field: "foto_masuk",
+          hozAlign: "center",
+          headerWordWrap: true,
           headerSort: false,
-          responsive: 0, // Selalu tampil
+          resizable: false,
+          // Panggil formatter dengan isMobileView = false untuk desktop
+          formatter: (cell) => formatFotoMasuk(cell.getValue(), false),
+          cellClick: function(e, cell) {
+            const button = e.target.closest('.view-photo-btn');
+            if (button) {
+              e.stopPropagation();
+              const imageUrl = button.dataset.imageUrl;
+              if (imageUrl) {
+                if (typeof GLightbox !== 'undefined') {
+                  if (lightboxInstance) {
+                    lightboxInstance.destroy();
+                  }
+                  lightboxInstance = GLightbox({
+                    elements: [{ 'href': imageUrl, 'type': 'image' }]
+                  });
+                  lightboxInstance.open();
+                } else {
+                  console.warn("GLightbox is not loaded. Cannot open image.");
+                }
+              }
+            }
+          },
+          responsive: 1, // Prioritas sembunyi/collapse
         },
       ];
 
@@ -380,20 +290,21 @@ export default {
         movableColumns: false,
         resizableColumns: false,
         resizeableRows: false,
-        placeholder: "Tidak ada data pemasukan",
+        placeholder: "Tidak ada data parkir",
         // cssClass: "tabulator-dark-theme", // Ini sudah diterapkan oleh import tabulator_midnight.min.css
       };
 
       if (isMobile) {
-        tabulatorOptions.layout = "fitDataFill"; // Mobile: fitDataFill
+        // Mode mobile: gunakan fitDataFill dan rowFormatter (tampilan kartu)
+        tabulatorOptions.layout = "fitDataFill"; // Atur layout untuk mobile
         tabulatorOptions.responsiveLayout = false; // Nonaktifkan responsiveLayout bawaan
-        tabulatorOptions.rowHeader = false; // Sembunyikan rowHeader
+        tabulatorOptions.rowHeader = false; // Sembunyikan rowHeader jika ada
         tabulatorOptions.columns = [
           // Kolom dummy untuk mode rowFormatter
           {
             title: "",
-            field: "id",
-            formatter: "html",
+            field: "id", // Bisa field apa saja, yang penting ada 1 kolom
+            formatter: "html", // Penting: agar bisa merender HTML kustom
             headerSort: false,
             resizable: false
           }
@@ -402,8 +313,11 @@ export default {
           const data = row.getData();
           const element = row.getElement();
 
-          pemasukanTable.value.setAttribute("data-mobile-card-active", "true");
-          element.innerHTML = ""; // Kosongkan konten default sel Tabulator
+          // Tambahkan atribut untuk CSS agar header bisa disembunyikan
+          parkirTable.value.setAttribute("data-mobile-card-active", "true");
+
+          // Kosongkan konten default sel Tabulator
+          element.innerHTML = "";
 
           const rowContent = document.createElement("div");
           rowContent.classList.add("custom-mobile-card");
@@ -413,334 +327,74 @@ export default {
                 <span class="custom-mobile-card-label" style="font-weight: bold; color: #fc0">ID:</span>
                 <span class="custom-mobile-card-value">${data.id}</span>
             </div>
-            <div class="custom-mobile-card-field"  style="margin-bottom: 8px;">
-                <span class="custom-mobile-card-label" style="font-weight: bold; color: #fc0">Tanggal:</span>
-                <span class="custom-mobile-card-value">${formatDateOnly(data.tanggal_pemasukan)}</span>
+            <div class="custom-mobile-card-field" style="margin-bottom: 8px;">
+                <span class="custom-mobile-card-label" style="font-weight: bold; color: #fc0">Plat:</span>
+                <span class="custom-mobile-card-value">${data.plat_nomor}</span>
             </div>
             <div class="custom-mobile-card-field" style="margin-bottom: 8px;">
-                <span class="custom-mobile-card-label" style="font-weight: bold; color: #fc0">Nominal:</span>
-                <span class="custom-mobile-card-value">${formatCurrency(data.nominal_pemasukan)}</span>
+                <span class="custom-mobile-card-label" style="font-weight: bold; color: #fc0">Tiket:</span>
+                <span class="custom-mobile-card-value">${data.nomor_tiket}</span>
             </div>
             <div class="custom-mobile-card-field" style="margin-bottom: 8px;">
-                <span class="custom-mobile-card-label" style="font-weight: bold; color: #fc0">Bersih:</span>
-                <span class="custom-mobile-card-value">${formatCurrency(data.nominal_bersih)}</span>
+                <span class="custom-mobile-card-label" style="font-weight: bold; color: #fc0">Masuk:</span>
+                <span class="custom-mobile-card-value">${formatDateTime(data.waktu_masuk)}</span>
             </div>
             <div class="custom-mobile-card-field" style="margin-bottom: 8px;">
-                <span class="custom-mobile-card-label" style="font-weight: bold; color: #fc0">Aksi:</span>
-                <span class="custom-mobile-card-value d-flex gap-1">
-                    <button class="btn btn-sm btn-info edit-btn" data-id="${data.id}"><i class="fas fa-edit"></i></button>
-                    <button class="btn btn-sm btn-danger delete-btn" data-id="${data.id}"><i class="fas fa-trash"></i></button>
-                </span>
+                <span class="custom-mobile-card-label" style="font-weight: bold; color: #fc0">Keluar:</span>
+                <span class="custom-mobile-card-value">${formatDateTime(data.waktu_keluar)}</span>
+            </div>
+            <div class="custom-mobile-card-field" style="margin-bottom: 8px;">
+                <span class="custom-mobile-card-label" style="font-weight: bold; color: #fc0">Status:</span>
+                <span class="custom-mobile-card-value">${formatStatus(data.status)}</span>
+            </div>
+            <div class="custom-mobile-card-field" style="margin-bottom: 8px;">
+                <span class="custom-mobile-card-label" style="font-weight: bold; color: #fc0">Foto:</span>
+                <span class="custom-mobile-card-value">${formatFotoMasuk(data.foto_masuk, true)}</span>
             </div>
           `;
           element.appendChild(rowContent);
 
-          // Re-attach listeners for buttons within the custom row
-          rowContent.querySelector('.edit-btn').addEventListener('click', (e) => {
-            e.stopPropagation();
-            editIncome(data.id);
-          });
-          rowContent.querySelector('.delete-btn').addEventListener('click', (e) => {
-            e.stopPropagation();
-            deleteIncome(data.id);
-          });
+          // Re-attach cellClick listener for the photo button in the custom row
+          const photoButton = rowContent.querySelector('.view-photo-btn');
+          if (photoButton) {
+            photoButton.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const imageUrl = photoButton.dataset.imageUrl;
+              if (imageUrl) {
+                if (typeof GLightbox !== 'undefined') {
+                  if (lightboxInstance) {
+                    lightboxInstance.destroy();
+                  }
+                  lightboxInstance = GLightbox({
+                    elements: [{ 'href': imageUrl, 'type': 'image' }]
+                  });
+                  lightboxInstance.open();
+                } else {
+                  console.warn("GLightbox is not loaded. Cannot open image.");
+                }
+              }
+            });
+          }
         };
       } else {
         // Mode desktop: gunakan fitColumns dan responsiveLayout collapse
-        tabulatorOptions.layout = "fitColumns"; // Desktop: fitColumns
+        tabulatorOptions.layout = "fitColumns"; // Atur layout untuk desktop
         tabulatorOptions.responsiveLayout = "collapse";
         tabulatorOptions.rowHeader = {formatter:"responsiveCollapse", width:30, hozAlign:"center"};
         tabulatorOptions.columns = baseColumns;
         tabulatorOptions.rowFormatter = null; // Hapus formatter jika kembali ke desktop
-        pemasukanTable.value.removeAttribute("data-mobile-card-active"); // Hapus atribut CSS
+        // Hapus atribut untuk CSS agar header kembali terlihat
+        parkirTable.value.removeAttribute("data-mobile-card-active");
       }
 
-      tabulatorInstance = new Tabulator(pemasukanTable.value, tabulatorOptions);
-    };
-
-    const renderChartMonthlyRevenue = async () => {
-      const monthlyAggregatedData = await fetchMonthlyRevenueData();
-
-      const labels = [
-        "Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Ags", "Sep", "Okt", "Nov", "Des"
-      ];
-      const dataValues = [];
-
-      for (let i = 0; i < labels.length; i++) {
-        dataValues.push(monthlyAggregatedData[i] || 0);
-      }
-
-      const ctxRevenue = document.getElementById("revenueChart");
-
-      if (chartInstance) {
-        chartInstance.destroy();
-      }
-
-      chartInstance = new Chart(ctxRevenue, {
-        type: "bar",
-        data: {
-          labels: labels,
-          datasets: [
-            {
-              label: "Pendapatan Bersih (Rp)",
-              data: dataValues,
-              backgroundColor: "rgba(255, 206, 86, 0.6)",
-              borderColor: "rgba(255, 206, 86, 1)",
-              borderWidth: 1,
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              labels: {
-                color: "#FDFDFD",
-              },
-            },
-          },
-          scales: {
-            x: {
-              ticks: {
-                color: "#FDFDFD",
-              },
-              grid: {
-                color: "rgba(255, 255, 255, 0.1)",
-              },
-              title: {
-                display: false,
-                color: "#FDFDFD",
-              },
-            },
-            y: {
-              beginAtZero: true,
-              ticks: {
-                color: "#FDFDFD",
-                callback: function (value) {
-                  return "Rp " + value.toLocaleString("id-ID");
-                },
-              },
-              grid: {
-                color: "rgba(255, 255, 255, 0.1)",
-              },
-              title: {
-                display: false,
-                color: "#FDFDFD",
-              },
-            },
-          },
-        },
-      });
-    };
-
-    let bsModalInstance = null;
-
-    const initializeModal = () => {
-      const modalElement = document.getElementById("incomeModal");
-      if (modalElement && !bsModalInstance) {
-        bsModalInstance = new Modal(modalElement, {
-          backdrop: false,
-          keyboard: false,
-        });
-
-        modalElement.addEventListener("hide.bs.modal", () => {
-          isModalOpen.value = false;
-          modalElement.setAttribute("aria-hidden", "true");
-          document.body.classList.remove("modal-custom-open");
-        });
-        modalElement.addEventListener("show.bs.modal", () => {
-          modalElement.removeAttribute("aria-hidden");
-          document.body.classList.add("modal-custom-open");
-        });
-      }
-    };
-
-    const openModal = () => {
-      isModalOpen.value = true;
-      nextTick(() => {
-        if (bsModalInstance) {
-          bsModalInstance.show();
-        }
-      });
-    };
-
-    const closeModal = () => {
-      isModalOpen.value = false;
-      nextTick(() => {
-        if (bsModalInstance) {
-          bsModalInstance.hide();
-        }
-      });
-    };
-
-    const openAddIncomeModal = () => {
-      isEditing.value = false; // Set to add mode
-      newIncome.value = {
-        id: null,
-        tanggal_pemasukan: new Date().toISOString().substring(0, 10),
-        nominal_pemasukan: 0,
-      };
-      openModal();
-    };
-
-    const editIncome = async (id) => {
-      isEditing.value = true; // Set to edit mode
-      try {
-        const response = await axios.get(`${API_DOMAIN}/api/pemasukanMingguan/${id}`, { withCredentials: true });
-        const incomeData = response.data;
-        newIncome.value = {
-          id: incomeData.id,
-          tanggal_pemasukan: new Date(incomeData.tanggal_pemasukan).toISOString().substring(0, 10),
-          nominal_pemasukan: incomeData.nominal_pemasukan,
-        };
-        openModal();
-      } catch (error) {
-        console.error("Error fetching income for edit:", error);
-        Swal.fire({
-          icon: "error",
-          title: "Gagal Memuat Data",
-          text: error.response?.data?.error || "Terjadi kesalahan saat memuat data untuk diedit.",
-          confirmButtonColor: "#fc0",
-        });
-      }
-    };
-
-
-    const submitIncomeForm = async () => {
-      if (isEditing.value) {
-        await updateIncome();
-      } else {
-        await addIncome();
-      }
-      await renderChartMonthlyRevenue(); // Re-render chart after any data change
-    };
-
-    const addIncome = async () => {
-      try {
-        const payload = {
-          tanggal_pemasukan: newIncome.value.tanggal_pemasukan,
-          nominal_pemasukan: newIncome.value.nominal_pemasukan,
-        };
-
-        const response = await axios.post(
-          `${API_DOMAIN}/api/pemasukanMingguan`,
-          payload,
-          { withCredentials: true }
-        );
-
-        Swal.fire({
-          icon: "success",
-          title: "Berhasil!",
-          text: response.data.message,
-          confirmButtonColor: "#fc0",
-        });
-
-        closeModal();
-
-        tabulatorInstance.setData(await fetchData()).then(() => {
-          applyDayFilter();
-        });
-      } catch (error) {
-        console.error("Error adding income:", error);
-        Swal.fire({
-          icon: "error",
-          title: "Gagal Menambahkan Pemasukan",
-          text:
-            error.response?.data?.error ||
-            "Terjadi kesalahan saat menambahkan data pemasukan.",
-          confirmButtonColor: "#fc0",
-        });
-      }
-    };
-
-    const updateIncome = async () => {
-      try {
-        const payload = {
-          tanggal_pemasukan: newIncome.value.tanggal_pemasukan,
-          nominal_pemasukan: newIncome.value.nominal_pemasukan,
-        };
-
-        const response = await axios.put(
-          `${API_DOMAIN}/api/pemasukanMingguan/${newIncome.value.id}`,
-          payload,
-          { withCredentials: true }
-        );
-
-        Swal.fire({
-          icon: "success",
-          title: "Berhasil!",
-          text: response.data.message,
-          confirmButtonColor: "#fc0",
-        });
-
-        closeModal();
-
-        tabulatorInstance.setData(await fetchData()).then(() => {
-          applyDayFilter();
-        });
-      } catch (error) {
-        console.error("Error updating income:", error);
-        Swal.fire({
-          icon: "error",
-          title: "Gagal Memperbarui Pemasukan",
-          text:
-            error.response?.data?.error ||
-            "Terjadi kesalahan saat memperbarui data pemasukan.",
-          confirmButtonColor: "#fc0",
-        });
-      }
-    };
-
-    const deleteIncome = async (id) => {
-      Swal.fire({
-        title: "Anda Yakin?",
-        text: "Data pemasukan ini akan dihapus permanen!",
-        icon: "warning",
-        showCancelButton: true,
-        confirmButtonColor: "#fc0",
-        cancelButtonColor: "#d33",
-        confirmButtonText: "Ya, Hapus!",
-        cancelButtonText: "Batal",
-      }).then(async (result) => {
-        if (result.isConfirmed) {
-          try {
-            const response = await axios.delete(
-              `${API_DOMAIN}/api/pemasukanMingguan/${id}`,
-              { withCredentials: true }
-            );
-
-            Swal.fire({
-              icon: "success",
-              title: "Dihapus!",
-              text: response.data.message,
-              confirmButtonColor: "#fc0",
-            });
-
-            tabulatorInstance.setData(await fetchData()).then(() => {
-              applyDayFilter();
-            });
-            await renderChartMonthlyRevenue(); // Re-render chart after deletion
-          } catch (error) {
-            console.error("Error deleting income:", error);
-            Swal.fire({
-              icon: "error",
-              title: "Gagal Menghapus",
-              text:
-                error.response?.data?.error ||
-                "Terjadi kesalahan saat menghapus data.",
-              confirmButtonColor: "#fc0",
-            });
-          }
-        }
-      });
+      tabulatorInstance = new Tabulator(parkirTable.value, tabulatorOptions);
     };
 
     const applyDayFilter = () => {
       if (!tabulatorInstance) return;
 
-      const dateInput = filterDate.value;
-      console.log("Date input for filtering:", dateInput);
+      const dateInput = filterDateParkir.value;
+      console.log("Date input for filtering parking data:", dateInput);
 
       tabulatorInstance.clearFilter();
 
@@ -749,7 +403,7 @@ export default {
         filterDay.setHours(0, 0, 0, 0);
 
         tabulatorInstance.setFilter((row) => {
-          const rowRawDate = row.tanggal_pemasukan;
+          const rowRawDate = row.waktu_masuk;
           const rowDate = new Date(rowRawDate);
           rowDate.setHours(0, 0, 0, 0);
 
@@ -761,64 +415,171 @@ export default {
     };
 
     const clearDayFilter = () => {
-      filterDate.value = "";
+      filterDateParkir.value = "";
       if (tabulatorInstance) {
         tabulatorInstance.clearFilter();
-        console.log("Filter cleared.");
+        console.log("Parking data filter cleared.");
       }
     };
 
-    watch(filterDate, (newValue, oldValue) => {
+    watch(filterDateParkir, (newValue, oldValue) => {
       if (newValue !== oldValue) {
         applyDayFilter();
       }
     });
 
+    // Inisialisasi awal dan tambahkan listener resize
     onMounted(() => {
       initializeTabulator();
-      initializeModal();
-      renderChartMonthlyRevenue(); // Call to render the chart on mount
 
       // Tambahkan event listener untuk perubahan ukuran layar dengan debounce
       let resizeTimeout;
       window.addEventListener("resize", () => {
         clearTimeout(resizeTimeout);
         resizeTimeout = setTimeout(() => {
-          initializeTabulator(); // Re-initialize Tabulator on resize
-        }, 200);
+          initializeTabulator();
+        }, 200); // Tunggu 200ms setelah resize selesai
       });
     });
 
     return {
       sidebarOpen,
       toggleSidebar,
-      pemasukanTable,
-      openAddIncomeModal,
-      newIncome,
-      calculatedNominalBersih,
-      submitIncomeForm, // Use a single function for form submission
-      isModalOpen,
-      closeModal,
-      filterDate,
+      parkirTable,
+      filterDateParkir,
       clearDayFilter,
-      isEditing, // Expose isEditing
     };
   },
 };
 </script>
 
 <style scoped>
-/* Chrome, Safari, Edge, Opera */
-input::-webkit-outer-spin-button,
-input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
+/* Anda sudah memiliki ini sebelumnya, saya hanya menyisipkan bagian yang dimodifikasi */
+
+/* Sembunyikan header tabel ketika mode mobile-card aktif */
+.tabulator[data-mobile-card-active="true"] .tabulator-header {
+    display: none;
 }
 
-/* Firefox */
-input[type="number"] {
-  -moz-appearance: textfield;
+/* Pastikan kontainer utama Tabulator mengambil lebar penuh */
+.tabulator {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box;
 }
+
+/* Targetkan tabulator-tableholder dan tabulator-table di dalamnya */
+/* Ini adalah elemen yang bertanggung jawab untuk scroll dan lebar tabel internal */
+.tabulator .tabulator-tableholder {
+    width: 100% !important;
+    overflow: auto; /* Memastikan scrollbar muncul jika konten terlalu lebar */
+}
+
+/* Ini yang paling penting untuk mengisi lebar penuh di mobile mode (ketika rowFormatter aktif) */
+.tabulator[data-mobile-card-active="true"] .tabulator-tableholder .tabulator-table {
+    width: 100% !important;
+    min-width: 100% !important; /* INI SANGAT PENTING */
+    box-sizing: border-box;
+
+    /* Gaya yang Anda inginkan, dengan penyesuaian untuk mobile */
+    background-color: #666 !important; /* Latar belakang abu-abu */
+    color: #fff !important; /* Warna teks putih */
+    display: block !important; /* UBAH DARI inline-block KE block */
+    overflow: hidden !important; /* Sembunyikan overflow untuk table, konten akan di-wrap */
+    position: relative !important;
+    white-space: normal !important; /* UBAH DARI nowrap KE normal untuk wrapping */
+}
+
+/* Menargetkan sel dummy yang dibuat oleh rowFormatter */
+.tabulator[data-mobile-card-active="true"] .tabulator-row .tabulator-cell {
+    width: 100% !important; /* Ini harus 100% */
+    min-width: 100% !important; /* Ini juga sangat penting untuk mengatasi min-width */
+    padding: 0 !important; /* Hapus padding default */
+    margin: 0 !important; /* Hapus margin default */
+    display: block !important; /* Pastikan sel ini berperilaku sebagai blok */
+    box-sizing: border-box;
+    background-color: transparent !important; /* Pastikan selnya transparan */
+    color: inherit !important; /* Warisi warna teks dari parent */
+}
+
+/* Styling untuk konten baris kustom (mode kartu) */
+.custom-mobile-card {
+    padding: 10px;
+    border-bottom: 1px solid #444;
+    background-color: #2b2e32; /* Warna latar belakang kartu */
+    color: #eee; /* Warna teks kartu */
+    font-size: 0.9em;
+    width: 100%; /* Ini sudah benar */
+    margin-bottom:20px;
+    box-sizing: border-box;
+}
+
+.custom-mobile-card:last-child {
+    border-bottom: none;
+}
+.custom-mobile-card-field {
+    margin-bottom: 15px;
+    display: flex; /* Gunakan flexbox untuk label & value */
+    align-items: flex-start;
+}
+.custom-mobile-card-label {
+    font-weight: bold;
+    min-width: 100px; /* Lebar minimum untuk label */
+    margin-bottom: 15px;
+    margin-right: 10px;
+    color: #bbb; /* Warna label */
+}
+.custom-mobile-card-value {
+    flex-grow: 1; /* Memungkinkan nilai mengambil sisa ruang */
+    word-wrap: break-word; /* Pastikan teks panjang membungkus */
+    white-space: normal;
+}
+
+/* Styling badge di mobile card */
+.custom-mobile-card .badge {
+    padding: 0.3em 0.6em;
+    font-size: 0.75em;
+    display: inline-block; /* Agar badge tidak pecah di baris baru jika ada flex */
+}
+
+/* Styling tombol di mobile card */
+.custom-mobile-card .btn {
+    padding: 0.4em 0.8em;
+    font-size: 0.85em;
+}
+
+/* Pastikan sel wrap di desktop juga, jika belum */
+/* Ini berlaku untuk sel non-custom-mobile-card (yaitu di desktop / collapse view) */
+.tabulator-cell {
+    white-space: normal !important;
+    word-wrap: break-word;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    height: auto !important; /* Penting untuk wrapping */
+}
+.tabulator .tabulator-row {
+    height: auto !important;
+}
+
+/* Tambahan: Penyesuaian untuk responsiveCollapse di desktop */
+.tabulator-responsive-collapse table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.tabulator-responsive-collapse td {
+    padding: 5px 0;
+    vertical-align: top;
+    border-bottom: 1px dashed #444; /* Garis putus-putus antar item di collapse */
+}
+.tabulator-responsive-collapse td:first-child {
+    font-weight: bold;
+    width: 35%; /* Sesuaikan lebar label */
+}
+.tabulator-responsive-collapse td:last-child {
+    text-align: right; /* Rata kanan nilai */
+}
+
 /* Main background for body and content */
 body,
 .content {
@@ -864,7 +625,7 @@ h5.card-title {
 }
 
 /* Styling dasar untuk input date */
-#filterDate {
+#filterDateParkir {
   width: 100%;
   padding-right: 40px; /* Beri ruang di kanan untuk ikon */
   background-color: #36394c; /* Contoh: latar belakang gelap dari tema Anda */
@@ -874,7 +635,7 @@ h5.card-title {
 }
 
 /* Sembunyikan ikon kalender bawaan di Chrome/Safari */
-#filterDate::-webkit-calendar-picker-indicator {
+#filterDateParkir::-webkit-calendar-picker-indicator {
   opacity: 0; /* Membuat ikon bawaan tidak terlihat */
   position: absolute; /* Menutupi seluruh input */
   width: 100%;
@@ -1083,7 +844,7 @@ h5.card-title {
   height: 300px !important; /* Keep a consistent height for both canvases */
 }
 
-/* Specific styles for Pemasukan.vue */
+/* Specific styles for DataParkir.vue */
 .tabulator-table-container {
   overflow-x: auto; /* Enable horizontal scrolling for the table */
 }
@@ -1205,7 +966,7 @@ body.modal-open {
   overflow: hidden !important; /* Sembunyikan scrollbar pada body */
 }
 
-/* Specific styles for Pemasukan.vue */
+/* Specific styles for DataParkir.vue */
 .tabulator-table-container {
   overflow-x: auto; /* Enable horizontal scrolling for the table */
 }
@@ -1282,7 +1043,7 @@ body.modal-open {
   background-color: rgba(
     0,
     0,
-    0,
+0,
     0.25
   ) !important; /* Slightly darker for even rows */
 }
@@ -1388,4 +1149,14 @@ body.modal-open {
     display: none !important; /* Hide footer resize handle */
 }
 
+/* Custom CSS for image thumbnails in table */
+.parking-thumbnail {
+    width: 50px; /* Desired width */
+    height: 50px; /* Desired height for 1:1 ratio */
+    object-fit: cover; /* This is key for 1:1 crop without stretching */
+    border-radius: 4px; /* Slightly rounded corners for aesthetics */
+    cursor: pointer; /* Indicate it's clickable */
+    vertical-align: middle; /* Align with text in cell */
+}
 </style>
+

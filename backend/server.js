@@ -1,5 +1,7 @@
+// server.js (or app.js)
+
 import express from "express";
-import mysql from "mysql2/promise"; // <-- Keep this for promise-based operations
+import mysql from "mysql2/promise"; // Keep this for promise-based operations
 import cors from "cors";
 import bodyParser from "body-parser";
 import bcrypt from "bcrypt";
@@ -10,7 +12,7 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import jwt from "jsonwebtoken";
 import cookieParser from "cookie-parser";
-import crypto from "crypto"; // This imports the entire module, but randomBytes might not be directly exposed as a default export
+import crypto from "crypto"; // Correct import for crypto module
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -44,7 +46,7 @@ if (!fs.existsSync(uploadsDir)) {
   console.log("Created uploads directory:", uploadsDir);
 }
 
-// Multer setup
+// Multer setup for handling file uploads (e.g., foto_masuk)
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadsDir),
   filename: (req, file, cb) => {
@@ -62,12 +64,14 @@ const upload = multer({
   },
 });
 
+// CORS configuration to allow requests from your frontend
 app.use(
   cors({
     origin: VITE_DOMAIN_SERVER,
     credentials: true,
   })
 );
+// Body parsers for various content types and limits
 app.use(bodyParser.json({ limit: "50mb", parameterLimit: 50000 }));
 app.use(
   bodyParser.urlencoded({
@@ -79,15 +83,16 @@ app.use(
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 app.use(cookieParser());
+// Serve static files from the 'uploads' directory
 app.use("/uploads", express.static(uploadsDir));
 
-// Pastikan JWT_SECRET ada
+// Ensure JWT_SECRET is defined in .env
 if (!JWT_SECRET) {
   console.error("FATAL ERROR: JWT_SECRET is not defined in .env file.");
   process.exit(1);
 }
 
-// Utility function to save base64 images
+// Utility function to save base64 images to the uploads directory
 const saveBase64Image = (base64Data, filename) => {
   try {
     const base64Image = base64Data.replace(/^data:image\/[a-z]+;base64,/, "");
@@ -106,7 +111,7 @@ const saveBase64Image = (base64Data, filename) => {
   }
 };
 
-// Middleware to verify JWT
+// Middleware to verify JWT for authenticated routes
 const authenticateToken = (req, res, next) => {
   const token = req.cookies.token;
 
@@ -127,7 +132,7 @@ const authenticateToken = (req, res, next) => {
   }
 };
 
-// Function to create default tickets (1-100)
+// Function to create default tickets (1-100) if none exist
 async function createDefaultTickets(db) {
   try {
     const [results] = await db.query("SELECT COUNT(*) as count FROM Tiket");
@@ -157,8 +162,7 @@ async function createDefaultTickets(db) {
   }
 }
 
-// Function to create tables (used in rebuild mode)
-// Function to create tables (used in rebuild mode)
+// Function to create database tables
 async function createTables(db) {
   try {
     await db.query(
@@ -190,7 +194,7 @@ async function createTables(db) {
       CREATE TABLE IF NOT EXISTS Admin (
         id INT AUTO_INCREMENT PRIMARY KEY,
         email VARCHAR(50) NOT NULL UNIQUE,
-        password VARCHAR(255) NOT NULL -- <--- THIS LINE WAS CHANGED
+        password VARCHAR(255) NOT NULL
       );
 
       CREATE TABLE IF NOT EXISTS Log_Backup (
@@ -203,8 +207,8 @@ async function createTables(db) {
       CREATE TABLE IF NOT EXISTS PemasukanMingguan (
         id INT AUTO_INCREMENT PRIMARY KEY,
         tanggal_pemasukan DATE NOT NULL,
-        nominal_pemasukan DECIMAL(15, 0) NOT NULL, -- Diperluas menjadi 15 digit total, tanpa desimal
-        nominal_bersih DECIMAL(15, 0) NOT NULL     -- Diperluas menjadi 15 digit total, tanpa desimal
+        nominal_pemasukan DECIMAL(15, 0) NOT NULL,
+        nominal_bersih DECIMAL(15, 0) NOT NULL
       );
     `
     );
@@ -215,14 +219,13 @@ async function createTables(db) {
   }
 }
 
-// Main function to initialize DB and server
+// Main function to initialize DB and start the server
 async function startServer(rebuild = false) {
-  let dbPool; // Renamed to dbPool to clearly indicate it's a pool
+  let dbPool; // MySQL connection pool
 
   try {
-    // Temporary connection without DB, to create DB if not exists
+    // Temporary connection to create database if it doesn't exist
     const tempDb = await mysql.createConnection({
-      // Direct connection
       host: DB_HOST,
       user: DB_USER,
       password: DB_PASS,
@@ -234,14 +237,13 @@ async function startServer(rebuild = false) {
 
     // Connect to main DB using a Connection Pool
     dbPool = mysql.createPool({
-      // <-- Use createPool
       host: DB_HOST,
       user: DB_USER,
       password: DB_PASS,
       database: DB_NAME,
-      waitForConnections: true, // Default true
-      connectionLimit: 10, // Adjust as needed
-      queueLimit: 0, // Default 0
+      waitForConnections: true,
+      connectionLimit: 10,
+      queueLimit: 0,
       multipleStatements: true,
       timezone: TIME_ZONE || "Asia/Jakarta",
     });
@@ -249,18 +251,21 @@ async function startServer(rebuild = false) {
       `Connected to MySQL database ${DB_NAME} (using connection pool)`
     );
 
-    // Use a temporary connection from the pool for initial setup
+    // Use a temporary connection from the pool for initial setup (create tables, default tickets)
     const initialConnection = await dbPool.getConnection();
     try {
       if (rebuild) {
         console.log("Rebuild mode: dropping and recreating tables...");
         await initialConnection.query(
           `
+            SET FOREIGN_KEY_CHECKS = 0;
             DROP TABLE IF EXISTS Log_Backup;
             DROP TABLE IF EXISTS Log_Parkir;
+            DROP TABLE IF EXISTS PemasukanMingguan;
             DROP TABLE IF EXISTS Tiket;
             DROP TABLE IF EXISTS Admin;
             DROP TABLE IF EXISTS Kendaraan;
+            SET FOREIGN_KEY_CHECKS = 1;
           `
         );
         console.log("Dropped existing tables.");
@@ -286,7 +291,7 @@ async function startServer(rebuild = false) {
 
       try {
         const sql = `INSERT INTO Tiket (nomor_tiket, tersedia) VALUES (?, TRUE)`;
-        const [result] = await dbPool.query(sql, [nomor_tiket]); // Use dbPool directly for simple queries
+        const [result] = await dbPool.query(sql, [nomor_tiket]);
         res.json({ message: "Tiket berhasil dibuat", id: result.insertId });
       } catch (err) {
         if (err.code === "ER_DUP_ENTRY") {
@@ -361,6 +366,36 @@ async function startServer(rebuild = false) {
       }
     });
 
+    // GET PARKING LOGS WITH DETAILS
+    // GET PARKING LOGS WITH DETAILS
+    app.get("/api/logParkir", authenticateToken, async (req, res) => {
+      try {
+        const [results] = await dbPool.query(
+          `
+        SELECT
+          lp.id,
+          k.plat_nomor,
+          t.nomor_tiket,
+          lp.waktu_masuk,
+          lp.waktu_keluar,
+          CONCAT('${VITE_DOMAIN_SERVER}/backend/uploads/', lp.foto_masuk) AS foto_masuk,
+          CASE WHEN lp.waktu_keluar IS NULL THEN 'active' ELSE 'completed' END as status
+        FROM Log_Parkir lp
+        JOIN Kendaraan k ON lp.id_kendaraan = k.id
+        JOIN Tiket t ON lp.id_tiket = t.id
+        ORDER BY lp.waktu_masuk DESC
+      `
+        );
+        res.json(results);
+      } catch (err) {
+        // Log the full error object for better debugging
+        console.error("Error fetching parking logs:", err);
+        return res
+          .status(500)
+          .json({ error: "Failed to fetch parking logs: " + err.message });
+      }
+    });
+
     // PARKIR MASUK (Vehicle Entry)
     app.post(
       "/api/parkirMasuk",
@@ -409,7 +444,7 @@ async function startServer(rebuild = false) {
           }
 
           // --- Database Operations using async/await and connection from pool ---
-          const connection = await dbPool.getConnection(); // <-- Get connection from pool
+          const connection = await dbPool.getConnection(); // Get connection from pool
 
           try {
             await connection.beginTransaction();
@@ -473,7 +508,7 @@ async function startServer(rebuild = false) {
             console.error("Transaction error in parkirMasuk:", transactionErr);
             throw transactionErr;
           } finally {
-            connection.release(); // <-- Release connection back to pool
+            connection.release(); // Release connection back to pool
           }
         } catch (error) {
           console.error("Error processing /api/parkirMasuk request:", error);
@@ -495,7 +530,7 @@ async function startServer(rebuild = false) {
         return res.status(400).json({ error: "Nomor tiket wajib diisi" });
       }
 
-      const connection = await dbPool.getConnection(); // <-- Get connection from pool
+      const connection = await dbPool.getConnection(); // Get connection from pool
 
       try {
         await connection.beginTransaction();
@@ -547,33 +582,7 @@ async function startServer(rebuild = false) {
           .status(500)
           .json({ error: "Gagal memproses parkir keluar: " + err.message });
       } finally {
-        connection.release(); // <-- Release connection back to pool
-      }
-    });
-
-    // GET PARKING LOGS WITH DETAILS
-    app.get("/api/logParkir", authenticateToken, async (req, res) => {
-      try {
-        const [results] = await dbPool.query(
-          // Use dbPool directly
-          `
-        SELECT
-          lp.id,
-          k.plat_nomor,
-          t.nomor_tiket,
-          lp.waktu_masuk,
-          lp.waktu_keluar,
-          lp.foto_masuk,
-          CASE WHEN lp.waktu_keluar IS NULL THEN 'Aktif' ELSE 'Selesai' END as status
-        FROM Log_Parkir lp
-        JOIN Kendaraan k ON lp.id_kendaraan = k.id
-        JOIN Tiket t ON lp.id_tiket = t.id
-        ORDER BY lp.waktu_masuk DESC
-      `
-        );
-        res.json(results);
-      } catch (err) {
-        return res.status(500).json({ error: err.message });
+        connection.release(); // Release connection back to pool
       }
     });
 
@@ -589,7 +598,7 @@ async function startServer(rebuild = false) {
       try {
         const hashedPassword = await bcrypt.hash(password, 10);
         const sql = `INSERT INTO Admin (email, password) VALUES (?, ?)`;
-        const [result] = await dbPool.query(sql, [email, hashedPassword]); // Use dbPool directly
+        const [result] = await dbPool.query(sql, [email, hashedPassword]);
         res.json({
           message: "Admin berhasil didaftarkan",
           id: result.insertId,
@@ -615,7 +624,7 @@ async function startServer(rebuild = false) {
         const [results] = await dbPool.query(
           `SELECT * FROM Admin WHERE email = ?`,
           [email]
-        ); // Use dbPool directly
+        );
 
         if (results.length === 0) {
           await new Promise((resolve) => setTimeout(resolve, 500));
@@ -727,7 +736,7 @@ async function startServer(rebuild = false) {
       }
     );
 
-    // GET PEMASUKAN MINGGUAN BY ID (Existing, moved for better organization)
+    // GET PEMASUKAN MINGGUAN BY ID
     app.get(
       "/api/pemasukanMingguan/:id",
       authenticateToken,
@@ -799,8 +808,6 @@ async function startServer(rebuild = false) {
       }
     );
 
-    // Add this to your server.js or routes file
-
     // Function to map month numbers to Indonesian month names
     const getMonthName = (monthNumber) => {
       const months = [
@@ -820,7 +827,7 @@ async function startServer(rebuild = false) {
       return months[monthNumber - 1]; // monthNumber is 1-indexed
     };
 
-    // NEW: GET endpoint for monthly revenue data
+    // GET endpoint for monthly revenue data
     app.get("/api/pemasukanBulanan", authenticateToken, async (req, res) => {
       try {
         // Query to get total nominal_pemasukan grouped by month
@@ -843,15 +850,13 @@ async function startServer(rebuild = false) {
         res.json(formattedResults);
       } catch (err) {
         console.error("Error fetching monthly revenue data:", err);
-        res
-          .status(500)
-          .json({
-            error: "Gagal mengambil data pemasukan bulanan: " + err.message,
-          });
+        res.status(500).json({
+          error: "Gagal mengambil data pemasukan bulanan: " + err.message,
+        });
       }
     });
 
-    // GET ALL PEMASUKAN MINGGUAN DATA (Existing, moved for better organization)
+    // GET ALL PEMASUKAN MINGGUAN DATA
     app.get("/api/pemasukanMingguan", authenticateToken, async (req, res) => {
       try {
         const [results] = await dbPool.query(
@@ -878,7 +883,7 @@ async function startServer(rebuild = false) {
       }
       try {
         const sql = `INSERT INTO Log_Backup (waktu_backup, id_admin) VALUES (?, ?)`;
-        await dbPool.query(sql, [waktu_backup, id_admin]); // Use dbPool directly
+        await dbPool.query(sql, [waktu_backup, id_admin]);
         res.json({ message: "Log backup berhasil dicatat" });
       } catch (err) {
         return res.status(500).json({ error: err.message });
@@ -899,7 +904,7 @@ async function startServer(rebuild = false) {
   }
 }
 
-// Ambil argumen dari CLI
+// Handle command-line arguments
 const args = process.argv.slice(2);
 
 if (args[0] === "--add-admin") {
@@ -914,10 +919,8 @@ if (args[0] === "--add-admin") {
   }
 
   // Connect to the database to add the admin
-  // Use promise-based connection here too for consistency and safety
   mysql
     .createConnection({
-      // Direct connection for CLI tool
       host: process.env.DB_HOST,
       user: process.env.DB_USER,
       password: process.env.DB_PASS,
@@ -949,13 +952,7 @@ if (args[0] === "--add-admin") {
       console.error("❌ Gagal terhubung ke database:", err);
       process.exit(1);
     });
-} else {
-  // If no specific CLI argument is provided, start the server
-  const shouldRebuild = process.argv.includes("--rebuild");
-  startServer(shouldRebuild);
-}
-
-if (args[0] === "--generate-key") {
+} else if (args[0] === "--generate-key") {
   const envFilePath = path.join(__dirname, ".env");
   const newSecret = crypto.randomBytes(32).toString("hex"); // Generate 32 bytes (64 hex characters)
 
@@ -988,4 +985,8 @@ if (args[0] === "--generate-key") {
     console.error("❌ Failed to generate or save JWT_SECRET:", err);
     process.exit(1);
   }
+} else {
+  // If no specific CLI argument is provided, start the server
+  const shouldRebuild = process.argv.includes("--rebuild");
+  startServer(shouldRebuild);
 }

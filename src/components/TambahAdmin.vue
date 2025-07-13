@@ -25,6 +25,11 @@
             <i class="fa-solid fa-square-parking"></i> Data Parkir
           </router-link>
         </li>
+        <li>
+          <router-link to="/pemasukan" class="nav-link">
+            <i class="fa-solid fa-money-bill-wave"></i> Pemasukan Parkir
+          </router-link>
+        </li>
       </ul>
     </nav>
 
