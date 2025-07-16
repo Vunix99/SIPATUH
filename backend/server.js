@@ -629,7 +629,7 @@ async function startServer(rebuild = false) {
           t.nomor_tiket,
           lp.waktu_masuk,
           lp.waktu_keluar,
-          CONCAT('${VITE_DOMAIN_SERVER}/uploads/', lp.foto_masuk) AS foto_masuk,
+          CONCAT('${VITE_DOMAIN_SERVER}/backend/uploads/', lp.foto_masuk) AS foto_masuk,
           CASE WHEN lp.waktu_keluar IS NULL THEN 'active' ELSE 'completed' END as status
         FROM Log_Parkir lp
         JOIN Kendaraan k ON lp.id_kendaraan = k.id
