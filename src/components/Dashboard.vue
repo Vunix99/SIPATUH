@@ -227,7 +227,7 @@ export default {
     let socket = null;
 
     const API_DOMAIN =
-      import.meta.env.API_DOMAIN || "http://localhost:3000";
+      import.meta.env.VITE_API_DOMAIN || "http://localhost:3000";
 
     console.log(
       `Connecting to WebSocket server at ${API_DOMAIN}...`
