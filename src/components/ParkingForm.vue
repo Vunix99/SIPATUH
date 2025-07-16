@@ -381,7 +381,7 @@ export default {
 
     // Get API domain from environment variable or use default
     const API_DOMAIN =
-      import.meta.env.API_DOMAIN || "http://localhost:3000";
+      import.meta.env.VITE_DOMAIN_SERVER || "http://localhost:3000";
 
     const isFormMasukValid = computed(() => {
       return (

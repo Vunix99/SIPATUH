@@ -133,7 +133,7 @@ export default {
 
       try {
         const API_DOMAIN =
-          import.meta.env.API_DOMAIN || "http://localhost:3000";
+          import.meta.env.VITE_DOMAIN_SERVER || "http://localhost:3000";
         const response = await fetch(`${API_DOMAIN}/api/admin/login`, {
           method: "POST",
           headers: {
