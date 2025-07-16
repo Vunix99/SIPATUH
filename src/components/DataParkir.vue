@@ -30,11 +30,26 @@
             <i class="fa-solid fa-money-bill-wave"></i> Pemasukan Parkir
           </router-link>
         </li>
+        <li>
+          <router-link to="/log-aktivitas" class="nav-link">
+            <i class="fa-solid fa-clipboard-list"></i> Log Aktivitas
+          </router-link>
+        </li>
+        <li>
+          <router-link to="/pencadangan-pemulihan" class="nav-link">
+            <i class="fa-solid fa-arrows-rotate"></i> Pencadangan dan Pemulihan
+          </router-link>
+        </li>
+        <li>
+          <router-link to="/logout" class="nav-link" style="color: red; font-weight: bolder;">
+            <i class="fa-solid fa-right-from-bracket"></i> Logout
+          </router-link>
+        </li>
       </ul>
     </nav>
 
     <div class="content flex-grow-1">
-      <nav class="navbar navbar-light bg-light px-3">
+      <nav class="navbar navbar-light bg-light px-3 fixed-top">
         <button
           class="btn btn-outline-secondary d-md-none"
           @click="toggleSidebar"
@@ -46,41 +61,43 @@
         </h5>
       </nav>
 
-      <div class="container-fluid mt-3">
-        <div class="card shadow mb-4">
-          <div class="card-header">
-            <strong>📋 Data Log Parkir</strong>
-          </div>
-          <div class="card-body">
-            <div
-              class="d-flex justify-content-between align-items-center mb-3"
-            >
-              <div class="form-group flex-grow-1 me-3">
-                <label for="filterDateParkir" class="form-label text-white-50"
-                  >Filter Tanggal:</label
-                >
-                <div class="d-flex gap-2 align-items-end">
-                  <div class="date-input-container">
-                    <input
-                      type="date"
-                      class="form-control"
-                      id="filterDateParkir"
-                      v-model="filterDateParkir"
-                      @change="applyDayFilter"
-                    />
-                    <i class="fas fa-calendar-alt calendar-icon"></i>
-                  </div>
-                  <button
-                    class="btn btn-outline-light"
-                    @click="clearDayFilter"
-                    v-if="filterDateParkir"
+      <div class="content-wrapper">
+        <div class="container-fluid mt-3">
+          <div class="card shadow mb-4">
+            <div class="card-header">
+              <strong>📋 Data Log Parkir</strong>
+            </div>
+            <div class="card-body">
+              <div
+                class="d-flex justify-content-between align-items-center mb-3"
+              >
+                <div class="form-group flex-grow-1 me-3">
+                  <label for="filterDateParkir" class="form-label text-white-50"
+                    >Filter Tanggal:</label
                   >
-                    Clear
-                  </button>
+                  <div class="d-flex gap-2 align-items-end">
+                    <div class="date-input-container">
+                      <input
+                        type="date"
+                        class="form-control"
+                        id="filterDateParkir"
+                        v-model="filterDateParkir"
+                        @change="applyDayFilter"
+                      />
+                      <i class="fas fa-calendar-alt calendar-icon"></i>
+                    </div>
+                    <button
+                      class="btn btn-outline-light"
+                      @click="clearDayFilter"
+                      v-if="filterDateParkir"
+                    >
+                      Clear
+                    </button>
+                  </div>
                 </div>
               </div>
+              <div ref="parkirTable" class="tabulator-table-container"></div>
             </div>
-            <div ref="parkirTable" class="tabulator-table-container"></div>
           </div>
         </div>
       </div>
@@ -291,7 +308,7 @@ export default {
         resizableColumns: false,
         resizeableRows: false,
         placeholder: "Tidak ada data parkir",
-        // cssClass: "tabulator-dark-theme", // Ini sudah diterapkan oleh import tabulator_midnight.min.css
+        cssClass: "tabulator-dark-theme", // Ini sudah diterapkan oleh import tabulator_midnight.min.css
       };
 
       if (isMobile) {
@@ -454,8 +471,6 @@ export default {
 </script>
 
 <style scoped>
-/* Anda sudah memiliki ini sebelumnya, saya hanya menyisipkan bagian yang dimodifikasi */
-
 /* Sembunyikan header tabel ketika mode mobile-card aktif */
 .tabulator[data-mobile-card-active="true"] .tabulator-header {
     display: none;
@@ -697,6 +712,13 @@ h5.card-title {
   background-color: #210038 !important; /* Slightly lighter purple for the navbar */
   color: #fdfdfd; /* Changed to FDFDFD */
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); /* Add a subtle shadow */
+  /* NEW: Tambahkan properti fixed untuk navbar */
+  position: fixed;
+  top: 0;
+  width: 100%;
+  z-index: 1030; /* Pastikan di atas konten dan di bawah modal */
+  padding-left: 240px !important; /* Untuk memberi ruang pada sidebar di desktop */
+  transition: padding-left 0.3s; /* Transisi halus */
 }
 
 .navbar .btn-outline-secondary {
@@ -717,7 +739,7 @@ h5.card-title {
     0,
     0.25
   ); /* Darker transparent background for cards */
-  color: #fdfdfd; /* Changed to FDFDFD */
+  color: #fdfdfd; /* Changed to FDFDFD for card titles */
   border: none;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); /* More prominent shadow for cards */
 }
@@ -799,26 +821,32 @@ h5.card-title {
 }
 
 .list-group-item:first-child {
-  border-top-width: 0; /* Remove top border for first item */
+  border-top-width: 0;
 }
 
 .list-group-item:last-child {
-  border-bottom-width: 0; /* Remove bottom border for last item (if flush) */
+  border-bottom-width: 0;
 }
 
 .list-group-item .text-muted {
-  color: #ccc !important; /* Slightly darker white for muted text to provide subtle distinction */
+  color: #ccc !important;
 }
 
 /* Badges for status */
 .badge.bg-success {
-  background-color: #00cc66 !important; /* Brighter green for active status */
-  color: #000 !important; /* Ensure black text for readability on green */
+  background-color: #00cc66 !important;
+  color: #000 !important;
 }
 .badge.bg-secondary {
-  background-color: #777 !important; /* A neutral gray for completed status */
-  color: #fdfdfd !important; /* Ensure FDFDFD text on gray */
+  background-color: #777 !important;
+  color: #fdfdfd !important;
 }
+
+/* NEW: Wrapper for content below fixed navbar */
+.content-wrapper {
+  padding-top: 56px; /* Adjust this to the height of your fixed navbar */
+}
+
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
@@ -831,6 +859,10 @@ h5.card-title {
   .content {
     margin-left: 0 !important;
   }
+  /* Navbar on smaller screens: full width, no left padding */
+  .navbar {
+    padding-left: 1rem !important; /* Adjust if Bootstrap's px-3 means 1rem by default */
+  }
 }
 
 .content {
@@ -841,34 +873,34 @@ h5.card-title {
 
 .card-body canvas {
   width: 100% !important;
-  height: 300px !important; /* Keep a consistent height for both canvases */
+  height: 300px !important;
 }
 
 /* Specific styles for DataParkir.vue */
 .tabulator-table-container {
-  overflow-x: auto; /* Enable horizontal scrolling for the table */
+  overflow-x: auto;
 }
 
 /* Custom button style */
 .btn-custom {
-  background-color: #fc0; /* Consistent secondary accent color */
-  color: #000; /* Kept black for contrast on yellow background */
+  background-color: #fc0;
+  color: #000;
   font-weight: 600;
   border: none;
 }
 .btn-custom:hover {
-  background-color: #e6b800; /* Slightly darker accent on hover */
+  background-color: #e6b800;
 }
 
 /* Modal specific styles to match dark theme */
 .custom-modal-content {
-  background-color: #2b0057; /* Dark background like content */
+  background-color: #2b0057;
   color: #fdfdfd;
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .custom-modal-header {
-  background-color: #210038; /* Darker header like navbar */
+  background-color: #210038;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
@@ -877,144 +909,121 @@ h5.card-title {
 }
 
 .custom-btn-close {
-  filter: invert(1); /* Invert color for white 'x' on dark background */
+  filter: invert(1);
 }
 
 .custom-modal-body {
-  background-color: #2b0057; /* Ensure body also dark */
+  background-color: #2b0057;
 }
 
 .custom-modal-body .form-label {
-  color: #fdfdfd; /* Label text color */
+  color: #fdfdfd;
 }
 
 .custom-modal-body .form-control {
-  background-color: rgba(
-    255,
-    255,
-    255,
-    0.1
-  ); /* Slightly transparent input background */
+  background-color: rgba(255, 255, 255, 0.1);
   color: #fdfdfd;
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .custom-modal-body .form-control:focus {
   background-color: rgba(255, 255, 255, 0.15);
-  border-color: #fc0; /* Highlight with accent color on focus */
+  border-color: #fc0;
   box-shadow: 0 0 0 0.25rem rgba(255, 204, 0, 0.25);
 }
 
 /* Date input specific styles */
 input[type="date"]::-webkit-calendar-picker-indicator {
-  filter: invert(1); /* Makes the calendar icon white */
+  filter: invert(1);
 }
 input[type="date"] {
-  color-scheme: dark; /* Tries to enforce a dark theme for the date picker itself */
+  color-scheme: dark;
 }
 
 /* CUSTOM BACKDROP STYLES */
-/* Mengatur backdrop kustom agar mengisi seluruh area modal */
 .custom-modal-backdrop {
-  position: absolute; /* Posisikan absolut di dalam .modal.fade */
+  position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.5); /* Warna hitam transparan */
-  z-index: 1; /* Harus lebih rendah dari modal-dialog yang akan punya z-index lebih tinggi */
-  opacity: 1; /* Karena kita pakai v-if, saat elemen ada, dia langsung opaque */
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1;
+  opacity: 1;
   transition: opacity 0.3s ease;
 }
 
-/* Modifikasi .modal.fade agar jadi container utama fixed */
 .modal.fade {
-  position: fixed; /* Penting: agar modal menutupi seluruh viewport */
+  position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  z-index: 1040; /* Z-index untuk seluruh modal, termasuk backdrop kustom di dalamnya */
-  display: flex; /* Gunakan flexbox untuk menengahkan modal-dialog */
+  z-index: 1040;
+  display: flex;
   justify-content: center;
   align-items: center;
-  overflow: hidden; /* Sembunyikan overflow dari modal itu sendiri */
-  /* backdrop-filter: blur(5px); (opsional, untuk efek blur pada background) */
+  overflow: hidden;
 }
 
-/* Pastikan modal-dialog dan isinya berada di atas backdrop kustom */
 .modal-dialog {
-  position: relative; /* Penting untuk z-index di dalam modal.fade */
-  z-index: 2; /* Lebih tinggi dari custom-modal-backdrop (yang punya z-index 1) */
-  /* Gaya penengahan modal-dialog secara vertikal dan horizontal sudah ditangani oleh flexbox di .modal.fade */
+  position: relative;
+  z-index: 2;
 }
 
-/* Override gaya Bootstrap yang menambahkan overflow: hidden ke body */
-/* Ini diperlukan jika Anda ingin scrollbar body tetap berfungsi saat modal terbuka */
 body.modal-custom-open {
-  /* Gunakan kelas kustom yang kita tambahkan di JS */
-  overflow: hidden !important; /* Untuk mencegah scrolling body saat modal terbuka */
-  padding-right: var(
-    --bs-body-padding-right,
-    0
-  ) !important; /* Biarkan padding scrollbar default Bootstrap jika ada */
+  overflow: hidden !important;
+  padding-right: var(--bs-body-padding-right, 0) !important;
 }
 
-/* Tambahan: Bootstrap juga menambahkan class 'modal-open' ke body. Anda bisa target ini juga */
 body.modal-open {
-  padding-right: 0px !important; /* Pastikan padding kanan tidak ada jika tidak diinginkan */
-  overflow: hidden !important; /* Sembunyikan scrollbar pada body */
+  padding-right: 0px !important;
+  overflow: hidden !important;
 }
 
 /* Specific styles for DataParkir.vue */
 .tabulator-table-container {
-  overflow-x: auto; /* Enable horizontal scrolling for the table */
+  overflow-x: auto;
 }
 
 /* Tabulator Dark Theme Overrides */
-/* The main table container */
 .tabulator.tabulator-dark-theme {
-  background-color: transparent; /* Inherit from card-body */
-  border: none; /* Remove default border */
-  color: #fdfdfd; /* Default text color for table */
-  font-family: sans-serif; /* Ensure consistent font */
+  background-color: transparent;
+  border: none;
+  color: #fdfdfd;
+  font-family: sans-serif;
 }
 
-/* Table header */
 .tabulator.tabulator-dark-theme .tabulator-header {
-  background-color: #4d0073 !important; /* Dark purple for header */
-  color: #fdfdfd !important; /* White text for header */
-  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
-  border-top: none; /* Remove top border if present */
-}
-
-/* Individual column headers */
-.tabulator.tabulator-dark-theme .tabulator-col {
-  background-color: #4d0073 !important; /* Ensure column backgrounds match header */
+  background-color: #4d0073 !important;
   color: #fdfdfd !important;
-  border-right: 1px solid rgba(255, 255, 255, 0.05); /* Subtle column dividers */
+  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+  border-top: none;
 }
 
-/* Hover state for sortable columns */
+.tabulator.tabulator-dark-theme .tabulator-col {
+  background-color: #4d0073 !important;
+  color: #fdfdfd !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+}
+
 .tabulator.tabulator-dark-theme .tabulator-col.tabulator-sortable:hover {
-  background-color: #5a0099 !important; /* Slightly lighter purple on hover */
+  background-color: #5a0099 !important;
 }
 
-/* Sorted column headers */
 .tabulator.tabulator-dark-theme
   .tabulator-col.tabulator-sortable[aria-sort="asc"],
 .tabulator.tabulator-dark-theme
   .tabulator-col.tabulator-sortable[aria-sort="desc"] {
-  background-color: #5a0099 !important; /* Lighter purple for sorted columns */
+  background-color: #5a0099 !important;
 }
 
-/* Header filter input fields */
 .tabulator.tabulator-dark-theme .tabulator-header-filter {
   background-color: rgba(255, 255, 255, 0.1) !important;
   color: #fdfdfd !important;
   border: 1px solid rgba(255, 255, 255, 0.2) !important;
-  padding: 5px 8px; /* Adjust padding for better look */
-  box-sizing: border-box; /* Include padding in element's total width and height */
+  padding: 5px 8px;
+  box-sizing: border-box;
 }
 
 .tabulator.tabulator-dark-theme .tabulator-header-filter:focus {
@@ -1022,61 +1031,40 @@ body.modal-open {
   box-shadow: 0 0 0 0.25rem rgba(255, 204, 0, 0.25) !important;
 }
 
-/* Table body (rows and cells) */
 .tabulator.tabulator-dark-theme .tabulator-tableHolder {
-  background-color: transparent; /* No specific background for table holder */
+  background-color: transparent;
 }
 
 .tabulator.tabulator-dark-theme .tabulator-row {
-  background-color: rgba(
-    0,
-    0,
-    0,
-    0.2
-  ) !important; /* Slightly transparent row background */
-  color: #fdfdfd !important; /* Row text color */
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05); /* Subtle row dividers */
+  background-color: rgba(0, 0, 0, 0.2) !important;
+  color: #fdfdfd !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-/* Even rows for striping */
 .tabulator.tabulator-dark-theme .tabulator-row.tabulator-row-even {
-  background-color: rgba(
-    0,
-    0,
-0,
-    0.25
-  ) !important; /* Slightly darker for even rows */
+  background-color: rgba(0, 0, 0, 0.25) !important;
 }
 
-/* Selected row */
 .tabulator.tabulator-dark-theme .tabulator-row.tabulator-selected {
-  background-color: rgba(
-    252,
-    204,
-    0,
-    0.2
-  ) !important; /* Accent color for selected row */
+  background-color: rgba(252, 204, 0, 0.2) !important;
   color: #fdfdfd !important;
 }
 
-/* Row hover state */
 .tabulator.tabulator-dark-theme .tabulator-row:hover {
-  background-color: rgba(0, 0, 0, 0.35) !important; /* Darker on hover */
+  background-color: rgba(0, 0, 0, 0.35) !important;
 }
 
-/* Individual cells */
 .tabulator.tabulator-dark-theme .tabulator-cell {
-  border-right: 1px solid rgba(255, 255, 255, 0.05); /* Cell borders */
-  color: #fdfdfd; /* Cell text color */
-  padding: 8px 12px; /* Adjust cell padding */
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  color: #fdfdfd;
+  padding: 8px 12px;
 }
 
-/* Pagination styles */
 .tabulator.tabulator-dark-theme .tabulator-footer {
-  background-color: #4d0073 !important; /* Dark purple for footer */
+  background-color: #4d0073 !important;
   color: #fdfdfd !important;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 10px; /* Add some padding to the footer */
+  padding: 10px;
 }
 
 .tabulator.tabulator-dark-theme .tabulator-page-counter {
@@ -1087,13 +1075,13 @@ body.modal-open {
   background-color: rgba(255, 255, 255, 0.1) !important;
   color: #fdfdfd !important;
   border: 1px solid rgba(255, 255, 255, 0.2) !important;
-  margin: 0 4px; /* Adjust spacing between buttons */
-  padding: 5px 10px; /* Adjust button padding */
-  border-radius: 4px; /* Slightly rounded corners */
+  margin: 0 4px;
+  padding: 5px 10px;
+  border-radius: 4px;
 }
 
 .tabulator.tabulator-dark-theme .tabulator-pages button.active {
-  background-color: #fc0 !important; /* Accent color for active page */
+  background-color: #fc0 !important;
   color: #000 !important;
   border-color: #fc0 !important;
 }
@@ -1107,11 +1095,10 @@ body.modal-open {
   background-color: rgba(255, 255, 255, 0.1) !important;
   color: #fdfdfd !important;
   border: 1px solid rgba(255, 255, 255, 0.2) !important;
-  padding: 5px 8px; /* Adjust padding for page size dropdown */
+  padding: 5px 8px;
   border-radius: 4px;
 }
 
-/* Placeholder message */
 .tabulator.tabulator-dark-theme .tabulator-placeholder {
   background-color: transparent;
   color: #ccc;
@@ -1119,44 +1106,33 @@ body.modal-open {
   padding: 20px;
 }
 
-/* Adjustments for icons within cells for visibility */
 .tabulator.tabulator-dark-theme .tabulator-cell .btn {
-  /* You already have good button styles, just ensure they are visible */
-  color: #fdfdfd; /* Or specific icon color */
+  color: #fdfdfd;
 }
 
-
-/* --- Custom Tabulator Resizer Overrides --- */
-
-/* Target the column resizer element */
 .tabulator .tabulator-col .tabulator-col-resize-handle {
-  cursor: default !important; /* Change cursor to default */
-  pointer-events: none !important; /* Prevent interaction with the handle */
+  cursor: default !important;
+  pointer-events: none !important;
 }
 
-/* Ensure the header itself doesn't show resize cursor */
 .tabulator .tabulator-col.tabulator-sortable {
-  cursor: pointer !important; /* Keep pointer cursor for sortable headers */
+  cursor: pointer !important;
 }
 
-/* For non-sortable headers, ensure default cursor */
 .tabulator .tabulator-col:not(.tabulator-sortable) {
   cursor: default !important;
 }
 
-/* Also target the general table resize handle, though you've set resizeable:false */
 .tabulator .tabulator-footer .tabulator-resize-handle {
-    display: none !important; /* Hide footer resize handle */
+    display: none !important;
 }
 
-/* Custom CSS for image thumbnails in table */
 .parking-thumbnail {
-    width: 50px; /* Desired width */
-    height: 50px; /* Desired height for 1:1 ratio */
-    object-fit: cover; /* This is key for 1:1 crop without stretching */
-    border-radius: 4px; /* Slightly rounded corners for aesthetics */
-    cursor: pointer; /* Indicate it's clickable */
-    vertical-align: middle; /* Align with text in cell */
+    width: 50px;
+    height: 50px;
+    object-fit: cover;
+    border-radius: 4px;
+    cursor: pointer;
+    vertical-align: middle;
 }
 </style>
-

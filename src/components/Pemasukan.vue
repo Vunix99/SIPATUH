@@ -30,11 +30,26 @@
             <i class="fa-solid fa-money-bill-wave"></i> Pemasukan Parkir
           </router-link>
         </li>
+        <li>
+          <router-link to="/log-aktivitas" class="nav-link">
+            <i class="fa-solid fa-clipboard-list"></i> Log Aktivitas
+          </router-link>
+        </li>
+        <li>
+          <router-link to="/pencadangan-pemulihan" class="nav-link">
+            <i class="fa-solid fa-arrows-rotate"></i> Pencadangan dan Pemulihan
+          </router-link>
+        </li>
+        <li>
+          <router-link to="/logout" class="nav-link" style="color: red; font-weight: bolder;">
+            <i class="fa-solid fa-right-from-bracket"></i> Logout
+          </router-link>
+        </li>
       </ul>
     </nav>
 
     <div class="content flex-grow-1">
-      <nav class="navbar navbar-light bg-light px-3">
+      <nav class="navbar navbar-light bg-light px-3 fixed-top">
         <button
           class="btn btn-outline-secondary d-md-none"
           @click="toggleSidebar"
@@ -46,61 +61,63 @@
         </h5>
       </nav>
 
-      <div class="container-fluid mt-3">
-        <div class="card shadow mb-4">
-          <div class="card-header">
-            <strong>📊 Data Pemasukan Parkir</strong>
-          </div>
-          <div class="card-body">
-            <p class="text-white-50">
-              <i class="fas fa-info-circle me-2"></i>
-              Nominal bersih merupakan nominal pemasukan dikurangi 20% untuk
-              Biaya Admin Aplikasi.
-            </p>
-            <div
-              class="d-flex justify-content-between align-items-center mb-3"
-            >
-              <div class="form-group flex-grow-1 me-3">
-                <label for="filterDate" class="form-label text-white-50"
-                  >Filter Tanggal:</label
-                >
-                <div class="d-flex gap-2 align-items-end">
-                  <div class="date-input-container">
-                    <input
-                      type="date"
-                      class="form-control"
-                      id="filterDate"
-                      v-model="filterDate"
-                      @change="applyDayFilter"
-                    />
-                    <i class="fas fa-calendar-alt calendar-icon"></i>
-                  </div>
-                  <button
-                    class="btn btn-outline-light"
-                    @click="clearDayFilter"
-                    v-if="filterDate"
+      <div class="content-wrapper">
+        <div class="container-fluid mt-3">
+          <div class="card shadow mb-4">
+            <div class="card-header">
+              <strong>📊 Data Pemasukan Parkir</strong>
+            </div>
+            <div class="card-body">
+              <p class="text-white-50">
+                <i class="fas fa-info-circle me-2"></i>
+                Nominal bersih merupakan nominal pemasukan dikurangi 20% untuk
+                Biaya Admin Aplikasi.
+              </p>
+              <div
+                class="d-flex justify-content-between align-items-center mb-3"
+              >
+                <div class="form-group flex-grow-1 me-3">
+                  <label for="filterDate" class="form-label text-white-50"
+                    >Filter Tanggal:</label
                   >
-                    Clear
+                  <div class="d-flex gap-2 align-items-end">
+                    <div class="date-input-container">
+                      <input
+                        type="date"
+                        class="form-control"
+                        id="filterDate"
+                        v-model="filterDate"
+                        @change="applyDayFilter"
+                      />
+                      <i class="fas fa-calendar-alt calendar-icon"></i>
+                    </div>
+                    <button
+                      class="btn btn-outline-light"
+                      @click="clearDayFilter"
+                      v-if="filterDate"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+
+                <div class="ms-auto">
+                  <button class="btn btn-custom" @click="openAddIncomeModal">
+                    <i class="fas fa-plus-circle me-2"></i>Tambah Pemasukan
                   </button>
                 </div>
               </div>
-
-              <div class="ms-auto">
-                <button class="btn btn-custom" @click="openAddIncomeModal">
-                  <i class="fas fa-plus-circle me-2"></i>Tambah Pemasukan
-                </button>
-              </div>
+              <div ref="pemasukanTable" class="tabulator-table-container"></div>
             </div>
-            <div ref="pemasukanTable" class="tabulator-table-container"></div>
           </div>
-        </div>
 
-        <div class="card shadow mb-4 mt-4">
-          <div class="card-header">
-            <strong>📈 Pemasukan Bulanan</strong>
-          </div>
-          <div class="card-body">
-            <canvas id="revenueChart"></canvas>
+          <div class="card shadow mb-4 mt-4">
+            <div class="card-header">
+              <strong>📈 Pemasukan Bulanan</strong>
+            </div>
+            <div class="card-body">
+              <canvas id="revenueChart"></canvas>
+            </div>
           </div>
         </div>
       </div>
@@ -906,10 +923,11 @@ h5.card-title {
   width: 240px;
   height: 100vh;
   padding-top: 1rem;
-  position: fixed;
+  position: fixed; /* Membuat elemen tetap di posisi tertentu di viewport */
+  top: 0;          /* Memposisikan di bagian atas viewport */
+  left: 0;         /* Memposisikan di bagian kiri viewport */
   transition: all 0.3s;
-  left: 0;
-  z-index: 2000;
+  z-index: 2000; /* Pastikan sidebar di atas konten lain */
 }
 
 .sidebar .nav-link {
@@ -936,6 +954,13 @@ h5.card-title {
   background-color: #210038 !important; /* Slightly lighter purple for the navbar */
   color: #fdfdfd; /* Changed to FDFDFD */
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); /* Add a subtle shadow */
+  /* Make the navbar fixed at the top */
+  position: fixed; /* NEW: Membuat navbar melayang */
+  top: 0;          /* NEW: Menempel di bagian atas */
+  width: 100%;     /* NEW: Memenuhi lebar layar */
+  z-index: 1030;   /* NEW: Higher than sidebar's default content, but lower than modals etc. */
+  padding-left: 240px !important; /* NEW: Default padding-left to push content past the fixed sidebar */
+  transition: padding-left 0.3s; /* NEW: Smooth transition for padding when sidebar opens/closes */
 }
 
 .navbar .btn-outline-secondary {
@@ -956,7 +981,7 @@ h5.card-title {
     0,
     0.25
   ); /* Darker transparent background for cards */
-  color: #fdfdfd; /* Changed to FDFDFD */
+  color: #fdfdfd; /* Changed to FDFDFD for card titles */
   border: none;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); /* More prominent shadow for cards */
 }
@@ -1059,6 +1084,12 @@ h5.card-title {
   color: #fdfdfd !important; /* Ensure FDFDFD text on gray */
 }
 
+/* NEW: Wrapper for content below fixed navbar */
+.content-wrapper {
+  padding-top: 56px; /* Adjust this to the height of your fixed navbar */
+}
+
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .sidebar {
@@ -1069,6 +1100,10 @@ h5.card-title {
   }
   .content {
     margin-left: 0 !important;
+  }
+  /* Navbar on smaller screens: full width, no left padding */
+  .navbar {
+    padding-left: 1rem !important; /* Adjust if Bootstrap's px-3 means 1rem by default */
   }
 }
 

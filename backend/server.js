@@ -15,6 +15,7 @@ import cookieParser from "cookie-parser";
 import crypto from "crypto";
 import http from "http";
 import { Server } from "socket.io";
+import { exec } from "child_process"; // Import exec from child_process
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -56,6 +57,13 @@ if (!fs.existsSync(uploadsDir)) {
   console.log("Created uploads directory:", uploadsDir);
 }
 
+// Directory for backups
+const backupsDir = path.join(__dirname, "backups");
+if (!fs.existsSync(backupsDir)) {
+  fs.mkdirSync(backupsDir, { recursive: true });
+  console.log("Created backups directory:", backupsDir);
+}
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadsDir),
   filename: (req, file, cb) => {
@@ -66,12 +74,38 @@ const storage = multer.diskStorage({
 });
 const upload = multer({
   storage,
-  limits: { fileSize: 50 * 1024 * 1024 },
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit for general uploads (images)
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith("image/")) cb(null, true);
     else cb(new Error("Only image files are allowed!"), false);
   },
 });
+
+// Multer storage for SQL files (for restore)
+const sqlStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadsDir), // Store temporarily in uploads
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    const ext = path.extname(file.originalname);
+    if (ext.toLowerCase() !== '.sql') {
+        return cb(new Error("Only .sql files are allowed for restore!"), false);
+    }
+    cb(null, `restore-${uniqueSuffix}${ext}`);
+  },
+});
+const uploadSql = multer({
+  storage: sqlStorage,
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB limit for SQL files
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (ext === '.sql' || file.mimetype === 'application/x-sql') {
+      cb(null, true);
+    } else {
+      cb(new Error("Only .sql files are allowed for restore!"), false);
+    }
+  },
+});
+
 
 app.use(
   cors({
@@ -91,6 +125,8 @@ app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 app.use(cookieParser());
 app.use("/uploads", express.static(uploadsDir));
+app.use("/backups", express.static(backupsDir)); // Serve backup files
+
 
 if (!JWT_SECRET) {
   console.error("FATAL ERROR: JWT_SECRET is not defined in .env file.");
@@ -147,7 +183,8 @@ const createLogMessage = async (message, adminId, adminEmail) => {
     const formattedMessage = message.replace("email_admin", adminEmail || "Unknown Admin");
     await dbPool.query(sql, [formattedMessage, adminId || null]);
     console.log(`LogMessages recorded: ${formattedMessage}`);
-    io.emit('logMessageUpdate', { message: formattedMessage, adminEmail: adminEmail });
+
+    emitDashboardUpdate('logMessages');
   } catch (err) {
     console.error("Error creating log message:", err);
   }
@@ -223,16 +260,13 @@ const emitDashboardUpdate = async (type) => {
               FROM LogMessages lm
               LEFT JOIN Admin a ON lm.id_admin = a.id
               ORDER BY lm.tanggal_pesan DESC
-              LIMIT 10
+              LIMIT 50
           `);
           data = logMsgs;
           break;
-      // --- UPDATED CASE FOR WEEKLY PARKING TREND ---
       case 'weeklyParkingTrend':
           const [weeklyParkingDataRaw] = await dbPool.query(`
               SELECT
-                  -- Hitung nomor minggu dalam bulan, dengan Minggu sebagai hari pertama (mode 0)
-                  -- WEEK(tanggal, 0): Minggu dimulai hari Minggu, minggu pertama adalah yang mengandung 1 Januari.
                   WEEK(lp.waktu_masuk, 0) -
                   WEEK(DATE_FORMAT(lp.waktu_masuk, '%Y-%m-01'), 0) + 1 AS week_in_month,
                   COUNT(*) AS total_vehicles
@@ -245,15 +279,12 @@ const emitDashboardUpdate = async (type) => {
                   week_in_month;
           `);
 
-          // Siapkan array dengan semua label minggu yang mungkin (hingga Minggu 5, jika ada)
-          // Kita akan membatasi hingga Minggu 4 di frontend
           const allWeeksLabels = ['Minggu 1', 'Minggu 2', 'Minggu 3', 'Minggu 4', 'Minggu 5'];
           const formattedWeeklyData = allWeeksLabels.map((label, index) => ({
               week_of_month: label,
               total_vehicles: 0
           }));
 
-          // Isi data yang ada dari query ke dalam struktur yang sudah diformat
           weeklyParkingDataRaw.forEach(row => {
               const weekIndex = row.week_in_month - 1;
               if (weekIndex >= 0 && weekIndex < formattedWeeklyData.length) {
@@ -261,7 +292,6 @@ const emitDashboardUpdate = async (type) => {
               }
           });
 
-          // Kita hanya akan mengirim data untuk Minggu 1 hingga Minggu 4 ke frontend
           data = formattedWeeklyData.slice(0, 4);
           break;
       default:
@@ -444,7 +474,7 @@ async function startServer(rebuild = false) {
       emitDashboardUpdate('totalActiveVehicles');
       emitDashboardUpdate('revenueSummary');
       emitDashboardUpdate('logMessages');
-      emitDashboardUpdate('weeklyParkingTrend'); // <--- Emit this new data type on connect
+      emitDashboardUpdate('weeklyParkingTrend');
 
       socket.on('disconnect', () => {
         console.log('Client disconnected from WebSocket:', socket.id);
@@ -677,12 +707,12 @@ async function startServer(rebuild = false) {
               "Parking entry recorded successfully and ticket updated."
             );
 
-            await createLogMessage(`email_admin telah menambah data parkir Plat Nomor: ${plat_nomor}, No. Tiket: ${nomor_tiket}`, adminId, adminEmail);
+            await createLogMessage(`email_admin telah memakai No. Tiket ${nomor_tiket}`, adminId, adminEmail);
             emitDashboardUpdate('parkingLogs');
             emitDashboardUpdate('availableTickets');
             emitDashboardUpdate('totalAvailableTickets');
             emitDashboardUpdate('totalActiveVehicles');
-            emitDashboardUpdate('weeklyParkingTrend'); // <--- Emit this on relevant actions
+            emitDashboardUpdate('weeklyParkingTrend');
 
 
             res.json({
@@ -760,12 +790,12 @@ async function startServer(rebuild = false) {
         await connection.commit();
         console.log("Parking exit recorded, ticket available again.");
 
-        await createLogMessage(`email_admin telah mengeluarkan data parkir Plat Nomor: ${plat_nomor}, No. Tiket: ${nomor_tiket}`, adminId, adminEmail);
+        await createLogMessage(`email_admin telah mengembalikan No. Tiket ${nomor_tiket}`, adminId, adminEmail);
         emitDashboardUpdate('parkingLogs');
         emitDashboardUpdate('availableTickets');
         emitDashboardUpdate('totalAvailableTickets');
         emitDashboardUpdate('totalActiveVehicles');
-        emitDashboardUpdate('weeklyParkingTrend'); // <--- Emit this on relevant actions
+        emitDashboardUpdate('weeklyParkingTrend');
 
         res.json({
           message: "Parkir keluar tercatat, tiket tersedia kembali",
@@ -793,6 +823,9 @@ async function startServer(rebuild = false) {
         const hashedPassword = await bcrypt.hash(password, 10);
         const sql = `INSERT INTO Admin (email, password) VALUES (?, ?)`;
         const [result] = await dbPool.query(sql, [email, hashedPassword]);
+        
+        await createLogMessage(`email_admin telah menambah admin baru dengan email: ${email}`, null, email);
+
         res.json({
           message: "Admin berhasil didaftarkan",
           id: result.insertId,
@@ -843,7 +876,6 @@ async function startServer(rebuild = false) {
 
         await createLogMessage(`email_admin telah berhasil login`, admin.id, admin.email);
 
-
         res.json({ message: "Login berhasil", id_admin: admin.id });
       } catch (err) {
         console.error("Error during login:", err);
@@ -865,6 +897,7 @@ async function startServer(rebuild = false) {
       res.clearCookie("token", {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
+        maxAge: 0, 
         sameSite: "Lax",
       });
       await createLogMessage(`email_admin telah logout`, adminId, adminEmail);
@@ -897,7 +930,7 @@ async function startServer(rebuild = false) {
           nominal_bersih,
         ]);
 
-        await createLogMessage(`email_admin telah menambah pemasukan sebesar Rp ${nominal_pemasukan}`, adminId, adminEmail);
+        await createLogMessage(`email_admin telah menambah pemasukan sebesar Rp ${nominal_pemasukan.toLocaleString('id-ID')}`, adminId, adminEmail);
         emitDashboardUpdate('revenueSummary');
 
         res.status(201).json({
@@ -932,7 +965,7 @@ async function startServer(rebuild = false) {
           }
 
           if (incomeData.length > 0) {
-              await createLogMessage(`email_admin telah menghapus pemasukan sebesar Rp ${incomeData[0].nominal_pemasukan}`, adminId, adminEmail);
+              await createLogMessage(`email_admin telah menghapus pemasukan sebesar Rp ${incomeData[0].nominal_pemasukan.toLocaleString('id-ID')}`, adminId, adminEmail);
           } else {
               await createLogMessage(`email_admin telah menghapus pemasukan (ID: ${id})`, adminId, adminEmail);
           }
@@ -1009,7 +1042,7 @@ async function startServer(rebuild = false) {
             });
           }
 
-          await createLogMessage(`email_admin telah mengubah pemasukan (ID: ${id}) menjadi Rp ${nominal_pemasukan}`, adminId, adminEmail);
+          await createLogMessage(`email_admin telah mengubah pemasukan (ID: ${id}) menjadi Rp ${nominal_pemasukan.toLocaleString('id-ID')}`, adminId, adminEmail);
           emitDashboardUpdate('revenueSummary');
 
 
@@ -1083,27 +1116,6 @@ async function startServer(rebuild = false) {
       }
     });
 
-    app.post("/api/backup", authenticateToken, async (req, res) => {
-      const { waktu_backup } = req.body;
-      const { id: adminId, email: adminEmail } = req.admin;
-
-      if (!waktu_backup) {
-        return res
-          .status(400)
-          .json({ error: "Missing waktu_backup" });
-      }
-      try {
-        const sql = `INSERT INTO Log_Backup (waktu_backup, id_admin) VALUES (?, ?)`;
-        await dbPool.query(sql, [waktu_backup, adminId]);
-
-        await createLogMessage(`email_admin telah melakukan backup pada tanggal ${new Date(waktu_backup).toLocaleDateString('id-ID')}`, adminId, adminEmail);
-
-        res.json({ message: "Log backup berhasil dicatat" });
-      } catch (err) {
-        return res.status(500).json({ error: err.message });
-      }
-    });
-
     app.get("/api/logMessages", authenticateToken, async (req, res) => {
         try {
             const [results] = await dbPool.query(`
@@ -1117,7 +1129,8 @@ async function startServer(rebuild = false) {
                 ORDER BY lm.tanggal_pesan DESC
             `);
             res.json(results);
-        } catch (err) {
+        }
+        catch (err) {
             console.error("Error fetching log messages:", err);
             res.status(500).json({ error: "Gagal mengambil log pesan: " + err.message });
         }
@@ -1133,7 +1146,6 @@ async function startServer(rebuild = false) {
 
         try {
             await createLogMessage(isi_pesan, adminId, adminEmail);
-            emitDashboardUpdate('logMessages');
             res.status(201).json({ message: "Pesan log berhasil ditambahkan" });
         } catch (err) {
             console.error("Error adding log message via API:", err);
@@ -1151,7 +1163,6 @@ async function startServer(rebuild = false) {
                 return res.status(404).json({ error: "Pesan log tidak ditemukan" });
             }
             await createLogMessage(`email_admin telah menghapus pesan log (ID: ${id})`, adminId, adminEmail);
-            emitDashboardUpdate('logMessages');
 
             res.json({ message: "Pesan log berhasil dihapus" });
         } catch (err) {
@@ -1160,40 +1171,137 @@ async function startServer(rebuild = false) {
         }
     });
 
-    app.post("/api/pemulihan", authenticateToken, async (req, res) => {
-        const { waktu_pemulihan } = req.body;
-        const { id: adminId, email: adminEmail } = req.admin;
+    // --- BACKUP DATABASE ENDPOINT (UPDATED: Removed file_name from log) ---
+    app.post("/api/backup-database", authenticateToken, async (req, res) => {
+      const { id: adminId, email: adminEmail } = req.admin;
+      const timestamp = new Date().toISOString().replace(/:/g, "-").replace(/\./g, "_");
+      const backupFileName = `${DB_NAME}_${timestamp}.sql`;
+      const backupFilePath = path.join(backupsDir, backupFileName);
 
-        if (!waktu_pemulihan) {
-            return res.status(400).json({ error: "Waktu pemulihan wajib diisi" });
-        }
+      const command = `mysqldump -h ${DB_HOST} -u ${DB_USER} -p${DB_PASS} ${DB_NAME} > "${backupFilePath}"`;
 
-        try {
-            const sql = `INSERT INTO LogPemulihan (waktu_pemulihan, id_admin) VALUES (?, ?)`;
-            await dbPool.query(sql, [waktu_pemulihan, adminId]);
+      console.log(`Starting database backup to: ${backupFilePath}`);
+      try {
+        await new Promise((resolve, reject) => {
+          exec(command, (error, stdout, stderr) => {
+            if (error) {
+              console.error(`Backup failed: ${error.message}`);
+              return reject(new Error(`Backup database gagal: ${error.message}`));
+            }
+            if (stderr) {
+              console.warn(`Backup stderr: ${stderr}`);
+            }
+            console.log(`Backup stdout: ${stdout}`);
+            console.log(`Database backup successful: ${backupFileName}`);
+            resolve();
+          });
+        });
 
-            await createLogMessage(`email_admin telah melakukan pemulihan pada tanggal ${new Date(waktu_pemulihan).toLocaleDateString('id-ID')}`, adminId, adminEmail);
+        // Log the backup in the database (WITHOUT file_name column)
+        const logSql = `INSERT INTO Log_Backup (waktu_backup, id_admin) VALUES (NOW(), ?)`;
+        await dbPool.query(logSql, [adminId]);
+        
+        await createLogMessage(`email_admin telah melakukan pencadangan database.`, adminId, adminEmail);
 
-            res.status(201).json({ message: "Log pemulihan berhasil dicatat" });
-        } catch (err) {
-            console.error("Error adding recovery log:", err);
-            res.status(500).json({ error: "Gagal mencatat log pemulihan: " + err.message });
-        }
+        res.status(200).json({
+          message: "Pencadangan database berhasil!",
+          file_name: backupFileName, // Still provide for immediate download on frontend
+          download_url: `/backups/${backupFileName}`, // Still provide for immediate download on frontend
+        });
+      } catch (err) {
+        console.error("Error during database backup:", err);
+        res.status(500).json({ error: err.message });
+      }
     });
 
-    app.get("/api/pemulihan", authenticateToken, async (req, res) => {
-        try {
-            const [results] = await dbPool.query(`
-                SELECT lp.id, lp.waktu_pemulihan, a.email AS admin_email
-                FROM LogPemulihan lp
-                LEFT JOIN Admin a ON lp.id_admin = a.id
-                ORDER BY lp.waktu_pemulihan DESC
-            `);
-            res.json(results);
-        } catch (err) {
-            console.error("Error fetching recovery logs:", err);
-            res.status(500).json({ error: "Gagal mengambil log pemulihan: " + err.message });
+    // --- RESTORE DATABASE ENDPOINT (UPDATED: Removed file_name from log) ---
+    app.post("/api/restore-database", authenticateToken, uploadSql.single("sql_file"), async (req, res) => {
+      const { id: adminId, email: adminEmail } = req.admin;
+
+      if (!req.file) {
+        return res.status(400).json({ error: "Tidak ada file SQL yang diunggah." });
+      }
+
+      const uploadedFilePath = req.file.path;
+      const uploadedFileName = req.file.filename; // Keep for logging in console/messages, but not DB table
+
+      console.log(`Starting database restore from: ${uploadedFilePath}`);
+      const command = `mysql -h ${DB_HOST} -u ${DB_USER} -p${DB_PASS} ${DB_NAME} < "${uploadedFilePath}"`;
+
+      try {
+        await new Promise((resolve, reject) => {
+          exec(command, (error, stdout, stderr) => {
+            if (error) {
+              console.error(`Restore failed: ${error.message}`);
+              if (fs.existsSync(uploadedFilePath)) fs.unlinkSync(uploadedFilePath); // Delete on failure
+              return reject(new Error(`Pemulihan database gagal: ${error.message}. Pastikan file SQL valid dan tidak korup.`));
+            }
+            if (stderr) {
+              console.warn(`Restore stderr: ${stderr}`);
+            }
+            console.log(`Restore stdout: ${stdout}`);
+            console.log(`Database restore successful from: ${uploadedFileName}`);
+            resolve();
+          });
+        });
+
+        // Log the restore in the database (WITHOUT file_name column)
+        const logSql = `INSERT INTO LogPemulihan (waktu_pemulihan, id_admin) VALUES (NOW(), ?)`;
+        await dbPool.query(logSql, [adminId]);
+
+        await createLogMessage(`email_admin telah melakukan pemulihan database.`, adminId, adminEmail);
+
+        // Delete the uploaded file after successful restore
+        if (fs.existsSync(uploadedFilePath)) {
+          fs.unlinkSync(uploadedFilePath);
+          console.log(`Deleted uploaded SQL file: ${uploadedFileName}`);
         }
+
+        res.status(200).json({
+          message: "Pemulihan database berhasil!",
+          // file_name is no longer stored in DB log, but can be mentioned in message if needed
+        });
+      } catch (err) {
+        console.error("Error during database restore:", err);
+        res.status(500).json({ error: err.message });
+      } finally {
+        // Ensure file is deleted even if response fails for some reason
+        if (fs.existsSync(uploadedFilePath)) {
+          fs.unlinkSync(uploadedFilePath);
+        }
+      }
+    });
+
+    // --- GET BACKUP LOGS (UPDATED: Removed file_name from select) ---
+    app.get("/api/backup-logs", authenticateToken, async (req, res) => {
+      try {
+        const [results] = await dbPool.query(`
+          SELECT lb.id, lb.waktu_backup, a.email AS admin_email
+          FROM Log_Backup lb
+          LEFT JOIN Admin a ON lb.id_admin = a.id
+          ORDER BY lb.waktu_backup DESC
+        `);
+        res.json(results);
+      } catch (err) {
+        console.error("Error fetching backup logs:", err);
+        res.status(500).json({ error: "Gagal mengambil log backup: " + err.message });
+      }
+    });
+
+    // --- GET RESTORE LOGS (UPDATED: Removed file_name from select) ---
+    app.get("/api/restore-logs", authenticateToken, async (req, res) => {
+      try {
+        const [results] = await dbPool.query(`
+          SELECT lpr.id, lpr.waktu_pemulihan, a.email AS admin_email
+          FROM LogPemulihan lpr
+          LEFT JOIN Admin a ON lpr.id_admin = a.id
+          ORDER BY lpr.waktu_pemulihan DESC
+        `);
+        res.json(results);
+      } catch (err) {
+        console.error("Error fetching restore logs:", err);
+        res.status(500).json({ error: "Gagal mengambil log pemulihan: " + err.message });
+      }
     });
 
 

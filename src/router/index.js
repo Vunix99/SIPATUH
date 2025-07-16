@@ -8,6 +8,8 @@ import Dashboard from '../components/Dashboard.vue'; // Komponen Parkir Anda yan
 import TambahAdmin from '../components/TambahAdmin.vue'; // Komponen Tambah Admin Anda yang sudah ada
 import Pemasukan from '../components/Pemasukan.vue'; // Komponen Pemasukan Anda yang sudah ada
 import DataParkir from '../components/DataParkir.vue'; // Komponen Data Parkir Anda yang sudah ada
+import LogAktivitas from '../components/LogAktivitas.vue'; // Komponen Data Parkir Anda yang sudah ada
+import PencadanganPemulihan from '../components/PencadanganPemulihan.vue'; // Komponen Pencadangan Pemulihan Anda yang sudah ada
 
 // 2. Definisikan routes Anda
 const routes = [
@@ -50,6 +52,18 @@ const routes = [
     path: '/pemasukan',
     name: 'pemasukan',
     component: Pemasukan, // Menggunakan komponen Pemasukan Anda
+    meta: { requiresAuth: true } // Rute ini MEMERLUKAN otentikasi
+  },
+    {
+    path: '/log-aktivitas',
+    name: 'log-aktivitas',
+    component: LogAktivitas, // Menggunakan komponen LogAktivitas Anda
+    meta: { requiresAuth: true } // Rute ini MEMERLUKAN otentikasi
+  },
+  {
+    path: '/pencadangan-pemulihan',
+    name: 'pencadangan-pemulihan',
+    component: PencadanganPemulihan, // Menggunakan komponen PencadanganPemulihan Anda
     meta: { requiresAuth: true } // Rute ini MEMERLUKAN otentikasi
   },
   // Catch-all route for 404 Not Found (Opsional, tapi disarankan)

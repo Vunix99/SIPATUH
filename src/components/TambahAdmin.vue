@@ -30,11 +30,26 @@
             <i class="fa-solid fa-money-bill-wave"></i> Pemasukan Parkir
           </router-link>
         </li>
+        <li>
+          <router-link to="/log-aktivitas" class="nav-link">
+            <i class="fa-solid fa-clipboard-list"></i> Log Aktivitas
+          </router-link>
+        </li>
+        <li>
+          <router-link to="/pencadangan-pemulihan" class="nav-link">
+            <i class="fa-solid fa-arrows-rotate"></i> Pencadangan dan Pemulihan
+          </router-link>
+        </li>
+        <li>
+          <router-link to="/logout" class="nav-link" style="color: red; font-weight: bolder;">
+            <i class="fa-solid fa-right-from-bracket"></i> Logout
+          </router-link>
+        </li>
       </ul>
     </nav>
 
     <div class="content flex-grow-1">
-      <nav class="navbar navbar-light bg-light px-3">
+      <nav class="navbar navbar-light bg-light px-3 fixed-top">
         <button
           class="btn btn-outline-secondary d-md-none"
           @click="toggleSidebar"
@@ -46,59 +61,61 @@
         </h5>
       </nav>
 
-      <div class="container-fluid pt-4 px-3 form-wrapper-top">
-        <div class="row justify-content-center align-items-center h-100">
-          <div class="col-lg-12 col-md-12">
-            <div class="card shadow w-100">
-              <div class="card-header text-left">
-                <h4 class="mb-0" style="color: #fdfdfd;">Registrasi Admin Baru</h4>
-              </div>
-              <div class="card-body">
-                <form @submit.prevent="registerAdmin">
-                  <div class="mb-3">
-                    <label for="adminEmail" class="form-label">Email</label>
-                    <input
-                      type="email"
-                      class="form-control"
-                      id="adminEmail"
-                      v-model="adminForm.email"
-                      required
-                      placeholder="Masukkan email admin"
-                    />
-                  </div>
-                  <div class="mb-3">
-                    <label for="adminPassword" class="form-label"
-                      >Password</label
+      <div class="content-wrapper">
+        <div class="container-fluid pt-4 px-3 form-wrapper-top">
+          <div class="row justify-content-center align-items-center h-100">
+            <div class="col-lg-12 col-md-12">
+              <div class="card shadow w-100">
+                <div class="card-header text-left">
+                  <h4 class="mb-0" style="color: #fdfdfd;">Registrasi Admin Baru</h4>
+                </div>
+                <div class="card-body">
+                  <form @submit.prevent="registerAdmin">
+                    <div class="mb-3">
+                      <label for="adminEmail" class="form-label">Email</label>
+                      <input
+                        type="email"
+                        class="form-control"
+                        id="adminEmail"
+                        v-model="adminForm.email"
+                        required
+                        placeholder="Masukkan email admin"
+                      />
+                    </div>
+                    <div class="mb-3">
+                      <label for="adminPassword" class="form-label"
+                        >Password</label
+                      >
+                      <input
+                        type="password"
+                        class="form-control"
+                        id="adminPassword"
+                        v-model="adminForm.password"
+                        required
+                        placeholder="Masukkan password"
+                      />
+                    </div>
+                    <div class="mb-3">
+                      <label for="confirmPassword" class="form-label"
+                        >Konfirmasi Password</label
+                      >
+                      <input
+                        type="password"
+                        class="form-control"
+                        id="confirmPassword"
+                        v-model="adminForm.confirmPassword"
+                        required
+                        placeholder="Konfirmasi password"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      class="btn btn-custom w-100 mt-3"
                     >
-                    <input
-                      type="password"
-                      class="form-control"
-                      id="adminPassword"
-                      v-model="adminForm.password"
-                      required
-                      placeholder="Masukkan password"
-                    />
-                  </div>
-                  <div class="mb-3">
-                    <label for="confirmPassword" class="form-label"
-                      >Konfirmasi Password</label
-                    >
-                    <input
-                      type="password"
-                      class="form-control"
-                      id="confirmPassword"
-                      v-model="adminForm.confirmPassword"
-                      required
-                      placeholder="Konfirmasi password"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    class="btn btn-custom w-100 mt-3"
-                  >
-                    Tambah Admin
-                  </button>
-                </form>
+                      Tambah Admin
+                    </button>
+                  </form>
+                </div>
               </div>
             </div>
           </div>
@@ -110,13 +127,13 @@
 
 <script>
 import { ref, computed } from "vue";
-import Swal from "sweetalert2"; // Pastikan SweetAlert2 sudah terinstal
-import "@fortawesome/fontawesome-free/css/all.min.css"; // Import Font Awesome CSS
+import Swal from "sweetalert2";
+import "@fortawesome/fontawesome-free/css/all.min.css";
 
 export default {
   name: "TambahAdmin",
   setup() {
-    const sidebarOpen = ref(false); // Untuk sidebar
+    const sidebarOpen = ref(false);
     const toggleSidebar = () => {
       sidebarOpen.value = !sidebarOpen.value;
     };
@@ -127,7 +144,6 @@ export default {
       confirmPassword: "",
     });
 
-    // Get API domain from environment variable or use default
     const API_DOMAIN =
       import.meta.env.VITE_DOMAIN_SERVER || "http://localhost:3000";
 
@@ -138,11 +154,10 @@ export default {
         password.trim() !== "" &&
         confirmPassword.trim() !== "" &&
         password === confirmPassword
-      ); // Password dan konfirmasi harus sama
+      );
     });
 
     const registerAdmin = async () => {
-      // 1. Validasi awal form
       if (!isFormValid.value) {
         Swal.fire({
           icon: "warning",
@@ -163,7 +178,6 @@ export default {
         return;
       }
 
-      // 2. Tampilkan SweetAlert untuk konfirmasi teks "SIPATUH"
       const { value: confirmationText } = await Swal.fire({
         title: 'Konfirmasi Pendaftaran Admin',
         text: 'Untuk melanjutkan, ketik "SIPATUH" di bawah ini:',
@@ -176,24 +190,21 @@ export default {
           if (!value) {
             return 'Anda perlu mengetik "SIPATUH"!';
           }
-          if (value !== 'SIPATUH') { // Case-sensitive check
+          if (value.trim() !== 'SIPATUH') { // Added .trim() for robustness
             return 'Teks tidak cocok. Harap ketik "SIPATUH" dengan benar.';
           }
         },
         customClass: {
-          container: 'swal-custom-container', // Pastikan class ini ada di CSS jika perlu styling
+          container: 'swal-custom-container',
           popup: 'swal-custom-popup',
           confirmButton: 'swal-custom-confirm-button',
           cancelButton: 'swal-custom-cancel-button',
           input: 'swal-custom-input',
         },
-        // Anda bisa menambahkan icon atau styling lainnya ke SweetAlert2 di sini
         icon: 'warning',
       });
 
-      // 3. Cek hasil konfirmasi
       if (confirmationText === 'SIPATUH') {
-        // Jika konfirmasi berhasil, lanjutkan proses pendaftaran
         Swal.fire({
           title: "Mendaftarkan Admin...",
           text: "Mohon tunggu sebentar",
@@ -222,7 +233,6 @@ export default {
               text: data.message,
               confirmButtonText: "OK",
             });
-            // Reset form setelah berhasil
             adminForm.value.email = "";
             adminForm.value.password = "";
             adminForm.value.confirmPassword = "";
@@ -243,7 +253,7 @@ export default {
             confirmButtonText: "OK",
           });
         }
-      } else if (confirmationText === undefined) { // User clicked 'Cancel' or outside
+      } else if (confirmationText === undefined) {
         Swal.fire({
           icon: 'info',
           title: 'Dibatalkan',
@@ -289,10 +299,11 @@ h5.card-title {
   width: 240px;
   height: 100vh;
   padding-top: 1rem;
-  position: fixed;
+  position: fixed; /* Membuat elemen tetap di posisi tertentu di viewport */
+  top: 0;          /* Memposisikan di bagian atas viewport */
+  left: 0;         /* Memposisikan di bagian kiri viewport */
   transition: all 0.3s;
-  left: 0;
-  z-index: 2000;
+  z-index: 2000; /* Pastikan sidebar di atas konten lain */
 }
 
 .sidebar .nav-link {
@@ -316,19 +327,26 @@ h5.card-title {
 
 /* Navbar style */
 .navbar {
-  background-color: #210038 !important; /* Slightly lighter purple for the navbar */
-  color: #fdfdfd; /* Changed to FDFDFD */
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); /* Add a subtle shadow */
+  background-color: #210038 !important;
+  color: #fdfdfd;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  /* Make the navbar fixed at the top */
+  position: fixed;
+  top: 0;
+  width: 100%;
+  z-index: 1030; /* Higher than sidebar's default content, but lower than modals etc. */
+  padding-left: 240px !important; /* Default padding-left to push content past the fixed sidebar */
+  transition: padding-left 0.3s; /* Smooth transition for padding when sidebar opens/closes */
 }
 
 .navbar .btn-outline-secondary {
-  border-color: #fc0; /* Use accent color for button border */
-  color: #fc0; /* Use accent color for button text */
+  border-color: #fc0;
+  color: #fc0;
 }
 
 .navbar .btn-outline-secondary:hover {
-  background-color: #fc0; /* Accent color on hover */
-  color: #000; /* Black text on accent background */
+  background-color: #fc0;
+  color: #000;
 }
 
 /* Card styles - adjusted for better contrast and consistency */
@@ -339,7 +357,7 @@ h5.card-title {
     0,
     0.25
   ); /* Darker transparent background for cards */
-  color: #fdfdfd; /* Changed to FDFDFD */
+  color: #fdfdfd; /* Changed to FDFDFD for card titles */
   border: none;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); /* More prominent shadow for cards */
 }
@@ -441,6 +459,12 @@ h5.card-title {
   color: #fdfdfd !important; /* Ensure FDFDFD text on gray */
 }
 
+/* New: Wrapper for content below fixed navbar */
+.content-wrapper {
+  padding-top: 56px; /* Adjust this to the height of your fixed navbar */
+}
+
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .sidebar {
@@ -451,6 +475,10 @@ h5.card-title {
   }
   .content {
     margin-left: 0 !important;
+  }
+  /* Navbar on smaller screens: full width, no left padding */
+  .navbar {
+    padding-left: 1rem !important; /* Adjust if Bootstrap's px-3 means 1rem by default */
   }
 }
 
@@ -576,6 +604,4 @@ h5.card-title {
     padding: 1.5rem;
   }
 }
-
-
 </style>

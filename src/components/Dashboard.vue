@@ -1,5 +1,5 @@
 <template>
-  <div class="d-flex">
+  <div class="d-flex min-vh-100">
     <nav :class="['sidebar', sidebarOpen ? 'open' : '']">
       <div
         class="sidebar-header d-flex justify-content-between align-items-center"
@@ -35,11 +35,21 @@
             <i class="fa-solid fa-clipboard-list"></i> Log Aktivitas
           </router-link>
         </li>
+        <li>
+          <router-link to="/pencadangan-pemulihan" class="nav-link">
+            <i class="fa-solid fa-arrows-rotate"></i> Pencadangan dan Pemulihan
+          </router-link>
+        </li>
+        <li>
+          <router-link to="/logout" class="nav-link" style="color: red; font-weight: bolder;">
+            <i class="fa-solid fa-right-from-bracket"></i> Logout
+          </router-link>
+        </li>
       </ul>
     </nav>
 
     <div class="content flex-grow-1">
-      <nav class="navbar navbar-light bg-light px-3">
+      <nav class="navbar navbar-light bg-light px-3 fixed-top">
         <button
           class="btn btn-outline-secondary d-md-none"
           @click="toggleSidebar"
@@ -51,122 +61,124 @@
         </h5>
       </nav>
 
-      <div class="container-fluid mt-3">
-        <div class="row g-4">
-          <div
-            class="col-md-6 col-xl-3"
-            v-for="stat in statistics"
-            :key="stat.title"
-          >
-            <div :class="['card', 'h-100', stat.bg, 'text-white', 'shadow']">
-              <div class="card-body">
-                <h5 class="card-title">{{ stat.title }}</h5>
-                <p class="card-text fs-3 fw-bold">{{ stat.value }}</p>
-                <p class="card-text">
-                  <small>{{ stat.desc }}</small>
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="row mt-4">
-          <div class="col-lg-6">
-            <div class="card shadow">
-              <div class="card-header">
-                <strong>📈 Tren Parkir Bulanan</strong>
-              </div>
-              <div class="card-body">
-                <canvas id="parkirChart" height="120"></canvas>
+      <div class="content-wrapper">
+        <div class="container-fluid mt-3">
+          <div class="row g-4">
+            <div
+              class="col-md-6 col-xl-3"
+              v-for="stat in statistics"
+              :key="stat.title"
+            >
+              <div :class="['card', 'h-100', stat.bg, 'text-white', 'shadow']">
+                <div class="card-body">
+                  <h5 class="card-title">{{ stat.title }}</h5>
+                  <p class="card-text fs-3 fw-bold">{{ stat.value }}</p>
+                  <p class="card-text">
+                    <small>{{ stat.desc }}</small>
+                  </p>
+                </div>
               </div>
             </div>
           </div>
 
-          <div class="col-lg-6 mt-4 mt-lg-0">
-            <div class="card shadow">
-              <div class="card-header">
-                <strong>💰 Pemasukan Bulanan</strong>
+          <div class="row mt-4">
+            <div class="col-lg-6">
+              <div class="card shadow">
+                <div class="card-header">
+                  <strong>📈 Tren Parkir Bulanan</strong>
+                </div>
+                <div class="card-body">
+                  <canvas id="parkirChart" height="120"></canvas>
+                </div>
               </div>
-              <div class="card-body">
-                <canvas id="revenueChart" height="120"></canvas>
+            </div>
+
+            <div class="col-lg-6 mt-4 mt-lg-0">
+              <div class="card shadow">
+                <div class="card-header">
+                  <strong>💰 Pemasukan Bulanan</strong>
+                </div>
+                <div class="card-body">
+                  <canvas id="revenueChart" height="120"></canvas>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <div class="row mt-4">
-          <div class="col-12">
-            <div class="card shadow">
-              <div class="card-header">
-                <strong>📌 Aktivitas Terbaru</strong>
-              </div>
-              <div class="card-body">
-                <ul class="list-group list-group-flush">
-                  <li
-                    v-for="log in activityLog"
-                    :key="log.id || log.tanggal_pesan"
-                    class="list-group-item"
-                  >
-                    <span>{{ formatLogMessage(log) }}</span>
-                    <br /><small class="text-muted">{{
-                      formatTimeAgo(log.tanggal_pesan)
-                    }}</small>
-                  </li>
-                  <li
-                    v-if="!activityLog.length"
-                    class="list-group-item text-center text-muted"
-                  >
-                    Tidak ada aktivitas terbaru.
-                  </li>
-                </ul>
+          <div class="row mt-4">
+            <div class="col-12">
+              <div class="card shadow">
+                <div class="card-header">
+                  <strong>📌 Aktivitas Terbaru</strong>
+                </div>
+                <div class="card-body">
+                  <ul class="list-group list-group-flush">
+                    <li
+                      v-for="log in activityLog"
+                      :key="log.id || log.tanggal_pesan"
+                      class="list-group-item"
+                    >
+                      <span>{{ formatLogMessage(log) }}</span>
+                      <br /><small class="text-muted">{{
+                        formatTimeAgo(log.tanggal_pesan)
+                      }}</small>
+                    </li>
+                    <li
+                      v-if="!activityLog.length"
+                      class="list-group-item text-center text-muted"
+                    >
+                      Tidak ada aktivitas terbaru.
+                    </li>
+                  </ul>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <div class="row mt-4">
-          <div class="col-12">
-            <div class="card shadow">
-              <div class="card-header">
-                <strong>🅿️ Data Parkir Hari Ini</strong>
-              </div>
-              <div class="card-body table-responsive">
-                <table class="table table-striped">
-                  <thead class="table-dark">
-                    <tr>
-                      <th>No</th>
-                      <th>Plat Nomor</th>
-                      <th>Waktu Masuk</th>
-                      <th>Waktu Keluar</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="(data, index) in parkirData" :key="index">
-                      <td>{{ index + 1 }}</td>
-                      <td>{{ data.plat }}</td>
-                      <td>{{ data.masuk }}</td>
-                      <td>{{ data.keluar }}</td>
-                      <td>
-                        <span
-                          :class="[
-                            'badge',
-                            data.status === 'Parkir'
-                              ? 'bg-success'
-                              : 'bg-secondary',
-                          ]"
-                        >
-                          {{ data.status }}
-                        </span>
-                      </td>
-                    </tr>
-                    <tr v-if="!parkirData.length">
-                      <td colspan="5" class="text-center text-muted">
-                        Belum ada data hari ini.
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+          <div class="row mt-4">
+            <div class="col-12">
+              <div class="card shadow">
+                <div class="card-header">
+                  <strong>🅿️ Data Parkir Hari Ini</strong>
+                </div>
+                <div class="card-body table-responsive">
+                  <table class="table table-striped">
+                    <thead class="table-dark">
+                      <tr>
+                        <th>No</th>
+                        <th>Plat Nomor</th>
+                        <th>Waktu Masuk</th>
+                        <th>Waktu Keluar</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="(data, index) in parkirData" :key="index">
+                        <td>{{ index + 1 }}</td>
+                        <td>{{ data.plat }}</td>
+                        <td>{{ data.masuk }}</td>
+                        <td>{{ data.keluar }}</td>
+                        <td>
+                          <span
+                            :class="[
+                              'badge',
+                              data.status === 'Parkir'
+                                ? 'bg-success'
+                                : 'bg-secondary',
+                            ]"
+                          >
+                            {{ data.status }}
+                          </span>
+                        </td>
+                      </tr>
+                      <tr v-if="!parkirData.length">
+                        <td colspan="5" class="text-center text-muted">
+                          Belum ada data hari ini.
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </div>
@@ -665,6 +677,13 @@ h5.card-title {
   background-color: #210038 !important; /* Slightly lighter purple for the navbar */
   color: #fdfdfd; /* Changed to FDFDFD */
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); /* Add a subtle shadow */
+  /* NEW: Tambahkan properti fixed untuk navbar */
+  position: fixed;
+  top: 0;
+  width: 100%;
+  z-index: 1030; /* Pastikan di atas konten dan di bawah modal */
+  /* padding-left akan diatur di media query untuk desktop */
+  transition: padding-left 0.3s; /* Transisi halus */
 }
 
 .navbar .btn-outline-secondary {
@@ -744,7 +763,7 @@ h5.card-title {
     255,
     255,
     255,
-    0.08
+0.08
   ); /* Slightly more visible stripe */
 }
 
@@ -790,24 +809,45 @@ h5.card-title {
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .sidebar {
-    left: -240px;
+    left: -240px; /* Sidebar tersembunyi */
   }
   .sidebar.open {
-    left: 0;
+    left: 0; /* Sidebar terbuka */
   }
   .content {
-    margin-left: 0 !important;
+    margin-left: 0 !important; /* Konten tanpa margin saat sidebar tersembunyi */
+  }
+  /* Navbar on smaller screens: full width, no left padding */
+  .navbar {
+    padding-left: 1rem !important; /* Adjust if Bootstrap's px-3 means 1rem by default */
   }
 }
 
-.content {
-  margin-left: 240px;
-  width: 100%;
-  transition: margin-left 0.3s;
+/* NEW: Perubahan untuk tampilan desktop (>= 768px) */
+@media (min-width: 768px) {
+  .sidebar {
+    left: 0; /* Pastikan sidebar selalu terlihat di desktop */
+  }
+  .content {
+    margin-left: 240px; /* Dorong konten ke kanan sejauh lebar sidebar */
+  }
+  .navbar {
+    padding-left: 255px !important; /* Lebar sidebar (240px) + margin atau padding tambahan (misal 15px) */
+    width: auto; /* Biarkan lebar mengikuti konten setelah padding */
+    right: 0; /* Agar navbar memenuhi sisa lebar layar */
+  }
+  /* Tombol hamburger di desktop harus disembunyikan */
+  .navbar .btn-outline-secondary.d-md-none {
+    display: none !important;
+  }
 }
+
 
 .card-body canvas {
   width: 100% !important;
   height: 300px !important; /* Keep a consistent height for both canvases */
+}
+.content-wrapper {
+  padding-top: 56px; /* Adjust this to the height of your fixed navbar */
 }
 </style>
