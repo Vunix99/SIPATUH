@@ -28,6 +28,8 @@
     "moment-timezone": "^0.6.0",
     "mysql2": "^3.14.1",
     "sipatuh-backend": "file:backend",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1",
     "sqlite3": "^5.1.7",
     "sweetalert2": "^11.21.0",
     "tabulator-tables": "^6.3.1",

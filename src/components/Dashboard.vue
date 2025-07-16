@@ -1,5 +1,3 @@
-
-
 <template>
   <div class="d-flex">
     <nav :class="['sidebar', sidebarOpen ? 'open' : '']">
@@ -30,6 +28,11 @@
         <li>
           <router-link to="/pemasukan" class="nav-link">
             <i class="fa-solid fa-money-bill-wave"></i> Pemasukan Parkir
+          </router-link>
+        </li>
+        <li>
+          <router-link to="/log-aktivitas" class="nav-link">
+            <i class="fa-solid fa-clipboard-list"></i> Log Aktivitas
           </router-link>
         </li>
       </ul>
@@ -71,7 +74,7 @@
           <div class="col-lg-6">
             <div class="card shadow">
               <div class="card-header">
-                <strong>📈 Tren Parkir Mingguan</strong>
+                <strong>📈 Tren Parkir Bulanan</strong>
               </div>
               <div class="card-body">
                 <canvas id="parkirChart" height="120"></canvas>
@@ -100,12 +103,20 @@
               <div class="card-body">
                 <ul class="list-group list-group-flush">
                   <li
-                    v-for="(log, index) in activityLog"
-                    :key="index"
+                    v-for="log in activityLog"
+                    :key="log.id || log.tanggal_pesan"
                     class="list-group-item"
                   >
-                    <strong>{{ log.user }}</strong> - {{ log.action }}
-                    <br /><small class="text-muted">{{ log.time }}</small>
+                    <span>{{ formatLogMessage(log) }}</span>
+                    <br /><small class="text-muted">{{
+                      formatTimeAgo(log.tanggal_pesan)
+                    }}</small>
+                  </li>
+                  <li
+                    v-if="!activityLog.length"
+                    class="list-group-item text-center text-muted"
+                  >
+                    Tidak ada aktivitas terbaru.
                   </li>
                 </ul>
               </div>
@@ -166,266 +177,424 @@
 </template>
 
 <script>
-import { ref, onMounted, nextTick } from "vue";
-import Chart from "chart.js/auto"; // Use 'chart.js/auto' for automatic registration of components
-import axios from "axios"; // Import axios for API calls
+import { ref, onMounted, onUnmounted } from "vue";
+import Chart from "chart.js/auto";
+import { io } from "socket.io-client";
 
 export default {
   name: "Dashboard",
   setup() {
     const sidebarOpen = ref(false);
     const toggleSidebar = () => {
-      sidebarOpen.value = !sidebarSidebarOpen.value;
+      sidebarOpen.value = !sidebarOpen.value;
     };
 
     const statistics = ref([
-      { title: "Total Parkir", value: 120, desc: "Hari ini", bg: "bg-primary" },
+      { title: "Total Parkir", value: 0, desc: "Hari ini", bg: "bg-primary" },
       {
         title: "Pendapatan",
-        value: "Rp 0", // Initialize with 0, will be updated dynamically
+        value: "Rp 0",
         desc: "Tahun ini",
         bg: "bg-success",
       },
       {
-        title: "Admin Aktif",
-        value: 4,
-        desc: "Dalam sistem",
+        title: "Total Tiket Tersedia",
+        value: 0,
+        desc: "Saat ini",
         bg: "bg-warning",
       },
-      { title: "Parkir Selesai", value: 80, desc: "Hari ini", bg: "bg-info" },
+      { title: "Parkir Selesai", value: 0, desc: "Hari ini", bg: "bg-info" },
     ]);
 
-    const activityLog = ref([
-      { user: "Admin A", action: "Menambah data parkir", time: "5 menit lalu" },
-      { user: "Admin B", action: "Logout sistem", time: "15 menit lalu" },
-      { user: "Admin C", action: "Login", time: "20 menit lalu" },
-    ]);
+    const activityLog = ref([]);
+    const parkirData = ref([]);
 
-    const parkirData = ref([
-      { plat: "B 1234 XYZ", masuk: "08:00", keluar: "-", status: "Parkir" },
-      {
-        plat: "D 5678 ABC",
-        masuk: "07:30",
-        keluar: "09:45",
-        status: "Selesai",
-      },
-      { plat: "F 4444 GH", masuk: "06:20", keluar: "-", status: "Parkir" },
-    ]);
+    let revenueChartInstance = null;
+    let parkirChartInstance = null;
 
-    let revenueChartInstance = null; // Declare a variable to hold the Chart.js instance for revenue
-    let parkirChartInstance = null; // Declare a variable for the parking chart instance
+    let socket = null;
 
     const API_DOMAIN =
       import.meta.env.VITE_DOMAIN_SERVER || "http://localhost:3000";
 
-    // Function to fetch all pemasukan data
-    const fetchAllPemasukanData = async () => {
-      try {
-        const response = await axios.get(
-          `${API_DOMAIN}/api/pemasukanMingguan`,
-          { withCredentials: true }
+    // Dashboard.vue - dalam setup()
+    const formatTimeAgo = (dateString) => {
+      // dateString format: '2025-07-16T12:04:18.000Z'
+      // Tapi sebenarnya ini sudah dalam WIB, bukan UTC
+
+      // Alternatif 1: Hapus 'Z' dari string dan treat sebagai waktu lokal
+      const cleanDateString = dateString.replace("Z", "");
+      const past = new Date(cleanDateString);
+
+      // Alternatif 2: Atau konversi manual dengan offset timezone
+      // const utcTime = new Date(dateString);
+      // const past = new Date(utcTime.getTime() - (7 * 60 * 60 * 1000)); // Kurangi 7 jam
+
+      // Waktu sekarang
+      const now = new Date();
+
+      // --- Debugging logs ---
+      console.log("--- TimeAgo Debugging (Fixed) ---");
+      console.log(`Input dateString (from DB): ${dateString}`);
+      console.log(`Clean dateString (without Z): ${cleanDateString}`);
+      console.log(`Current Time (System/Local): ${now}`);
+      console.log(`Past Time (treated as local): ${past}`);
+
+      // Display in WIB format for comparison
+      console.log(
+        `Current Time (WIB): ${now.toLocaleString("id-ID", {
+          timeZone: "Asia/Jakarta",
+          hour12: false,
+        })}`
+      );
+      console.log(
+        `Past Time (WIB): ${past.toLocaleString("id-ID", {
+          timeZone: "Asia/Jakarta",
+          hour12: false,
+        })}`
+      );
+
+      // Calculate difference in milliseconds
+      const diffMilliseconds = now.getTime() - past.getTime();
+      const diffSeconds = Math.floor(diffMilliseconds / 1000);
+      const diffMinutes = Math.floor(diffSeconds / 60);
+      const diffHours = Math.floor(diffMinutes / 60);
+      const diffDays = Math.floor(diffHours / 24);
+      const diffMonths = Math.floor(diffDays / 30.44);
+      const diffYears = Math.floor(diffDays / 365.25);
+
+      console.log(`Raw Diff (ms): ${diffMilliseconds}`);
+      console.log(`Diff Seconds: ${diffSeconds}`);
+      console.log(`Diff Minutes: ${diffMinutes}`);
+      console.log(`Diff Hours: ${diffHours}`);
+      console.log(`Diff Days: ${diffDays}`);
+      console.log("-----------------------------------");
+
+      // Return relative time
+      if (diffSeconds < 0) {
+        return "Waktu masa depan"; // Handle negative values
+      } else if (diffMinutes >= 0 && diffMinutes < 2) {
+        return "Baru saja";
+      } else if (diffMinutes < 60) {
+        return `${diffMinutes} menit yang lalu`;
+      } else if (diffHours < 24) {
+        return `${diffHours} jam yang lalu`;
+      } else if (diffDays < 30) {
+        return `${diffDays} hari yang lalu`;
+      } else if (diffMonths < 12) {
+        return `${diffMonths} bulan yang lalu`;
+      } else {
+        return `${diffYears} tahun yang lalu`;
+      }
+    };
+    const formatLogMessage = (log) => {
+      const adminEmail = log.admin_email || "Admin Sistem";
+      const rawMessage = log.isi_pesan;
+      return rawMessage.replace("email_admin", adminEmail);
+    };
+
+    const updateActivityLog = (newLogs) => {
+      activityLog.value = newLogs.slice(0, 7);
+    };
+
+    const updateTodaysParkingData = (allParkingData) => {
+      const today = new Date();
+      // Ensure localizing `today` to WIB if necessary for accurate comparison
+      // The `toLocaleTimeString` already handles timezone, but `toDateString()` might not match
+      // if `today` is still in client's default timezone and `logDateWIB` is explicitly WIB.
+      const todayWIB = new Date(
+        today.toLocaleString("en-US", { timeZone: "Asia/Jakarta" })
+      );
+      todayWIB.setHours(0, 0, 0, 0); // Reset time for date-only comparison
+
+      parkirData.value = allParkingData
+        .filter((log) => {
+          // Convert log time to WIB for accurate comparison
+          const logDateWIB = new Date(
+            new Date(log.waktu_masuk).toLocaleString("en-US", {
+              timeZone: "Asia/Jakarta",
+            })
+          );
+          return logDateWIB.toDateString() === todayWIB.toDateString();
+        })
+        .map((log) => ({
+          plat: log.plat_nomor,
+          masuk: new Date(log.waktu_masuk).toLocaleTimeString("id-ID", {
+            hour: "2-digit",
+            minute: "2-digit",
+            timeZone: "Asia/Jakarta",
+          }),
+          keluar: log.waktu_keluar
+            ? new Date(log.waktu_keluar).toLocaleTimeString("id-ID", {
+                hour: "2-digit",
+                minute: "2-digit",
+                timeZone: "Asia/Jakarta",
+              })
+            : "-",
+          status: log.waktu_keluar ? "Selesai" : "Parkir",
+        }))
+        .sort(
+          (a, b) =>
+            new Date(`2000/01/01 ${b.masuk}`) -
+            new Date(`2000/01/01 ${a.masuk}`)
         );
-        return response.data;
-      } catch (error) {
-        console.error("Error fetching all pemasukan data:", error);
-        return [];
+
+      const totalParkirToday = parkirData.value.length;
+      const parkirSelesaiToday = parkirData.value.filter(
+        (data) => data.status === "Selesai"
+      ).length;
+
+      const totalParkirStatIndex = statistics.value.findIndex(
+        (s) => s.title === "Total Parkir"
+      );
+      if (totalParkirStatIndex !== -1) {
+        statistics.value[totalParkirStatIndex].value = totalParkirToday;
+      }
+
+      const parkirSelesaiStatIndex = statistics.value.findIndex(
+        (s) => s.title === "Parkir Selesai"
+      );
+      if (parkirSelesaiStatIndex !== -1) {
+        statistics.value[parkirSelesaiStatIndex].value = parkirSelesaiToday;
       }
     };
 
-    // Function to render Chart Parkir Mingguan (Existing)
-    const renderChart = () => {
-      const ctx = document.getElementById("parkirChart");
-      if (parkirChartInstance) {
-        parkirChartInstance.destroy(); // Destroy existing chart before re-rendering
-      }
-      parkirChartInstance = new Chart(ctx, {
-        type: "line",
-        data: {
-          labels: ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"],
-          datasets: [
-            {
-              label: "Jumlah Kendaraan",
-              data: [20, 35, 25, 40, 30, 50, 45],
-              borderColor: "rgba(255, 206, 86, 1)", // Warna kuning-oranye solid
-              backgroundColor: "rgba(255, 206, 86, 0.2)", // Warna kuning-oranye transparan
-              fill: true,
-              tension: 0.4,
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              labels: {
-                color: "#FDFDFD",
-              },
-            },
-          },
-          scales: {
-            x: {
-              ticks: {
-                color: "#FDFDFD",
-              },
-              grid: {
-                color: "rgba(255, 255, 255, 0.1)",
-              },
-              title: {
-                display: false,
-                color: "#FDFDFD",
-              },
-            },
-            y: {
-              ticks: {
-                color: "#FDFDFD",
-              },
-              grid: {
-                color: "rgba(255, 255, 255, 0.1)",
-              },
-              title: {
-                display: false,
-                color: "#FDFDFD",
-              },
-            },
-          },
-        },
-      });
-    };
-
-    // FUNGSI BARU UNTUK CHART PEMASUKAN BULANAN (Menggunakan data dari API)
-    const renderChartMonthlyRevenue = async () => {
-      const allPemasukan = await fetchAllPemasukanData();
-      const currentYear = new Date().getFullYear();
-
-      // Aggregate data by month for the current year
-      const monthlyRevenue = {}; // { monthIndex: totalNominalBersih }
-      allPemasukan.forEach((item) => {
-        const date = new Date(item.tanggal_pemasukan);
-        if (date.getFullYear() === currentYear) {
-          const month = date.getMonth(); // 0-indexed month
-          // --- PERBAIKAN DI SINI JUGA ---
-          // Pastikan nominal_bersih adalah angka sebelum menjumlahkan untuk chart
-          monthlyRevenue[month] = (monthlyRevenue[month] || 0) + parseFloat(item.nominal_bersih) || 0;
-        }
-      });
-
-      // Prepare data for Chart.js
-      const labels = [
-        "Jan",
-        "Feb",
-        "Mar",
-        "Apr",
-        "Mei",
-        "Jun",
-        "Jul",
-        "Ags",
-        "Sep",
-        "Okt",
-        "Nov",
-        "Des",
-      ];
-      const dataValues = [];
-
-      // Populate data values for each month, filling 0 if no data
-      for (let i = 0; i < 12; i++) {
-        dataValues.push(monthlyRevenue[i] || 0);
-      }
+    const updateMonthlyRevenueChart = (data) => {
+      const labels = data.map((item) => item.month_name);
+      const dataValues = data.map((item) => item.total_revenue);
 
       const ctxRevenue = document.getElementById("revenueChart");
 
-      // Destroy existing chart instance if it exists
       if (revenueChartInstance) {
-        revenueChartInstance.destroy();
-      }
-
-      revenueChartInstance = new Chart(ctxRevenue, {
-        type: "bar",
-        data: {
-          labels: labels,
-          datasets: [
-            {
-              label: "Pendapatan (Rp)",
-              data: dataValues,
-              backgroundColor: "rgba(255, 206, 86, 0.6)", // Warna kuning-oranye transparan untuk bar
-              borderColor: "rgba(255, 206, 86, 1)", // Warna kuning-oranye solid untuk border bar
-              borderWidth: 1,
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              labels: {
-                color: "#FDFDFD",
+        revenueChartInstance.data.labels = labels;
+        revenueChartInstance.data.datasets[0].data = dataValues;
+        revenueChartInstance.update();
+      } else {
+        revenueChartInstance = new Chart(ctxRevenue, {
+          type: "bar",
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: "Pendapatan (Rp)",
+                data: dataValues,
+                backgroundColor: "rgba(255, 206, 86, 0.6)",
+                borderColor: "rgba(255, 206, 86, 1)",
+                borderWidth: 1,
               },
-            },
+            ],
           },
-          scales: {
-            x: {
-              ticks: {
-                color: "#FDFDFD",
-              },
-              grid: {
-                color: "rgba(255, 255, 255, 0.1)",
-              },
-              title: {
-                display: false,
-                color: "#FDFDFD",
-              },
-            },
-            y: {
-              beginAtZero: true,
-              ticks: {
-                color: "#FDFDFD",
-                callback: function (value) {
-                  return "Rp " + value.toLocaleString("id-ID");
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                labels: {
+                  color: "#FDFDFD",
                 },
               },
-              grid: {
-                color: "rgba(255, 255, 255, 0.1)",
+            },
+            scales: {
+              x: {
+                ticks: {
+                  color: "#FDFDFD",
+                },
+                grid: {
+                  color: "rgba(255, 255, 255, 0.1)",
+                },
+                title: {
+                  display: false,
+                  color: "#FDFDFD",
+                },
               },
-              title: {
-                display: false,
-                color: "#FDFDFD",
+              y: {
+                beginAtZero: true,
+                ticks: {
+                  color: "#FDFDFD",
+                  callback: function (value) {
+                    return "Rp " + value.toLocaleString("id-ID");
+                  },
+                },
+                grid: {
+                  color: "rgba(255, 255, 255, 0.1)",
+                },
+                title: {
+                  display: false,
+                  color: "#FDFDFD",
+                },
               },
             },
           },
-        },
-      });
+        });
+      }
+      calculateAnnualRevenueFromFetchedData(data);
     };
 
-    // Function to calculate total annual revenue
-    const calculateAnnualRevenue = async () => {
-      const allPemasukan = await fetchAllPemasukanData();
+    const updateAdminStats = (totalAvailableTicketsCount) => {
+      const totalAvailableTicketsStatIndex = statistics.value.findIndex(
+        (s) => s.title === "Total Tiket Tersedia"
+      );
+      if (totalAvailableTicketsStatIndex !== -1) {
+        statistics.value[totalAvailableTicketsStatIndex].value =
+          totalAvailableTicketsCount;
+      }
+    };
+
+    const updateTotalActiveVehicles = (count) => {
+      const totalActiveVehiclesStatIndex = statistics.value.findIndex(
+        (s) => s.title === "Total Parkir"
+      );
+      if (totalActiveVehiclesStatIndex !== -1) {
+        statistics.value[totalActiveVehiclesStatIndex].value = count;
+      }
+    };
+
+    const calculateAnnualRevenueFromFetchedData = (monthlyData) => {
       const currentYear = new Date().getFullYear();
       let totalAnnualRevenue = 0;
 
-      allPemasukan.forEach((item) => {
-        const date = new Date(item.tanggal_pemasukan);
-        if (date.getFullYear() === currentYear) {
-          totalAnnualRevenue += parseFloat(item.nominal_bersih) || 0;
-        }
+      monthlyData.forEach((item) => {
+        totalAnnualRevenue += parseFloat(item.total_revenue) || 0;
       });
 
-      // Update the 'Pendapatan' statistic
       const pendapatanStatIndex = statistics.value.findIndex(
         (stat) => stat.title === "Pendapatan"
       );
       if (pendapatanStatIndex !== -1) {
-        statistics.value[pendapatanStatIndex].value = `Rp ${totalAnnualRevenue.toLocaleString(
-          "id-ID"
-        )}`;
+        statistics.value[
+          pendapatanStatIndex
+        ].value = `Rp ${totalAnnualRevenue.toLocaleString("id-ID")}`;
         statistics.value[pendapatanStatIndex].desc = `Tahun ${currentYear}`;
       }
     };
 
+    const updateParkirChart = (weeklyData) => {
+      const labels = weeklyData.map((item) => item.week_of_month);
+      const dataValues = weeklyData.map((item) => item.total_vehicles);
+
+      const ctx = document.getElementById("parkirChart");
+      if (parkirChartInstance) {
+        parkirChartInstance.data.labels = labels;
+        parkirChartInstance.data.datasets[0].data = dataValues;
+        parkirChartInstance.update();
+      } else {
+        parkirChartInstance = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: "Jumlah Kendaraan",
+                data: dataValues,
+                borderColor: "rgba(255, 206, 86, 1)",
+                backgroundColor: "rgba(255, 206, 86, 0.2)",
+                fill: true,
+                tension: 0.4,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                labels: {
+                  color: "#FDFDFD",
+                },
+              },
+            },
+            scales: {
+              x: {
+                ticks: {
+                  color: "#FDFDFD",
+                },
+                grid: {
+                  color: "rgba(255, 255, 255, 0.1)",
+                },
+                title: {
+                  display: false,
+                  color: "#FDFDFD",
+                },
+              },
+              y: {
+                beginAtZero: true,
+                ticks: {
+                  color: "#FDFDFD",
+                  precision: 0,
+                },
+                grid: {
+                  color: "rgba(255, 255, 255, 0.1)",
+                },
+                title: {
+                  display: false,
+                  color: "#FDFDFD",
+                },
+              },
+            },
+          },
+        });
+      }
+    };
+
     onMounted(async () => {
-      renderChart(); // Render weekly parking chart (static for now)
-      await renderChartMonthlyRevenue(); // Fetch and render monthly revenue chart
-      await calculateAnnualRevenue(); // Fetch and calculate annual revenue
+      socket = io(API_DOMAIN, {
+        withCredentials: true,
+      });
+
+      socket.on("connect", () => {
+        console.log("Connected to WebSocket server from dashboard!");
+      });
+
+      socket.on("disconnect", () => {
+        console.log("Disconnected from WebSocket server from dashboard.");
+      });
+
+      socket.on("connect_error", (err) => {
+        console.error("WebSocket connection error:", err.message);
+      });
+
+      socket.on("logMessagesUpdate", (data) => {
+        updateActivityLog(data);
+      });
+
+      socket.on("parkingLogsUpdate", (data) => {
+        updateTodaysParkingData(data);
+      });
+
+      socket.on("totalAvailableTicketsUpdate", (count) => {
+        updateAdminStats(count);
+      });
+
+      socket.on("totalActiveVehiclesUpdate", (count) => {
+        const totalParkirStatIndex = statistics.value.findIndex(
+          (s) => s.title === "Total Parkir"
+        );
+        if (totalParkirStatIndex !== -1) {
+          statistics.value[totalParkirStatIndex].value = count;
+        }
+      });
+
+      socket.on("revenueSummaryUpdate", (data) => {
+        updateMonthlyRevenueChart(data);
+      });
+
+      socket.on("weeklyParkingTrendUpdate", (data) => {
+        updateParkirChart(data);
+      });
+
+      updateParkirChart([]);
+    });
+
+    onUnmounted(() => {
+      if (parkirChartInstance) {
+        parkirChartInstance.destroy();
+      }
+      if (revenueChartInstance) {
+        revenueChartInstance.destroy();
+      }
+      if (socket) {
+        socket.disconnect();
+      }
     });
 
     return {
@@ -434,6 +603,8 @@ export default {
       statistics,
       activityLog,
       parkirData,
+      formatLogMessage,
+      formatTimeAgo,
     };
   },
 };

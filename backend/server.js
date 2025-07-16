@@ -1,7 +1,7 @@
 // server.js (or app.js)
 
 import express from "express";
-import mysql from "mysql2/promise"; // Keep this for promise-based operations
+import mysql from "mysql2/promise";
 import cors from "cors";
 import bodyParser from "body-parser";
 import bcrypt from "bcrypt";
@@ -12,7 +12,9 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import jwt from "jsonwebtoken";
 import cookieParser from "cookie-parser";
-import crypto from "crypto"; // Correct import for crypto module
+import crypto from "crypto";
+import http from "http";
+import { Server } from "socket.io";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -35,18 +37,25 @@ console.log("DB_PASS:", process.env.DB_PASS);
 console.log("DB_NAME:", process.env.DB_NAME);
 console.log("JWT_SECRET (present):", !!process.env.JWT_SECRET);
 console.log("VITE_DOMAIN_SERVER:", process.env.VITE_DOMAIN_SERVER);
+console.log("TIME_ZONE (from .env):", process.env.TIME_ZONE);
 console.log("=============================");
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: VITE_DOMAIN_SERVER,
+    methods: ["GET", "POST"],
+    credentials: true,
+  },
+});
 
-// Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
   console.log("Created uploads directory:", uploadsDir);
 }
 
-// Multer setup for handling file uploads (e.g., foto_masuk)
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadsDir),
   filename: (req, file, cb) => {
@@ -57,21 +66,19 @@ const storage = multer.diskStorage({
 });
 const upload = multer({
   storage,
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
+  limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith("image/")) cb(null, true);
     else cb(new Error("Only image files are allowed!"), false);
   },
 });
 
-// CORS configuration to allow requests from your frontend
 app.use(
   cors({
     origin: VITE_DOMAIN_SERVER,
     credentials: true,
   })
 );
-// Body parsers for various content types and limits
 app.use(bodyParser.json({ limit: "50mb", parameterLimit: 50000 }));
 app.use(
   bodyParser.urlencoded({
@@ -83,16 +90,13 @@ app.use(
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 app.use(cookieParser());
-// Serve static files from the 'uploads' directory
 app.use("/uploads", express.static(uploadsDir));
 
-// Ensure JWT_SECRET is defined in .env
 if (!JWT_SECRET) {
   console.error("FATAL ERROR: JWT_SECRET is not defined in .env file.");
   process.exit(1);
 }
 
-// Utility function to save base64 images to the uploads directory
 const saveBase64Image = (base64Data, filename) => {
   try {
     const base64Image = base64Data.replace(/^data:image\/[a-z]+;base64,/, "");
@@ -111,7 +115,6 @@ const saveBase64Image = (base64Data, filename) => {
   }
 };
 
-// Middleware to verify JWT for authenticated routes
 const authenticateToken = (req, res, next) => {
   const token = req.cookies.token;
 
@@ -132,7 +135,147 @@ const authenticateToken = (req, res, next) => {
   }
 };
 
-// Function to create default tickets (1-100) if none exist
+let dbPool;
+
+const createLogMessage = async (message, adminId, adminEmail) => {
+  if (!dbPool) {
+    console.warn("Database pool not initialized for logging.");
+    return;
+  }
+  try {
+    const sql = `INSERT INTO LogMessages (tanggal_pesan, isi_pesan, id_admin) VALUES (NOW(), ?, ?)`;
+    const formattedMessage = message.replace("email_admin", adminEmail || "Unknown Admin");
+    await dbPool.query(sql, [formattedMessage, adminId || null]);
+    console.log(`LogMessages recorded: ${formattedMessage}`);
+    io.emit('logMessageUpdate', { message: formattedMessage, adminEmail: adminEmail });
+  } catch (err) {
+    console.error("Error creating log message:", err);
+  }
+};
+
+// --- WebSocket Emit Helper Function ---
+const emitDashboardUpdate = async (type) => {
+  try {
+    let data;
+    switch (type) {
+      case 'parkingLogs':
+        const [logs] = await dbPool.query(
+          `SELECT
+            lp.id,
+            k.plat_nomor,
+            t.nomor_tiket,
+            lp.waktu_masuk,
+            lp.waktu_keluar,
+            CONCAT('${VITE_DOMAIN_SERVER}/backend/uploads/', lp.foto_masuk) AS foto_masuk,
+            CASE WHEN lp.waktu_keluar IS NULL THEN 'active' ELSE 'completed' END as status
+          FROM Log_Parkir lp
+          JOIN Kendaraan k ON lp.id_kendaraan = k.id
+          JOIN Tiket t ON lp.id_tiket = t.id
+          ORDER BY lp.waktu_masuk DESC
+          LIMIT 20`
+        );
+        data = logs;
+        break;
+      case 'availableTickets':
+        const [availableTickets] = await dbPool.query(
+          `SELECT id, nomor_tiket FROM Tiket WHERE tersedia = TRUE ORDER BY nomor_tiket`
+        );
+        data = availableTickets;
+        break;
+      case 'totalAvailableTickets':
+        const [totalAvailable] = await dbPool.query(
+          `SELECT COUNT(*) AS count FROM Tiket WHERE tersedia = TRUE`
+        );
+        data = totalAvailable[0].count;
+        break;
+      case 'totalActiveVehicles':
+        const [activeVehicles] = await dbPool.query(
+          `SELECT COUNT(*) AS count FROM Log_Parkir WHERE waktu_keluar IS NULL`
+        );
+        data = activeVehicles[0].count;
+        break;
+      case 'revenueSummary':
+          const [monthlyRevenue] = await dbPool.query(
+              `SELECT
+                  MONTH(tanggal_pemasukan) AS month_number,
+                  SUM(nominal_pemasukan) AS total_revenue
+               FROM PemasukanMingguan
+               WHERE YEAR(tanggal_pemasukan) = YEAR(CURDATE())
+               GROUP BY MONTH(tanggal_pemasukan)
+               ORDER BY month_number ASC`
+          );
+          const getMonthName = (monthNumber) => {
+              const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Ags", "Sep", "Okt", "Nov", "Des"];
+              return months[monthNumber - 1];
+          };
+          data = monthlyRevenue.map(row => ({
+              month_name: getMonthName(row.month_number),
+              total_revenue: row.total_revenue,
+          }));
+          break;
+      case 'logMessages':
+          const [logMsgs] = await dbPool.query(`
+              SELECT
+                  lm.id,
+                  lm.tanggal_pesan,
+                  lm.isi_pesan,
+                  a.email AS admin_email
+              FROM LogMessages lm
+              LEFT JOIN Admin a ON lm.id_admin = a.id
+              ORDER BY lm.tanggal_pesan DESC
+              LIMIT 10
+          `);
+          data = logMsgs;
+          break;
+      // --- UPDATED CASE FOR WEEKLY PARKING TREND ---
+      case 'weeklyParkingTrend':
+          const [weeklyParkingDataRaw] = await dbPool.query(`
+              SELECT
+                  -- Hitung nomor minggu dalam bulan, dengan Minggu sebagai hari pertama (mode 0)
+                  -- WEEK(tanggal, 0): Minggu dimulai hari Minggu, minggu pertama adalah yang mengandung 1 Januari.
+                  WEEK(lp.waktu_masuk, 0) -
+                  WEEK(DATE_FORMAT(lp.waktu_masuk, '%Y-%m-01'), 0) + 1 AS week_in_month,
+                  COUNT(*) AS total_vehicles
+              FROM Log_Parkir lp
+              WHERE
+                  YEAR(lp.waktu_masuk) = YEAR(CURDATE()) AND MONTH(lp.waktu_masuk) = MONTH(CURDATE())
+              GROUP BY
+                  week_in_month
+              ORDER BY
+                  week_in_month;
+          `);
+
+          // Siapkan array dengan semua label minggu yang mungkin (hingga Minggu 5, jika ada)
+          // Kita akan membatasi hingga Minggu 4 di frontend
+          const allWeeksLabels = ['Minggu 1', 'Minggu 2', 'Minggu 3', 'Minggu 4', 'Minggu 5'];
+          const formattedWeeklyData = allWeeksLabels.map((label, index) => ({
+              week_of_month: label,
+              total_vehicles: 0
+          }));
+
+          // Isi data yang ada dari query ke dalam struktur yang sudah diformat
+          weeklyParkingDataRaw.forEach(row => {
+              const weekIndex = row.week_in_month - 1;
+              if (weekIndex >= 0 && weekIndex < formattedWeeklyData.length) {
+                  formattedWeeklyData[weekIndex].total_vehicles = row.total_vehicles;
+              }
+          });
+
+          // Kita hanya akan mengirim data untuk Minggu 1 hingga Minggu 4 ke frontend
+          data = formattedWeeklyData.slice(0, 4);
+          break;
+      default:
+        console.warn('Unknown dashboard update type:', type);
+        return;
+    }
+    io.emit(type + 'Update', data);
+    console.log(`Emitted ${type}Update WebSocket event.`);
+  } catch (error) {
+    console.error(`Error emitting ${type} update:`, error);
+  }
+};
+
+
 async function createDefaultTickets(db) {
   try {
     const [results] = await db.query("SELECT COUNT(*) as count FROM Tiket");
@@ -149,7 +292,7 @@ async function createDefaultTickets(db) {
 
     const values = [];
     for (let i = 1; i <= 100; i++) {
-      values.push([i.toString().padStart(3, "0")]); // Correct format for batch insert with mysql2/promise
+      values.push([i.toString().padStart(3, "0")]);
     }
 
     const sql = `INSERT INTO Tiket (nomor_tiket) VALUES ?`;
@@ -162,7 +305,6 @@ async function createDefaultTickets(db) {
   }
 }
 
-// Function to create database tables
 async function createTables(db) {
   try {
     await db.query(
@@ -210,6 +352,21 @@ async function createTables(db) {
         nominal_pemasukan DECIMAL(15, 0) NOT NULL,
         nominal_bersih DECIMAL(15, 0) NOT NULL
       );
+
+      CREATE TABLE IF NOT EXISTS LogMessages (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        tanggal_pesan DATETIME DEFAULT CURRENT_TIMESTAMP, 
+        isi_pesan TEXT NOT NULL,
+        id_admin INT,
+        FOREIGN KEY (id_admin) REFERENCES Admin(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS LogPemulihan (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        waktu_pemulihan DATETIME NOT NULL,
+        id_admin INT,
+        FOREIGN KEY (id_admin) REFERENCES Admin(id)
+      );
     `
     );
     console.log("All tables created or confirmed exist.");
@@ -219,12 +376,8 @@ async function createTables(db) {
   }
 }
 
-// Main function to initialize DB and start the server
 async function startServer(rebuild = false) {
-  let dbPool; // MySQL connection pool
-
   try {
-    // Temporary connection to create database if it doesn't exist
     const tempDb = await mysql.createConnection({
       host: DB_HOST,
       user: DB_USER,
@@ -235,7 +388,6 @@ async function startServer(rebuild = false) {
     console.log(`Database ${DB_NAME} siap digunakan`);
     await tempDb.end();
 
-    // Connect to main DB using a Connection Pool
     dbPool = mysql.createPool({
       host: DB_HOST,
       user: DB_USER,
@@ -245,13 +397,12 @@ async function startServer(rebuild = false) {
       connectionLimit: 10,
       queueLimit: 0,
       multipleStatements: true,
-      timezone: TIME_ZONE || "Asia/Jakarta",
+      timezone: "Z",
     });
     console.log(
       `Connected to MySQL database ${DB_NAME} (using connection pool)`
     );
 
-    // Use a temporary connection from the pool for initial setup (create tables, default tickets)
     const initialConnection = await dbPool.getConnection();
     try {
       if (rebuild) {
@@ -265,6 +416,8 @@ async function startServer(rebuild = false) {
             DROP TABLE IF EXISTS Tiket;
             DROP TABLE IF EXISTS Admin;
             DROP TABLE IF EXISTS Kendaraan;
+            DROP TABLE IF EXISTS LogMessages;
+            DROP TABLE IF EXISTS LogPemulihan;
             SET FOREIGN_KEY_CHECKS = 1;
           `
         );
@@ -277,14 +430,34 @@ async function startServer(rebuild = false) {
         await createDefaultTickets(initialConnection);
       }
     } finally {
-      initialConnection.release(); // Release the initial connection
+      initialConnection.release();
     }
+
+    // --- WebSocket Connection Handling ---
+    io.on('connection', (socket) => {
+      console.log('A client connected via WebSocket:', socket.id);
+
+      // Emit initial data to the newly connected client
+      emitDashboardUpdate('parkingLogs');
+      emitDashboardUpdate('availableTickets');
+      emitDashboardUpdate('totalAvailableTickets');
+      emitDashboardUpdate('totalActiveVehicles');
+      emitDashboardUpdate('revenueSummary');
+      emitDashboardUpdate('logMessages');
+      emitDashboardUpdate('weeklyParkingTrend'); // <--- Emit this new data type on connect
+
+      socket.on('disconnect', () => {
+        console.log('Client disconnected from WebSocket:', socket.id);
+      });
+    });
+
 
     // === API ENDPOINTS ===
 
-    // CREATE TICKET
     app.post("/api/tiket", authenticateToken, async (req, res) => {
       const { nomor_tiket } = req.body;
+      const { id: adminId, email: adminEmail } = req.admin;
+
       if (!nomor_tiket) {
         return res.status(400).json({ error: "nomor_tiket is required" });
       }
@@ -292,6 +465,11 @@ async function startServer(rebuild = false) {
       try {
         const sql = `INSERT INTO Tiket (nomor_tiket, tersedia) VALUES (?, TRUE)`;
         const [result] = await dbPool.query(sql, [nomor_tiket]);
+        
+        await createLogMessage(`email_admin telah menambah tiket nomor ${nomor_tiket}`, adminId, adminEmail);
+        emitDashboardUpdate('availableTickets');
+        emitDashboardUpdate('totalAvailableTickets');
+
         res.json({ message: "Tiket berhasil dibuat", id: result.insertId });
       } catch (err) {
         if (err.code === "ER_DUP_ENTRY") {
@@ -301,7 +479,6 @@ async function startServer(rebuild = false) {
       }
     });
 
-    // GET AVAILABLE TICKETS ONLY
     app.get("/api/tiket/tersedia", authenticateToken, async (req, res) => {
       try {
         const [results] = await dbPool.query(
@@ -313,7 +490,6 @@ async function startServer(rebuild = false) {
       }
     });
 
-    // GET ALL TICKETS
     app.get("/api/tiket", authenticateToken, async (req, res) => {
       try {
         const [results] = await dbPool.query(
@@ -325,10 +501,11 @@ async function startServer(rebuild = false) {
       }
     });
 
-    // UPDATE TICKET AVAILABILITY
     app.put("/api/tiket/:id/tersedia", authenticateToken, async (req, res) => {
       const { id } = req.params;
       const { tersedia } = req.body;
+      const { id: adminId, email: adminEmail } = req.admin;
+
 
       if (typeof tersedia !== "boolean") {
         return res
@@ -337,11 +514,22 @@ async function startServer(rebuild = false) {
       }
 
       try {
+        const [ticketData] = await dbPool.query(`SELECT nomor_tiket FROM Tiket WHERE id = ?`, [id]);
+        if (ticketData.length === 0) {
+            return res.status(404).json({ error: "Tiket tidak ditemukan" });
+        }
+        const nomor_tiket = ticketData[0].nomor_tiket;
+
         const sql = `UPDATE Tiket SET tersedia = ? WHERE id = ?`;
         const [result] = await dbPool.query(sql, [tersedia, id]);
         if (result.affectedRows === 0) {
           return res.status(404).json({ error: "Tiket tidak ditemukan" });
         }
+
+        await createLogMessage(`email_admin telah ${tersedia ? "mengaktifkan" : "menonaktifkan"} tiket nomor ${nomor_tiket}`, adminId, adminEmail);
+        emitDashboardUpdate('availableTickets');
+        emitDashboardUpdate('totalAvailableTickets');
+
         res.json({
           message: `Tiket ${tersedia ? "diaktifkan" : "dinonaktifkan"}`,
         });
@@ -350,7 +538,6 @@ async function startServer(rebuild = false) {
       }
     });
 
-    // CREATE KENDARAAN (Vehicle)
     app.post("/api/kendaraan", authenticateToken, async (req, res) => {
       const { plat_nomor } = req.body;
       const sql = `INSERT INTO Kendaraan (plat_nomor) VALUES (?)`;
@@ -366,8 +553,6 @@ async function startServer(rebuild = false) {
       }
     });
 
-    // GET PARKING LOGS WITH DETAILS
-    // GET PARKING LOGS WITH DETAILS
     app.get("/api/logParkir", authenticateToken, async (req, res) => {
       try {
         const [results] = await dbPool.query(
@@ -388,7 +573,6 @@ async function startServer(rebuild = false) {
         );
         res.json(results);
       } catch (err) {
-        // Log the full error object for better debugging
         console.error("Error fetching parking logs:", err);
         return res
           .status(500)
@@ -396,7 +580,6 @@ async function startServer(rebuild = false) {
       }
     });
 
-    // PARKIR MASUK (Vehicle Entry)
     app.post(
       "/api/parkirMasuk",
       authenticateToken,
@@ -410,6 +593,8 @@ async function startServer(rebuild = false) {
         );
 
         const { plat_nomor, waktu_masuk, nomor_tiket, foto_base64 } = req.body;
+        const { id: adminId, email: adminEmail } = req.admin;
+
 
         if (!plat_nomor || !waktu_masuk || !nomor_tiket) {
           return res.status(400).json({
@@ -443,13 +628,11 @@ async function startServer(rebuild = false) {
             );
           }
 
-          // --- Database Operations using async/await and connection from pool ---
-          const connection = await dbPool.getConnection(); // Get connection from pool
+          const connection = await dbPool.getConnection();
 
           try {
             await connection.beginTransaction();
 
-            // 1. Check if Ticket is Available
             const [tiketRows] = await connection.query(
               `SELECT id FROM Tiket WHERE nomor_tiket = ? AND tersedia = TRUE`,
               [nomor_tiket]
@@ -463,7 +646,6 @@ async function startServer(rebuild = false) {
             }
             const id_tiket = tiketRows[0].id;
 
-            // 2. Find or Create Vehicle
             const [kendaraanRows] = await connection.query(
               `SELECT id FROM Kendaraan WHERE plat_nomor = ?`,
               [plat_nomor]
@@ -480,13 +662,11 @@ async function startServer(rebuild = false) {
               id_kendaraan = result.insertId;
             }
 
-            // 3. Update Ticket availability to FALSE
             await connection.query(
               `UPDATE Tiket SET tersedia = FALSE WHERE id = ?`,
               [id_tiket]
             );
 
-            // 4. Insert parking log
             const [logResult] = await connection.query(
               `INSERT INTO Log_Parkir (id_kendaraan, id_tiket, waktu_masuk, foto_masuk) VALUES (?, ?, ?, ?)`,
               [id_kendaraan, id_tiket, waktu_masuk, foto_filename]
@@ -496,6 +676,14 @@ async function startServer(rebuild = false) {
             console.log(
               "Parking entry recorded successfully and ticket updated."
             );
+
+            await createLogMessage(`email_admin telah menambah data parkir Plat Nomor: ${plat_nomor}, No. Tiket: ${nomor_tiket}`, adminId, adminEmail);
+            emitDashboardUpdate('parkingLogs');
+            emitDashboardUpdate('availableTickets');
+            emitDashboardUpdate('totalAvailableTickets');
+            emitDashboardUpdate('totalActiveVehicles');
+            emitDashboardUpdate('weeklyParkingTrend'); // <--- Emit this on relevant actions
+
 
             res.json({
               message: "Parkir masuk tercatat",
@@ -508,7 +696,7 @@ async function startServer(rebuild = false) {
             console.error("Transaction error in parkirMasuk:", transactionErr);
             throw transactionErr;
           } finally {
-            connection.release(); // Release connection back to pool
+            connection.release();
           }
         } catch (error) {
           console.error("Error processing /api/parkirMasuk request:", error);
@@ -522,49 +710,48 @@ async function startServer(rebuild = false) {
       }
     );
 
-    // PARKIR KELUAR (Vehicle Exit)
     app.post("/api/parkirKeluar", authenticateToken, async (req, res) => {
       const { nomor_tiket } = req.body;
+      const { id: adminId, email: adminEmail } = req.admin;
 
       if (!nomor_tiket) {
         return res.status(400).json({ error: "Nomor tiket wajib diisi" });
       }
 
-      const connection = await dbPool.getConnection(); // Get connection from pool
+      const connection = await dbPool.getConnection();
 
       try {
         await connection.beginTransaction();
 
-        // 1. Get Ticket ID
-        const [tiketRows] = await connection.query(
-          `SELECT id FROM Tiket WHERE nomor_tiket = ?`,
+        const [logInfo] = await connection.query(
+          `
+          SELECT lp.id, lp.id_tiket, k.plat_nomor
+          FROM Log_Parkir lp
+          JOIN Kendaraan k ON lp.id_kendaraan = k.id
+          WHERE lp.id_tiket = (SELECT id FROM Tiket WHERE nomor_tiket = ?) AND lp.waktu_keluar IS NULL
+          ORDER BY lp.waktu_masuk DESC LIMIT 1
+          `,
           [nomor_tiket]
         );
 
-        if (tiketRows.length === 0) {
-          await connection.rollback();
-          return res.status(404).json({ error: "Nomor tiket tidak ditemukan" });
-        }
-        const id_tiket = tiketRows[0].id;
-
-        // 2. Update Log_Parkir (set waktu_keluar)
-        const [updateLogResult] = await connection.query(
-          `
-          UPDATE Log_Parkir
-          SET waktu_keluar = NOW()
-          WHERE id_tiket = ? AND waktu_keluar IS NULL
-        `,
-          [id_tiket]
-        );
-
-        if (updateLogResult.affectedRows === 0) {
+        if (logInfo.length === 0) {
           await connection.rollback();
           return res.status(404).json({
             error: "Tidak ada log parkir aktif untuk tiket ini",
           });
         }
+        const { id: logId, id_tiket, plat_nomor } = logInfo[0];
 
-        // 3. Update Tiket (set tersedia = TRUE)
+
+        const [updateLogResult] = await connection.query(
+          `
+          UPDATE Log_Parkir
+          SET waktu_keluar = NOW()
+          WHERE id = ?
+        `,
+          [logId]
+        );
+
         await connection.query(
           `UPDATE Tiket SET tersedia = TRUE WHERE id = ?`,
           [id_tiket]
@@ -572,6 +759,14 @@ async function startServer(rebuild = false) {
 
         await connection.commit();
         console.log("Parking exit recorded, ticket available again.");
+
+        await createLogMessage(`email_admin telah mengeluarkan data parkir Plat Nomor: ${plat_nomor}, No. Tiket: ${nomor_tiket}`, adminId, adminEmail);
+        emitDashboardUpdate('parkingLogs');
+        emitDashboardUpdate('availableTickets');
+        emitDashboardUpdate('totalAvailableTickets');
+        emitDashboardUpdate('totalActiveVehicles');
+        emitDashboardUpdate('weeklyParkingTrend'); // <--- Emit this on relevant actions
+
         res.json({
           message: "Parkir keluar tercatat, tiket tersedia kembali",
         });
@@ -582,11 +777,10 @@ async function startServer(rebuild = false) {
           .status(500)
           .json({ error: "Gagal memproses parkir keluar: " + err.message });
       } finally {
-        connection.release(); // Release connection back to pool
+        connection.release();
       }
     });
 
-    // Admin Registration
     app.post("/api/admin/register", async (req, res) => {
       const { email, password } = req.body;
       if (!email || !password) {
@@ -611,7 +805,6 @@ async function startServer(rebuild = false) {
       }
     });
 
-    // Admin Login
     app.post("/api/admin/login", async (req, res) => {
       const { email, password } = req.body;
       console.log("Login attempt with:", { email, password });
@@ -648,6 +841,9 @@ async function startServer(rebuild = false) {
           sameSite: "Lax",
         });
 
+        await createLogMessage(`email_admin telah berhasil login`, admin.id, admin.email);
+
+
         res.json({ message: "Login berhasil", id_admin: admin.id });
       } catch (err) {
         console.error("Error during login:", err);
@@ -663,19 +859,22 @@ async function startServer(rebuild = false) {
       });
     });
 
-    // Admin Logout
-    app.post("/api/admin/logout", authenticateToken, (req, res) => {
+    app.post("/api/admin/logout", authenticateToken, async (req, res) => {
+      const { id: adminId, email: adminEmail } = req.admin;
+
       res.clearCookie("token", {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "Lax",
       });
+      await createLogMessage(`email_admin telah logout`, adminId, adminEmail);
+
       res.json({ message: "Logout berhasil" });
     });
 
-    // POST /api/pemasukanMingguan - Add new income with 20% calculation
     app.post("/api/pemasukanMingguan", authenticateToken, async (req, res) => {
       const { tanggal_pemasukan, nominal_pemasukan } = req.body;
+      const { id: adminId, email: adminEmail } = req.admin;
 
       if (
         !tanggal_pemasukan ||
@@ -689,7 +888,6 @@ async function startServer(rebuild = false) {
       }
 
       try {
-        // Calculate nominal_bersih as 20% of nominal_pemasukan
         const nominal_bersih = nominal_pemasukan - nominal_pemasukan * 0.2;
 
         const sql = `INSERT INTO PemasukanMingguan (tanggal_pemasukan, nominal_pemasukan, nominal_bersih) VALUES (?, ?, ?)`;
@@ -698,6 +896,10 @@ async function startServer(rebuild = false) {
           nominal_pemasukan,
           nominal_bersih,
         ]);
+
+        await createLogMessage(`email_admin telah menambah pemasukan sebesar Rp ${nominal_pemasukan}`, adminId, adminEmail);
+        emitDashboardUpdate('revenueSummary');
+
         res.status(201).json({
           message: "Pemasukan berhasil ditambahkan",
           id: result.insertId,
@@ -710,14 +912,16 @@ async function startServer(rebuild = false) {
       }
     });
 
-    // DELETE /api/pemasukanMingguan/:id - Delete income by ID
     app.delete(
       "/api/pemasukanMingguan/:id",
       authenticateToken,
       async (req, res) => {
         const { id } = req.params;
+        const { id: adminId, email: adminEmail } = req.admin;
 
         try {
+          const [incomeData] = await dbPool.query(`SELECT nominal_pemasukan FROM PemasukanMingguan WHERE id = ?`, [id]);
+
           const sql = `DELETE FROM PemasukanMingguan WHERE id = ?`;
           const [result] = await dbPool.query(sql, [id]);
 
@@ -726,6 +930,14 @@ async function startServer(rebuild = false) {
               .status(404)
               .json({ error: "Data pemasukan tidak ditemukan." });
           }
+
+          if (incomeData.length > 0) {
+              await createLogMessage(`email_admin telah menghapus pemasukan sebesar Rp ${incomeData[0].nominal_pemasukan}`, adminId, adminEmail);
+          } else {
+              await createLogMessage(`email_admin telah menghapus pemasukan (ID: ${id})`, adminId, adminEmail);
+          }
+          emitDashboardUpdate('revenueSummary');
+
           res.json({ message: "Data pemasukan berhasil dihapus." });
         } catch (err) {
           console.error("Error deleting pemasukan:", err);
@@ -736,7 +948,6 @@ async function startServer(rebuild = false) {
       }
     );
 
-    // GET PEMASUKAN MINGGUAN BY ID
     app.get(
       "/api/pemasukanMingguan/:id",
       authenticateToken,
@@ -771,6 +982,8 @@ async function startServer(rebuild = false) {
       async (req, res) => {
         const { id } = req.params;
         const { tanggal_pemasukan, nominal_pemasukan } = req.body;
+        const { id: adminId, email: adminEmail } = req.admin;
+
 
         if (
           !tanggal_pemasukan ||
@@ -796,6 +1009,10 @@ async function startServer(rebuild = false) {
             });
           }
 
+          await createLogMessage(`email_admin telah mengubah pemasukan (ID: ${id}) menjadi Rp ${nominal_pemasukan}`, adminId, adminEmail);
+          emitDashboardUpdate('revenueSummary');
+
+
           res
             .status(200)
             .json({ message: "Data pemasukan berhasil diperbarui." });
@@ -808,7 +1025,6 @@ async function startServer(rebuild = false) {
       }
     );
 
-    // Function to map month numbers to Indonesian month names
     const getMonthName = (monthNumber) => {
       const months = [
         "Jan",
@@ -824,24 +1040,21 @@ async function startServer(rebuild = false) {
         "Nov",
         "Des",
       ];
-      return months[monthNumber - 1]; // monthNumber is 1-indexed
+      return months[monthNumber - 1];
     };
 
-    // GET endpoint for monthly revenue data
     app.get("/api/pemasukanBulanan", authenticateToken, async (req, res) => {
       try {
-        // Query to get total nominal_pemasukan grouped by month
         const [results] = await dbPool.query(
           `SELECT
             MONTH(tanggal_pemasukan) AS month_number,
             SUM(nominal_pemasukan) AS total_revenue
          FROM PemasukanMingguan
-         WHERE YEAR(tanggal_pemasukan) = YEAR(CURDATE()) -- Only for the current year
+         WHERE YEAR(tanggal_pemasukan) = YEAR(CURDATE())
          GROUP BY MONTH(tanggal_pemasukan)
          ORDER BY month_number ASC`
         );
 
-        // Map month numbers to names and ensure all months are present (optional, frontend handles this better)
         const formattedResults = results.map((row) => ({
           month_name: getMonthName(row.month_number),
           total_revenue: row.total_revenue,
@@ -856,7 +1069,6 @@ async function startServer(rebuild = false) {
       }
     });
 
-    // GET ALL PEMASUKAN MINGGUAN DATA
     app.get("/api/pemasukanMingguan", authenticateToken, async (req, res) => {
       try {
         const [results] = await dbPool.query(
@@ -871,32 +1083,127 @@ async function startServer(rebuild = false) {
       }
     });
 
-    // BACKUP LOG
     app.post("/api/backup", authenticateToken, async (req, res) => {
       const { waktu_backup } = req.body;
-      const id_admin = req.admin.id;
+      const { id: adminId, email: adminEmail } = req.admin;
 
-      if (!waktu_backup || !id_admin) {
+      if (!waktu_backup) {
         return res
           .status(400)
-          .json({ error: "Missing waktu_backup or id_admin" });
+          .json({ error: "Missing waktu_backup" });
       }
       try {
         const sql = `INSERT INTO Log_Backup (waktu_backup, id_admin) VALUES (?, ?)`;
-        await dbPool.query(sql, [waktu_backup, id_admin]);
+        await dbPool.query(sql, [waktu_backup, adminId]);
+
+        await createLogMessage(`email_admin telah melakukan backup pada tanggal ${new Date(waktu_backup).toLocaleDateString('id-ID')}`, adminId, adminEmail);
+
         res.json({ message: "Log backup berhasil dicatat" });
       } catch (err) {
         return res.status(500).json({ error: err.message });
       }
     });
 
+    app.get("/api/logMessages", authenticateToken, async (req, res) => {
+        try {
+            const [results] = await dbPool.query(`
+                SELECT
+                    lm.id,
+                    lm.tanggal_pesan,
+                    lm.isi_pesan,
+                    a.email AS admin_email
+                FROM LogMessages lm
+                LEFT JOIN Admin a ON lm.id_admin = a.id
+                ORDER BY lm.tanggal_pesan DESC
+            `);
+            res.json(results);
+        } catch (err) {
+            console.error("Error fetching log messages:", err);
+            res.status(500).json({ error: "Gagal mengambil log pesan: " + err.message });
+        }
+    });
+
+    app.post("/api/logMessages", authenticateToken, async (req, res) => {
+        const { isi_pesan } = req.body;
+        const { id: adminId, email: adminEmail } = req.admin;
+
+        if (!isi_pesan) {
+            return res.status(400).json({ error: "Isi pesan wajib diisi" });
+        }
+
+        try {
+            await createLogMessage(isi_pesan, adminId, adminEmail);
+            emitDashboardUpdate('logMessages');
+            res.status(201).json({ message: "Pesan log berhasil ditambahkan" });
+        } catch (err) {
+            console.error("Error adding log message via API:", err);
+            res.status(500).json({ error: "Gagal menambahkan pesan log: " + err.message });
+        }
+    });
+
+    app.delete("/api/logMessages/:id", authenticateToken, async (req, res) => {
+        const { id } = req.params;
+        const { id: adminId, email: adminEmail } = req.admin;
+
+        try {
+            const [result] = await dbPool.query(`DELETE FROM LogMessages WHERE id = ?`, [id]);
+            if (result.affectedRows === 0) {
+                return res.status(404).json({ error: "Pesan log tidak ditemukan" });
+            }
+            await createLogMessage(`email_admin telah menghapus pesan log (ID: ${id})`, adminId, adminEmail);
+            emitDashboardUpdate('logMessages');
+
+            res.json({ message: "Pesan log berhasil dihapus" });
+        } catch (err) {
+            console.error("Error deleting log message:", err);
+            res.status(500).json({ error: "Gagal menghapus pesan log: " + err.message });
+        }
+    });
+
+    app.post("/api/pemulihan", authenticateToken, async (req, res) => {
+        const { waktu_pemulihan } = req.body;
+        const { id: adminId, email: adminEmail } = req.admin;
+
+        if (!waktu_pemulihan) {
+            return res.status(400).json({ error: "Waktu pemulihan wajib diisi" });
+        }
+
+        try {
+            const sql = `INSERT INTO LogPemulihan (waktu_pemulihan, id_admin) VALUES (?, ?)`;
+            await dbPool.query(sql, [waktu_pemulihan, adminId]);
+
+            await createLogMessage(`email_admin telah melakukan pemulihan pada tanggal ${new Date(waktu_pemulihan).toLocaleDateString('id-ID')}`, adminId, adminEmail);
+
+            res.status(201).json({ message: "Log pemulihan berhasil dicatat" });
+        } catch (err) {
+            console.error("Error adding recovery log:", err);
+            res.status(500).json({ error: "Gagal mencatat log pemulihan: " + err.message });
+        }
+    });
+
+    app.get("/api/pemulihan", authenticateToken, async (req, res) => {
+        try {
+            const [results] = await dbPool.query(`
+                SELECT lp.id, lp.waktu_pemulihan, a.email AS admin_email
+                FROM LogPemulihan lp
+                LEFT JOIN Admin a ON lp.id_admin = a.id
+                ORDER BY lp.waktu_pemulihan DESC
+            `);
+            res.json(results);
+        } catch (err) {
+            console.error("Error fetching recovery logs:", err);
+            res.status(500).json({ error: "Gagal mengambil log pemulihan: " + err.message });
+        }
+    });
+
+
     app.get("/", (req, res) => {
       res.send("Server API Kendaraan Parkir aktif");
     });
 
     const PORT = process.env.PORT || 3000;
-    app.listen(PORT, () => {
-      console.log(`Server berjalan di http://localhost:${PORT}`);
+    server.listen(PORT, () => {
+      console.log(`Server API dan WebSocket berjalan di http://localhost:${PORT}`);
     });
   } catch (error) {
     console.error("Gagal memulai server:", error);
@@ -904,7 +1211,6 @@ async function startServer(rebuild = false) {
   }
 }
 
-// Handle command-line arguments
 const args = process.argv.slice(2);
 
 if (args[0] === "--add-admin") {
@@ -918,17 +1224,16 @@ if (args[0] === "--add-admin") {
     process.exit(1);
   }
 
-  // Connect to the database to add the admin
   mysql
     .createConnection({
-      host: process.env.DB_HOST,
-      user: process.env.DB_USER,
-      password: process.env.DB_PASS,
-      database: process.env.DB_NAME,
+      host: DB_HOST,
+      user: DB_USER,
+      password: DB_PASS,
+      database: DB_NAME,
     })
     .then(async (connection) => {
       console.log(
-        `Connected to MySQL database ${process.env.DB_NAME} for admin creation.`
+        `Connected to MySQL database ${DB_NAME} for admin creation.`
       );
 
       try {
@@ -944,7 +1249,7 @@ if (args[0] === "--add-admin") {
           console.error("❌ Gagal menyimpan admin:", err);
         }
       } finally {
-        await connection.end(); // Close DB connection
+        await connection.end();
         process.exit(0);
       }
     })
@@ -954,7 +1259,7 @@ if (args[0] === "--add-admin") {
     });
 } else if (args[0] === "--generate-key") {
   const envFilePath = path.join(__dirname, ".env");
-  const newSecret = crypto.randomBytes(32).toString("hex"); // Generate 32 bytes (64 hex characters)
+  const newSecret = crypto.randomBytes(32).toString("hex");
 
   try {
     let envContent = "";
@@ -962,7 +1267,7 @@ if (args[0] === "--add-admin") {
       envContent = fs.readFileSync(envFilePath, "utf8");
     }
 
-    const jwtSecretRegex = /^JWT_SECRET=.*$/m; // Regex to find JWT_SECRET line
+    const jwtSecretRegex = /^JWT_SECRET=.*$/m;
     if (envContent.match(jwtSecretRegex)) {
       envContent = envContent.replace(
         jwtSecretRegex,
@@ -974,7 +1279,7 @@ if (args[0] === "--add-admin") {
       console.log("✅ JWT_SECRET added to .env file.");
     }
 
-    fs.writeFileSync(envFilePath, envContent.trim() + "\n"); // Trim and ensure a newline at end
+    fs.writeFileSync(envFilePath, envContent.trim() + "\n");
     console.log("Generated new JWT Secret and saved to .env.");
     console.log(`New JWT_SECRET: ${newSecret}`);
     console.log(
@@ -986,7 +1291,6 @@ if (args[0] === "--add-admin") {
     process.exit(1);
   }
 } else {
-  // If no specific CLI argument is provided, start the server
   const shouldRebuild = process.argv.includes("--rebuild");
   startServer(shouldRebuild);
 }
