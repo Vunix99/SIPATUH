@@ -17,53 +17,65 @@ import http from "http";
 import { Server } from "socket.io";
 import { exec } from "child_process"; // Import exec from child_process
 
+// Polyfill for __filename and __dirname in ES Modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Load environment variables from .env file
 dotenv.config({ path: path.join(__dirname, ".env") });
+
+// Destructure environment variables
 const {
   DB_HOST,
   DB_USER,
   DB_PASS,
   DB_NAME,
-  TIME_ZONE,
+  TIME_ZONE, // Note: TIME_ZONE from .env isn't directly used in dbPool currently, but good to have
   JWT_SECRET,
-  VITE_DOMAIN_SERVER,
+  VITE_DOMAIN_SERVER, // This is crucial for CORS and Socket.IO origin
 } = process.env;
 
+// Log environment variables for debugging purposes (especially during deployment)
 console.log("=== ENVIRONMENT VARIABLES ===");
 console.log("DB_HOST:", process.env.DB_HOST);
 console.log("DB_USER:", process.env.DB_USER);
-console.log("DB_PASS:", process.env.DB_PASS);
+console.log("DB_PASS:", process.env.DB_PASS ? "********" : "NOT SET"); // Mask password
 console.log("DB_NAME:", process.env.DB_NAME);
 console.log("JWT_SECRET (present):", !!process.env.JWT_SECRET);
-console.log("VITE_DOMAIN_SERVER:", process.env.VITE_DOMAIN_SERVER);
+// Log VITE_DOMAIN_SERVER to ensure it's loaded correctly at runtime
+console.log("VITE_DOMAIN_SERVER:", process.env.VITE_DOMAIN_SERVER); 
 console.log("TIME_ZONE (from .env):", process.env.TIME_ZONE);
 console.log("=============================");
 
+// Initialize Express app and HTTP server
 const app = express();
 const server = http.createServer(app);
+
+// Initialize Socket.IO server with CORS configuration
+// The 'origin' here MUST match the exact domain of your frontend application when deployed
 const io = new Server(server, {
   cors: {
-    origin: VITE_DOMAIN_SERVER,
+    origin: VITE_DOMAIN_SERVER, // This line correctly uses the environment variable
     methods: ["GET", "POST"],
     credentials: true,
   },
 });
 
+// Create 'uploads' directory if it doesn't exist
 const uploadsDir = path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
   console.log("Created uploads directory:", uploadsDir);
 }
 
-// Directory for backups
+// Create 'backups' directory if it doesn't exist
 const backupsDir = path.join(__dirname, "backups");
 if (!fs.existsSync(backupsDir)) {
   fs.mkdirSync(backupsDir, { recursive: true });
   console.log("Created backups directory:", backupsDir);
 }
 
+// Multer storage for general file uploads (images)
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadsDir),
   filename: (req, file, cb) => {
@@ -74,14 +86,14 @@ const storage = multer.diskStorage({
 });
 const upload = multer({
   storage,
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit for general uploads (images)
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith("image/")) cb(null, true);
     else cb(new Error("Only image files are allowed!"), false);
   },
 });
 
-// Multer storage for SQL files (for restore)
+// Multer storage for SQL files (for database restore)
 const sqlStorage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadsDir), // Store temporarily in uploads
   filename: (req, file, cb) => {
@@ -95,7 +107,7 @@ const sqlStorage = multer.diskStorage({
 });
 const uploadSql = multer({
   storage: sqlStorage,
-  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB limit for SQL files
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB limit
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
     if (ext === '.sql' || file.mimetype === 'application/x-sql') {
@@ -106,13 +118,16 @@ const uploadSql = multer({
   },
 });
 
-
+// CORS middleware for Express (HTTP requests)
+// This also uses the VITE_DOMAIN_SERVER for origin control
 app.use(
   cors({
     origin: VITE_DOMAIN_SERVER,
     credentials: true,
   })
 );
+
+// Body-parser middleware for JSON and URL-encoded data
 app.use(bodyParser.json({ limit: "50mb", parameterLimit: 50000 }));
 app.use(
   bodyParser.urlencoded({
@@ -121,18 +136,24 @@ app.use(
     parameterLimit: 50000,
   })
 );
+// Express built-in body-parser (can replace body-parser package if not using specific features)
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
+
+// Cookie-parser middleware for handling cookies
 app.use(cookieParser());
+
+// Serve static files from 'uploads' and 'backups' directories
 app.use("/uploads", express.static(uploadsDir));
-app.use("/backups", express.static(backupsDir)); // Serve backup files
+app.use("/backups", express.static(backupsDir));
 
-
+// Critical check for JWT_SECRET
 if (!JWT_SECRET) {
   console.error("FATAL ERROR: JWT_SECRET is not defined in .env file.");
   process.exit(1);
 }
 
+// Helper function to save Base64 images
 const saveBase64Image = (base64Data, filename) => {
   try {
     const base64Image = base64Data.replace(/^data:image\/[a-z]+;base64,/, "");
@@ -151,6 +172,7 @@ const saveBase64Image = (base64Data, filename) => {
   }
 };
 
+// Middleware to authenticate JWT token
 const authenticateToken = (req, res, next) => {
   const token = req.cookies.token;
 
@@ -171,8 +193,9 @@ const authenticateToken = (req, res, next) => {
   }
 };
 
-let dbPool;
+let dbPool; // Database connection pool
 
+// Helper function to create log messages and emit updates
 const createLogMessage = async (message, adminId, adminEmail) => {
   if (!dbPool) {
     console.warn("Database pool not initialized for logging.");
@@ -184,6 +207,7 @@ const createLogMessage = async (message, adminId, adminEmail) => {
     await dbPool.query(sql, [formattedMessage, adminId || null]);
     console.log(`LogMessages recorded: ${formattedMessage}`);
 
+    // Emit WebSocket update for log messages
     emitDashboardUpdate('logMessages');
   } catch (err) {
     console.error("Error creating log message:", err);
@@ -191,6 +215,7 @@ const createLogMessage = async (message, adminId, adminEmail) => {
 };
 
 // --- WebSocket Emit Helper Function ---
+// This function fetches data and emits it to all connected WebSocket clients
 const emitDashboardUpdate = async (type) => {
   try {
     let data;
@@ -203,7 +228,8 @@ const emitDashboardUpdate = async (type) => {
             t.nomor_tiket,
             lp.waktu_masuk,
             lp.waktu_keluar,
-            CONCAT('${VITE_DOMAIN_SERVER}/backend/uploads/', lp.foto_masuk) AS foto_masuk,
+            -- Ensure VITE_DOMAIN_SERVER is correctly prepended for image paths
+            CONCAT('${VITE_DOMAIN_SERVER}/uploads/', lp.foto_masuk) AS foto_masuk,
             CASE WHEN lp.waktu_keluar IS NULL THEN 'active' ELSE 'completed' END as status
           FROM Log_Parkir lp
           JOIN Kendaraan k ON lp.id_kendaraan = k.id
@@ -267,6 +293,8 @@ const emitDashboardUpdate = async (type) => {
       case 'weeklyParkingTrend':
           const [weeklyParkingDataRaw] = await dbPool.query(`
               SELECT
+                  -- MySQL's WEEK(date, mode) function. Mode 0 means Sunday is the first day of the week.
+                  -- This calculates week number within the month.
                   WEEK(lp.waktu_masuk, 0) -
                   WEEK(DATE_FORMAT(lp.waktu_masuk, '%Y-%m-01'), 0) + 1 AS week_in_month,
                   COUNT(*) AS total_vehicles
@@ -292,12 +320,14 @@ const emitDashboardUpdate = async (type) => {
               }
           });
 
+          // Limit to 4 weeks, as typically a month has 4 full weeks. Adjust if needed.
           data = formattedWeeklyData.slice(0, 4);
           break;
       default:
         console.warn('Unknown dashboard update type:', type);
         return;
     }
+    // Emit the data to all connected clients
     io.emit(type + 'Update', data);
     console.log(`Emitted ${type}Update WebSocket event.`);
   } catch (error) {
@@ -305,7 +335,7 @@ const emitDashboardUpdate = async (type) => {
   }
 };
 
-
+// Function to create default tickets if none exist
 async function createDefaultTickets(db) {
   try {
     const [results] = await db.query("SELECT COUNT(*) as count FROM Tiket");
@@ -322,7 +352,7 @@ async function createDefaultTickets(db) {
 
     const values = [];
     for (let i = 1; i <= 100; i++) {
-      values.push([i.toString().padStart(3, "0")]);
+      values.push([i.toString().padStart(3, "0")]); // Format as 001, 002, etc.
     }
 
     const sql = `INSERT INTO Tiket (nomor_tiket) VALUES ?`;
@@ -335,6 +365,7 @@ async function createDefaultTickets(db) {
   }
 }
 
+// Function to create all necessary database tables
 async function createTables(db) {
   try {
     await db.query(
@@ -406,8 +437,10 @@ async function createTables(db) {
   }
 }
 
+// Main function to start the server
 async function startServer(rebuild = false) {
   try {
+    // Connect to MySQL without specifying database to create it if not exists
     const tempDb = await mysql.createConnection({
       host: DB_HOST,
       user: DB_USER,
@@ -418,6 +451,7 @@ async function startServer(rebuild = false) {
     console.log(`Database ${DB_NAME} siap digunakan`);
     await tempDb.end();
 
+    // Create a connection pool to the specified database
     dbPool = mysql.createPool({
       host: DB_HOST,
       user: DB_USER,
@@ -427,7 +461,7 @@ async function startServer(rebuild = false) {
       connectionLimit: 10,
       queueLimit: 0,
       multipleStatements: true,
-      timezone: "Z",
+      timezone: "Z", // Use 'Z' for UTC or set to '+07:00' if your DB timezone is WIB
     });
     console.log(
       `Connected to MySQL database ${DB_NAME} (using connection pool)`
@@ -468,6 +502,7 @@ async function startServer(rebuild = false) {
       console.log('A client connected via WebSocket:', socket.id);
 
       // Emit initial data to the newly connected client
+      // This ensures the dashboard is populated immediately upon connection
       emitDashboardUpdate('parkingLogs');
       emitDashboardUpdate('availableTickets');
       emitDashboardUpdate('totalAvailableTickets');
@@ -483,6 +518,7 @@ async function startServer(rebuild = false) {
 
 
     // === API ENDPOINTS ===
+    // (All your existing API endpoints follow here. No major changes needed)
 
     app.post("/api/tiket", authenticateToken, async (req, res) => {
       const { nomor_tiket } = req.body;
@@ -593,7 +629,7 @@ async function startServer(rebuild = false) {
           t.nomor_tiket,
           lp.waktu_masuk,
           lp.waktu_keluar,
-          CONCAT('${VITE_DOMAIN_SERVER}/backend/uploads/', lp.foto_masuk) AS foto_masuk,
+          CONCAT('${VITE_DOMAIN_SERVER}/uploads/', lp.foto_masuk) AS foto_masuk,
           CASE WHEN lp.waktu_keluar IS NULL THEN 'active' ELSE 'completed' END as status
         FROM Log_Parkir lp
         JOIN Kendaraan k ON lp.id_kendaraan = k.id
@@ -869,9 +905,9 @@ async function startServer(rebuild = false) {
 
         res.cookie("token", token, {
           httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
+          secure: process.env.NODE_ENV === "production", // Set to true in production for HTTPS
           maxAge: 24 * 60 * 60 * 1000,
-          sameSite: "Lax",
+          sameSite: "Lax", // Or 'None' with secure:true if cross-site
         });
 
         await createLogMessage(`email_admin telah berhasil login`, admin.id, admin.email);
@@ -921,7 +957,7 @@ async function startServer(rebuild = false) {
       }
 
       try {
-        const nominal_bersih = nominal_pemasukan - nominal_pemasukan * 0.2;
+        const nominal_bersih = nominal_pemasukan - nominal_pemasukan * 0.2; // Assuming 20% deduction
 
         const sql = `INSERT INTO PemasukanMingguan (tanggal_pemasukan, nominal_pemasukan, nominal_bersih) VALUES (?, ?, ?)`;
         const [result] = await dbPool.query(sql, [
@@ -1058,7 +1094,7 @@ async function startServer(rebuild = false) {
       }
     );
 
-    const getMonthName = (monthNumber) => {
+    const getMonthNameForApi = (monthNumber) => { // Renamed to avoid conflict if already defined
       const months = [
         "Jan",
         "Feb",
@@ -1089,7 +1125,7 @@ async function startServer(rebuild = false) {
         );
 
         const formattedResults = results.map((row) => ({
-          month_name: getMonthName(row.month_number),
+          month_name: getMonthNameForApi(row.month_number),
           total_revenue: row.total_revenue,
         }));
 
@@ -1171,7 +1207,7 @@ async function startServer(rebuild = false) {
         }
     });
 
-    // --- BACKUP DATABASE ENDPOINT (UPDATED: Removed file_name from log) ---
+    // --- BACKUP DATABASE ENDPOINT ---
     app.post("/api/backup-database", authenticateToken, async (req, res) => {
       const { id: adminId, email: adminEmail } = req.admin;
       const timestamp = new Date().toISOString().replace(/:/g, "-").replace(/\./g, "_");
@@ -1197,7 +1233,7 @@ async function startServer(rebuild = false) {
           });
         });
 
-        // Log the backup in the database (WITHOUT file_name column)
+        // Log the backup in the database
         const logSql = `INSERT INTO Log_Backup (waktu_backup, id_admin) VALUES (NOW(), ?)`;
         await dbPool.query(logSql, [adminId]);
         
@@ -1214,7 +1250,7 @@ async function startServer(rebuild = false) {
       }
     });
 
-    // --- RESTORE DATABASE ENDPOINT (UPDATED: Removed file_name from log) ---
+    // --- RESTORE DATABASE ENDPOINT ---
     app.post("/api/restore-database", authenticateToken, uploadSql.single("sql_file"), async (req, res) => {
       const { id: adminId, email: adminEmail } = req.admin;
 
@@ -1223,7 +1259,7 @@ async function startServer(rebuild = false) {
       }
 
       const uploadedFilePath = req.file.path;
-      const uploadedFileName = req.file.filename; // Keep for logging in console/messages, but not DB table
+      const uploadedFileName = req.file.filename;
 
       console.log(`Starting database restore from: ${uploadedFilePath}`);
       const command = `mysql -h ${DB_HOST} -u ${DB_USER} -p${DB_PASS} ${DB_NAME} < "${uploadedFilePath}"`;
@@ -1245,7 +1281,7 @@ async function startServer(rebuild = false) {
           });
         });
 
-        // Log the restore in the database (WITHOUT file_name column)
+        // Log the restore in the database
         const logSql = `INSERT INTO LogPemulihan (waktu_pemulihan, id_admin) VALUES (NOW(), ?)`;
         await dbPool.query(logSql, [adminId]);
 
@@ -1259,7 +1295,6 @@ async function startServer(rebuild = false) {
 
         res.status(200).json({
           message: "Pemulihan database berhasil!",
-          // file_name is no longer stored in DB log, but can be mentioned in message if needed
         });
       } catch (err) {
         console.error("Error during database restore:", err);
@@ -1272,7 +1307,7 @@ async function startServer(rebuild = false) {
       }
     });
 
-    // --- GET BACKUP LOGS (UPDATED: Removed file_name from select) ---
+    // --- GET BACKUP LOGS ---
     app.get("/api/backup-logs", authenticateToken, async (req, res) => {
       try {
         const [results] = await dbPool.query(`
@@ -1288,7 +1323,7 @@ async function startServer(rebuild = false) {
       }
     });
 
-    // --- GET RESTORE LOGS (UPDATED: Removed file_name from select) ---
+    // --- GET RESTORE LOGS ---
     app.get("/api/restore-logs", authenticateToken, async (req, res) => {
       try {
         const [results] = await dbPool.query(`
@@ -1319,6 +1354,7 @@ async function startServer(rebuild = false) {
   }
 }
 
+// Command-line argument handling for adding admin or generating JWT_SECRET
 const args = process.argv.slice(2);
 
 if (args[0] === "--add-admin") {
