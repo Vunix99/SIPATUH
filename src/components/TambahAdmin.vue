@@ -145,7 +145,7 @@ export default {
     });
 
     const API_DOMAIN =
-      import.meta.env.VITE_DOMAIN_SERVER || "http://localhost:3000";
+      import.meta.env.API_DOMAIN || "http://localhost:3000";
 
     const isFormValid = computed(() => {
       const { email, password, confirmPassword } = adminForm.value;

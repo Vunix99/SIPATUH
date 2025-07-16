@@ -130,7 +130,7 @@ export default {
     const filterDateParkir = ref("");
 
     const API_DOMAIN =
-      import.meta.env.VITE_DOMAIN_SERVER || "http://localhost:3000";
+      import.meta.env.API_DOMAIN || "http://localhost:3000";
 
     const mobileBreakpoint = 768; // Misalnya, di bawah 768px dianggap mobile
 

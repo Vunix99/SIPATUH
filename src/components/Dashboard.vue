@@ -227,8 +227,11 @@ export default {
     let socket = null;
 
     const API_DOMAIN =
-      import.meta.env.VITE_DOMAIN_SERVER || "http://localhost:3000";
+      import.meta.env.API_DOMAIN || "http://localhost:3000";
 
+    console.log(
+      `Connecting to WebSocket server at ${API_DOMAIN}...`
+    );
     // Dashboard.vue - dalam setup()
     const formatTimeAgo = (dateString) => {
       // dateString format: '2025-07-16T12:04:18.000Z'
