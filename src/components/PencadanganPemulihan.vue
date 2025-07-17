@@ -258,7 +258,7 @@ export default {
     const fileInput = ref(null);
 
     axios.defaults.baseURL =
-      import.meta.env.VITE_API_DOMAIN || "http://localhost:3000";
+      import.meta.env.VITE_DOMAIN_SERVER || "http://localhost:3000";
     axios.defaults.withCredentials = true;
 
     const toggleSidebar = () => {

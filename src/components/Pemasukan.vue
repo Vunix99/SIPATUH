@@ -237,7 +237,7 @@ export default {
     });
 
     const API_DOMAIN =
-      import.meta.env.VITE_API_DOMAIN || "http://localhost:3000";
+      import.meta.env.VITE_DOMAIN_SERVER || "http://localhost:3000";
 
     // --- Fungsi Helper untuk Formatter ---
     const formatCurrency = (value) => {

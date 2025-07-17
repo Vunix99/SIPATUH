@@ -261,7 +261,7 @@ export default {
     let socket = null;
 
     const API_DOMAIN =
-      import.meta.env.VITE_API_DOMAIN || "http://localhost:3000";
+      import.meta.env.VITE_DOMAIN_SERVER || "http://localhost:3000";
 
     const formatTimeAgo = (dateString) => {
       const cleanDateString = dateString.replace("Z", "");
