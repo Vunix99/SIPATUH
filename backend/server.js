@@ -876,8 +876,6 @@ async function startServer(rebuild = false) {
 
     app.post("/api/admin/login", async (req, res) => {
       const { email, password } = req.body;
-      console.log("Login attempt with:", { email, password });
-
       if (!email || !password) {
         return res.status(400).json({ error: "Email atau Password Salah!" });
       }

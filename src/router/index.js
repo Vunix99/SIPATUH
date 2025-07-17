@@ -66,6 +66,56 @@ const routes = [
     component: PencadanganPemulihan, // Menggunakan komponen PencadanganPemulihan Anda
     meta: { requiresAuth: true } // Rute ini MEMERLUKAN otentikasi
   },
+
+  {
+    path: '/logout',
+    name: 'logout',
+    // Tidak ada komponen yang dirender, hanya untuk memicu guard
+    beforeEnter: async (to, from, next) => {
+      const API_DOMAIN = import.meta.env.VITE_DOMAIN_SERVER || "http://localhost:3000";
+
+      try {
+        const response = await fetch(`${API_DOMAIN}/api/admin/logout`, {
+          method: 'POST',
+          credentials: 'include', // Penting: untuk mengirim cookie token
+        });
+
+        if (response.ok) {
+          // Opsional: notifikasi SweetAlert jika Anda mau
+          Swal.fire({
+            icon: 'success',
+            title: 'Logout Berhasil',
+            text: 'Anda telah berhasil keluar.',
+            showConfirmButton: false,
+            timer: 1500
+          });
+          next('/login'); // Arahkan ke halaman login setelah berhasil logout
+        } else {
+          const errorData = await response.json();
+          console.error('Logout failed:', errorData.message);
+          Swal.fire({
+            icon: 'error',
+            title: 'Logout Gagal',
+            text: errorData.message || 'Terjadi kesalahan saat logout.',
+            showConfirmButton: true
+          });
+          // Jika logout gagal di server (misal, server error), tetap arahkan ke login
+          // atau kembali ke halaman sebelumnya jika Anda ingin.
+          next('/login'); 
+        }
+      } catch (error) {
+        console.error('Network error during logout:', error);
+        Swal.fire({
+          icon: 'error',
+          title: 'Error Jaringan',
+          text: 'Tidak dapat terhubung ke server. Silakan coba lagi.',
+          showConfirmButton: true
+        });
+        // Jika ada masalah jaringan, arahkan ke login atau kembali ke halaman sebelumnya
+        next('/login'); 
+      }
+    }
+  },
   // Catch-all route for 404 Not Found (Opsional, tapi disarankan)
   {
     path: '/:pathMatch(.*)*',

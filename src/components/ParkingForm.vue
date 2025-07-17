@@ -19,15 +19,15 @@
             <div class="main_title_1">
               <h3>SIPATUH</h3>
               <p>
-                SIPATUH 'Sistem Parkir Tertib untuk Umat HMTB' adalah aplikasi
-                yang dirancang untuk membantu mengatur dan memantau sistem
-                parkir secara tertib dan efisien bagi umat HMTB. Aplikasi ini
-                memudahkan umat dalam memperoleh informasi parkir, mencatat
-                kendaraan, serta memastikan keteraturan parkir saat kegiatan
-                berlangsung, sehingga menciptakan lingkungan yang lebih aman,
-                nyaman, dan tertib.
+                SIPATUH (Sistem Parkir Tertib untuk Umat HMTB) hadir sebagai
+                solusi digital untuk mengoptimalkan manajemen parkir di
+                lingkungan Gereja HMTB. Aplikasi ini memberdayakan petugas
+                parkir OMK(Orang Muda Katolik Cicurug) dengan kemampuan untuk mencatat setiap kendaraan yang
+                masuk dan keluar secara akurat, memantau pendapatan parkir
+                secara transparan, serta menjaga efisiensi pengelolaan tiket.
+                Dengan SIPATUH, terciptalah sistem parkir yang lebih aman,
+                teratur, dan memberikan ketenangan bagi jemaat dan pengelola.
               </p>
-              <p><em>- OMK HMTB Cicurug</em></p>
             </div>
           </div>
 
@@ -69,7 +69,7 @@
                   >
                     Kunjungi Dashboard
                   </router-link>
-                  </div>
+                </div>
               </nav>
               <div class="tab-content" id="nav-tabContent">
                 <div
@@ -329,7 +329,7 @@
               margin-bottom: 6px;
             "
           >
-            ©2025 Glorian Hilarius - Built with Vue and Node.js
+            ©2025 Dari OMK untuk Bersama - Dibangun dengan Vue dan Express JS
           </div>
         </div>
       </div>
@@ -337,23 +337,20 @@
   </div>
 </template>
 
-
 <script>
-
 // --- Impor File JS Kustom Anda ---
 // Pastikan urutan impor JS benar jika ada dependensi
-import '../assets/js/jquery-3.7.1.min.js'; // JQuery biasanya diimpor sebelum script lain yang mungkin menggunakannya
-import '../assets/js/bootstrap.bundle.min.js'; // Bootstrap JS bundle
-import '../assets/js/common_scripts.min.js';
-import '../assets/js/functions.js';
+import "../assets/js/jquery-3.7.1.min.js"; // JQuery biasanya diimpor sebelum script lain yang mungkin menggunakannya
+import "../assets/js/bootstrap.bundle.min.js"; // Bootstrap JS bundle
+import "../assets/js/common_scripts.min.js";
+import "../assets/js/functions.js";
 
 import { ref, onMounted, onBeforeUnmount, computed } from "vue";
 import Swal from "sweetalert2";
 // Import FontAwesome icons
 import "@fortawesome/fontawesome-free/css/all.min.css";
 // Penting: Anda perlu mengimpor `useRouter` dari 'vue-router'
-import { useRouter } from 'vue-router';
-
+import { useRouter } from "vue-router";
 
 export default {
   name: "ParkingForm",
@@ -404,9 +401,8 @@ export default {
       return date.toLocaleString("id-ID");
     };
 
-
     const handleTicketNumberInput = (event, formName, fieldName) => {
-      let value = event.target.value.replace(/\D/g, ''); // Remove non-digits
+      let value = event.target.value.replace(/\D/g, ""); // Remove non-digits
 
       // If the current input has 3 digits and the user is trying to type more,
       // prevent the input.
@@ -418,15 +414,15 @@ export default {
       // Pad with leading zeros if less than 3 digits
       // Ensure that if the value is empty, it still becomes "000" or similar,
       // or handle that case based on whether empty input is allowed.
-      const paddedValue = value.padStart(3, '0');
+      const paddedValue = value.padStart(3, "0");
 
       // Update the reactive model
-      if (formName === 'formMasuk') {
+      if (formName === "formMasuk") {
         formMasuk.value[fieldName] = paddedValue;
-      } else if (formName === 'formKeluar') {
+      } else if (formName === "formKeluar") {
         formKeluar.value[fieldName] = paddedValue;
       }
-      
+
       // Update the input field directly
       // This ensures the displayed value matches the padded value
       event.target.value = paddedValue;
@@ -482,7 +478,7 @@ export default {
       }
     };
 
-const resizeImage = (canvas, maxWidth = 900, maxHeight = 1200) => {
+    const resizeImage = (canvas, maxWidth = 900, maxHeight = 1200) => {
       const { width, height } = canvas;
 
       // Calculate new dimensions
@@ -633,7 +629,7 @@ const resizeImage = (canvas, maxWidth = 900, maxHeight = 1200) => {
       }
 
       // New validation for "000" ticket number
-      if (formMasuk.value.nomor_tiket === '000') {
+      if (formMasuk.value.nomor_tiket === "000") {
         Swal.fire({
           icon: "warning",
           title: "Nomor Tiket Tidak Valid",
@@ -660,7 +656,7 @@ const resizeImage = (canvas, maxWidth = 900, maxHeight = 1200) => {
         let requestData;
         let requestOptions = {
           method: "POST",
-          credentials: 'include'
+          credentials: "include",
         };
 
         if (selectedImage.value && selectedImage.value.startsWith("data:")) {
@@ -807,7 +803,7 @@ const resizeImage = (canvas, maxWidth = 900, maxHeight = 1200) => {
 
         const response = await fetch(`${API_DOMAIN}/api/parkirKeluar`, {
           method: "POST",
-          credentials: 'include',
+          credentials: "include",
           headers: {
             "Content-Type": "application/json",
           },
@@ -869,7 +865,9 @@ const resizeImage = (canvas, maxWidth = 900, maxHeight = 1200) => {
 
       // Initialize Bootstrap tabs
       // Hapus event listener untuk 'nav-dashboard-tab' karena sekarang itu adalah router-link
-      const tabElms = document.querySelectorAll('#nav-masuk-tab, #nav-keluar-tab'); // Hanya target tab yang sebenarnya
+      const tabElms = document.querySelectorAll(
+        "#nav-masuk-tab, #nav-keluar-tab"
+      ); // Hanya target tab yang sebenarnya
       tabElms.forEach((tab) => {
         tab.addEventListener("click", function (event) {
           event.preventDefault();
@@ -941,9 +939,6 @@ const resizeImage = (canvas, maxWidth = 900, maxHeight = 1200) => {
 </script>
 
 <style scoped>
-
-
-
 .text-success {
   color: #28a745;
 }
