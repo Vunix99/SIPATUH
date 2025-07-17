@@ -1342,7 +1342,7 @@ async function startServer(rebuild = false) {
       res.send("Server API Kendaraan Parkir aktif");
     });
 
-    const PORT = 3000;
+    const PORT = process.env.PORT || 3000;
     server.listen(PORT, () => {
       console.log(`Server API dan WebSocket berjalan di http://localhost:${PORT}`);
     });
