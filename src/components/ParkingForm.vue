@@ -3,9 +3,9 @@
     <div class="container-fluid">
       <div class="row">
         <div class="col-5">
-          <a href="#"
-            ><img src="/src/assets/img/logo.svg" alt="" width="50" height="55"
-          /></a>
+          <a href="#">
+            <img src="/src/assets/img/LogoSipatuhSmall_WH_BG.svg" alt="" width="75" height="75" />
+          </a>
         </div>
       </div>
     </div>
@@ -17,7 +17,11 @@
         <div class="row justify-content-between">
           <div class="col-xl-6 col-lg-6 d-flex-start">
             <div class="main_title_1">
-              <h3>SIPATUH</h3>
+              <img
+                src="/src/assets/img/LogoSipatuhLong_Transparent.svg"
+                alt="SIPATUH Logo"
+                class="img-fluid sipatuh-long-logo"
+              />
               <p>
                 SIPATUH (Sistem Parkir Tertib untuk Umat HMTB) hadir sebagai
                 solusi digital untuk mengoptimalkan manajemen parkir di
@@ -995,5 +999,36 @@ input[type="number"]::-webkit-inner-spin-button {
 /* Sembunyikan panah atas/bawah untuk Firefox */
 input[type="number"] {
   -moz-appearance: textfield;
+}
+
+/* Base style for the image - applies to all screen sizes initially */
+.sipatuh-long-logo {
+  max-width: 100%; /* <-- Changed this! */
+  height: auto;
+  display: block;
+  position: relative;
+  margin-left: auto;
+  margin-right: auto;
+  left: 0;
+}
+
+/* Styles for screens LARGER than 991px (desktop) */
+@media (min-width: 992px) { /* Changed to min-width for desktop-first approach */
+  .sipatuh-long-logo {
+    margin-left: 0; /* Override auto-centering */
+    margin-right: auto;
+    left: -7%; /* Shift 30px to the left */
+  }
+}
+
+/* Optional: If you explicitly want to ensure centering on smaller screens, 
+   though the base style handles it. This can be useful for clarity or if 
+   other styles might interfere. */
+@media (max-width: 991.98px) {
+  .sipatuh-long-logo {
+    margin-left: auto;
+    margin-right: auto;
+    left: 0; /* Reset left property when centering */
+  }
 }
 </style>
