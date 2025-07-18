@@ -4,7 +4,7 @@
       <div
         class="sidebar-header d-flex justify-content-between align-items-center"
       >
-        <h5 class="text-white m-0">SIPATUH</h5>
+        <img src="/src/assets/img/LogoSipatuhLong_Transparent.svg" alt="" class="sidebar-logo">
         <button class="btn btn-sm btn-light d-md-none" @click="toggleSidebar">
           ✕
         </button>
@@ -647,17 +647,50 @@ h5.card-title {
 .sidebar {
   background-color: #5a0099; /* Darker purple for sidebar */
   color: #fdfdfd; /* Changed to FDFDFD */
-  width: 240px;
+  width: 260px; /* Lebar sidebar */
   height: 100vh;
   padding-top: 1rem;
   position: fixed;
   transition: all 0.3s;
   left: 0;
   z-index: 2000;
+  overflow-x: hidden;
+}
+
+/* Style for the logo inside the sidebar header */
+.sidebar-logo {
+  max-width: calc(100% - 60px); /* Batasi lebar agar ada ruang untuk tombol close, misal 60px untuk tombol dan padding */
+  height: auto;
+  display: block;
+  /* Gunakan margin-right: auto untuk mendorong tombol ke kanan */
+  margin-right: auto;
+  /* Sesuaikan margin-left untuk menggeser logo lebih ke kiri dalam ruang yang tersisa */
+  margin-left: -5%; /* Contoh, sesuaikan persentase ini sesuai keinginan Anda */
+  box-sizing: border-box; /* Pastikan padding dihitung dalam total lebar elemen */
+}
+
+/* Styles for the sidebar close button */
+.sidebar-close-btn {
+  /* margin-left: auto; sudah di handle oleh justify-content-between + margin-right: auto pada logo */
+  margin-right: 0.5rem; /* Memberi sedikit ruang dari tepi kanan sidebar */
+  background-color: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #fdfdfd;
+  font-weight: bold;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0.25rem 0.5rem;
+  border-radius: 5px;
+  flex-shrink: 0; /* Pastikan tombol tidak menyusut */
+}
+
+.sidebar-close-btn:hover {
+  background-color: rgba(255, 255, 255, 0.4);
+  color: #fff;
 }
 
 .sidebar .nav-link {
-  color: #eee; /* Kept slightly off-white for contrast against FDFDFD main text */
+  color: #eee;
   padding: 10px;
   display: block;
   border-radius: 5px;
@@ -665,192 +698,165 @@ h5.card-title {
 
 .sidebar .nav-link.router-link-exact-active,
 .sidebar .nav-link:hover {
-  background-color: #fc0; /* Consistent secondary accent color */
-  color: #000; /* Kept black for contrast on yellow background */
+  background-color: #fc0;
+  color: #000;
   font-weight: bold;
 }
 
 .sidebar-header {
-  padding: 0.75rem 1rem;
+  padding: 0.75rem 1rem; /* Padding kontainer utama */
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  /* d-flex justify-content-between align-items-center sudah ada di HTML */
 }
 
 /* Navbar style */
 .navbar {
-  background-color: #210038 !important; /* Slightly lighter purple for the navbar */
-  color: #fdfdfd; /* Changed to FDFDFD */
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); /* Add a subtle shadow */
-  /* NEW: Tambahkan properti fixed untuk navbar */
+  background-color: #210038 !important;
+  color: #fdfdfd;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   position: fixed;
   top: 0;
   width: 100%;
-  z-index: 1030; /* Pastikan di atas konten dan di bawah modal */
-  /* padding-left akan diatur di media query untuk desktop */
-  transition: padding-left 0.3s; /* Transisi halus */
+  z-index: 1030;
+  transition: padding-left 0.3s;
 }
 
 .navbar .btn-outline-secondary {
-  border-color: #fc0; /* Use accent color for button border */
-  color: #fc0; /* Use accent color for button text */
+  border-color: #fc0;
+  color: #fc0;
 }
 
 .navbar .btn-outline-secondary:hover {
-  background-color: #fc0; /* Accent color on hover */
-  color: #000; /* Black text on accent background */
+  background-color: #fc0;
+  color: #000;
 }
 
-/* Card styles - adjusted for better contrast and consistency */
+/* Card styles */
 .card {
-  background-color: rgba(
-    0,
-    0,
-    0,
-    0.25
-  ); /* Darker transparent background for cards */
-  color: #fdfdfd; /* Changed to FDFDFD */
+  background-color: rgba(0, 0, 0, 0.25);
+  color: #fdfdfd;
   border: none;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); /* More prominent shadow for cards */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
 }
 
 .card-header {
-  background-color: rgba(0, 0, 0, 0.35); /* Even darker for card headers */
+  background-color: rgba(0, 0, 0, 0.35);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-/* Statistik Cards specific colors - now unified to purple shades */
 .card.bg-primary,
 .card.bg-success,
 .card.bg-warning,
 .card.bg-info {
-  background-color: #4d0073 !important; /* A uniform dark purple for all statistic cards */
-  color: #fdfdfd !important; /* Changed to FDFDFD */
+  background-color: #4d0073 !important;
+  color: #fdfdfd !important;
 }
 
-/* You can still add subtle variations if desired, e.g., slightly different shades on hover or with borders */
-.card.bg-primary {
-  border-left: 5px solid #a64dff;
-} /* Example: a lighter purple border */
-.card.bg-success {
-  border-left: 5px solid #00cc66;
-} /* Example: green border for success */
-.card.bg-warning {
-  border-left: 5px solid #fc0;
-} /* Example: accent yellow border for warning */
-.card.bg-info {
-  border-left: 5px solid #008cba;
-} /* Example: blue border for info */
+.card.bg-primary { border-left: 5px solid #a64dff; }
+.card.bg-success { border-left: 5px solid #00cc66; }
+.card.bg-warning { border-left: 5px solid #fc0; }
+.card.bg-info { border-left: 5px solid #008cba; }
 
-/* Custom button style - if you add more custom buttons */
 .btn-custom {
-  background-color: #fc0; /* Consistent secondary accent color */
-  color: #000; /* Kept black for contrast on yellow background */
+  background-color: #fc0;
+  color: #000;
   font-weight: 600;
   border: none;
 }
 .btn-custom:hover {
-  background-color: #e6b800; /* Slightly darker accent on hover */
+  background-color: #e6b800;
 }
 
 /* Table style */
-.table {
-  color: #fdfdfd; /* Ensure table text is FDFDFD */
-}
-
+.table { color: #fdfdfd; }
 .table-dark {
-  background-color: #4d0073; /* Darker purple for table header */
-  color: #fdfdfd; /* Ensure header text is FDFDFD */
+  background-color: #4d0073;
+  color: #fdfdfd;
 }
-
 .table-striped > tbody > tr:nth-of-type(odd) {
-  background-color: rgba(
-    255,
-    255,
-    255,
-0.08
-  ); /* Slightly more visible stripe */
+  background-color: rgba(255, 255, 255, 0.08);
 }
-
-/* Crucial: Ensure all TD elements in the table body are FDFDFD */
 .table tbody td {
-  color: #fdfdfd !important; /* Force FDFDFD color for all table body cells */
+  color: #fdfdfd !important;
 }
-
-/* Text for the "Belum ada data hari ini." message */
 .table .text-muted {
-  color: #ccc !important; /* Keep it slightly muted for informational text */
+  color: #ccc !important;
 }
 
 /* Activity Log */
 .list-group-item {
-  background-color: transparent !important; /* Removed background for list items */
-  color: #fdfdfd; /* Ensure list item text is FDFDFD */
-  border-color: rgba(255, 255, 255, 0.1); /* Subtle border for separation */
+  background-color: transparent !important;
+  color: #fdfdfd;
+  border-color: rgba(255, 255, 255, 0.1);
 }
-
-.list-group-item:first-child {
-  border-top-width: 0; /* Remove top border for first item */
-}
-
-.list-group-item:last-child {
-  border-bottom-width: 0; /* Remove bottom border for last item (if flush) */
-}
-
+.list-group-item:first-child { border-top-width: 0; }
+.list-group-item:last-child { border-bottom-width: 0; }
 .list-group-item .text-muted {
-  color: #ccc !important; /* Slightly darker white for muted text to provide subtle distinction */
+  color: #ccc !important;
 }
 
 /* Badges for status */
 .badge.bg-success {
-  background-color: #00cc66 !important; /* Brighter green for active status */
-  color: #000 !important; /* Ensure black text for readability on green */
+  background-color: #00cc66 !important;
+  color: #000 !important;
 }
 .badge.bg-secondary {
-  background-color: #777 !important; /* A neutral gray for completed status */
-  color: #fdfdfd !important; /* Ensure FDFDFD text on gray */
+  background-color: #777 !important;
+  color: #fdfdfd !important;
 }
 
 /* Responsive adjustments */
-@media (max-width: 768px) {
+/* Styles for screens smaller than 768px (mobile/tablet) */
+@media (max-width: 767.98px) {
   .sidebar {
-    left: -240px; /* Sidebar tersembunyi */
+    left: -260px;
   }
   .sidebar.open {
-    left: 0; /* Sidebar terbuka */
+    left: 0;
   }
   .content {
-    margin-left: 0 !important; /* Konten tanpa margin saat sidebar tersembunyi */
+    margin-left: 0 !important;
   }
-  /* Navbar on smaller screens: full width, no left padding */
   .navbar {
-    padding-left: 1rem !important; /* Adjust if Bootstrap's px-3 means 1rem by default */
+    padding-left: 1rem !important;
+  }
+  .sidebar-close-btn {
+    display: block; /* Tombol close terlihat di mobile */
+  }
+  /* Pada mobile, pastikan logo berada di posisi normal atau sedikit digeser jika diinginkan */
+  .sidebar-logo {
+    margin-left: 0; /* Reset margin-left yang negatif */
+    max-width: calc(100% - 60px); /* Pastikan gambar mengecil */
   }
 }
 
-/* NEW: Perubahan untuk tampilan desktop (>= 768px) */
+/* Styles for screens larger than or equal to 768px (desktop/larger tablet) */
 @media (min-width: 768px) {
   .sidebar {
-    left: 0; /* Pastikan sidebar selalu terlihat di desktop */
+    left: 0;
   }
   .content {
-    margin-left: 240px; /* Dorong konten ke kanan sejauh lebar sidebar */
+    margin-left: 260px;
   }
   .navbar {
-    padding-left: 255px !important; /* Lebar sidebar (240px) + margin atau padding tambahan (misal 15px) */
-    width: auto; /* Biarkan lebar mengikuti konten setelah padding */
-    right: 0; /* Agar navbar memenuhi sisa lebar layar */
+    padding-left: 275px !important;
+    width: auto;
+    right: 0;
+    left: 0;
   }
-  /* Tombol hamburger di desktop harus disembunyikan */
   .navbar .btn-outline-secondary.d-md-none {
     display: none !important;
   }
+  .sidebar-close-btn {
+    display: none !important; /* Sembunyikan tombol close di desktop */
+  }
 }
-
 
 .card-body canvas {
   width: 100% !important;
-  height: 300px !important; /* Keep a consistent height for both canvases */
+  height: 300px !important;
 }
 .content-wrapper {
-  padding-top: 56px; /* Adjust this to the height of your fixed navbar */
+  padding-top: 56px;
 }
 </style>

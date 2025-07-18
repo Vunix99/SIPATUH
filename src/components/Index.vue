@@ -80,7 +80,7 @@
             margin-bottom: 6px;
           "
         >
-          ©2025 Glorian Hilarius - Built with Vue and Node.js
+            ©2025 Dari OMK untuk Bersama - Dibangun dengan Vue dan Express JS
         </div>
       </div>
     </div>

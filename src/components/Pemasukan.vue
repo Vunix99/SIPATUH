@@ -4,7 +4,7 @@
       <div
         class="sidebar-header d-flex justify-content-between align-items-center"
       >
-        <h5 class="text-white m-0">SIPATUH</h5>
+        <img src="/src/assets/img/LogoSipatuhLong_Transparent.svg" alt="" class="sidebar-logo">
         <button class="btn btn-sm btn-light d-md-none" @click="toggleSidebar">
           ✕
         </button>
@@ -920,14 +920,67 @@ h5.card-title {
 .sidebar {
   background-color: #5a0099; /* Darker purple for sidebar */
   color: #fdfdfd; /* Changed to FDFDFD */
-  width: 240px;
+  width: 260px; /* Lebar sidebar yang diperbesar */
   height: 100vh;
   padding-top: 1rem;
-  position: fixed; /* Membuat elemen tetap di posisi tertentu di viewport */
-  top: 0;          /* Memposisikan di bagian atas viewport */
-  left: 0;         /* Memposisikan di bagian kiri viewport */
+  position: fixed;
   transition: all 0.3s;
-  z-index: 2000; /* Pastikan sidebar di atas konten lain */
+  left: 0;
+  z-index: 2000;
+  overflow-x: hidden; /* Penting untuk mencegah konten melebihi lebar sidebar */
+}
+
+/* Style for the logo inside the sidebar header */
+.sidebar-logo {
+  max-width: calc(100% - 60px); /* Batasi lebar agar ada ruang untuk tombol close, misal 60px untuk tombol dan padding */
+  height: auto;    /* Maintain aspect ratio */
+  display: block;  /* Treat it as a block element */
+  margin-right: auto; /* Mendorong logo ke kiri dalam flexbox */
+  margin-left: -5%; /* Geser logo lebih ke kiri, sesuaikan persentase ini */
+  box-sizing: border-box; /* Pastikan padding dihitung dalam total lebar elemen */
+}
+
+/* Sidebar style */
+.sidebar {
+  background-color: #5a0099; /* Darker purple for sidebar */
+  color: #fdfdfd; /* Changed to FDFDFD */
+  width: 260px; /* Lebar sidebar yang diperbesar */
+  height: 100vh;
+  padding-top: 1rem;
+  position: fixed;
+  transition: all 0.3s;
+  left: 0;
+  z-index: 2000;
+  overflow-x: hidden; /* Penting untuk mencegah konten melebihi lebar sidebar */
+}
+
+/* Style for the logo inside the sidebar header */
+.sidebar-logo {
+  max-width: calc(100% - 60px); /* Batasi lebar agar ada ruang untuk tombol close, misal 60px untuk tombol dan padding */
+  height: auto;    /* Maintain aspect ratio */
+  display: block;  /* Treat it as a block element */
+  margin-right: auto; /* Mendorong logo ke kiri dalam flexbox */
+  margin-left: -5%; /* Geser logo lebih ke kiri, sesuaikan persentase ini */
+  box-sizing: border-box; /* Pastikan padding dihitung dalam total lebar elemen */
+}
+
+/* Styles for the sidebar close button */
+.sidebar-close-btn {
+  margin-right: 0.5rem; /* Memberi sedikit ruang dari tepi kanan sidebar */
+  background-color: rgba(255, 255, 255, 0.2); /* Sedikit transparan agar terlihat */
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #fdfdfd; /* Warna teks putih */
+  font-weight: bold;
+  font-size: 1rem;
+  line-height: 1; /* Pastikan tinggi baris untuk '✕' pas */
+  padding: 0.25rem 0.5rem; /* Padding tombol */
+  border-radius: 5px;
+  flex-shrink: 0; /* Pastikan tombol tidak menyusut */
+}
+
+.sidebar-close-btn:hover {
+  background-color: rgba(255, 255, 255, 0.4);
+  color: #fff;
 }
 
 .sidebar .nav-link {
@@ -945,9 +998,12 @@ h5.card-title {
 }
 
 .sidebar-header {
-  padding: 0.75rem 1rem;
+  padding: 0.75rem 1rem; /* Padding kontainer utama */
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  /* Sudah ada d-flex justify-content-between align-items-center di HTML,
+     jadi flexbox akan menangani positioning anak-anaknya. */
 }
+/* Sidebar Specific Styles - END */
 
 /* Navbar style */
 .navbar {
@@ -959,7 +1015,6 @@ h5.card-title {
   top: 0;          /* NEW: Menempel di bagian atas */
   width: 100%;     /* NEW: Memenuhi lebar layar */
   z-index: 1030;   /* NEW: Higher than sidebar's default content, but lower than modals etc. */
-  padding-left: 240px !important; /* NEW: Default padding-left to push content past the fixed sidebar */
   transition: padding-left 0.3s; /* NEW: Smooth transition for padding when sidebar opens/closes */
 }
 
@@ -1090,10 +1145,10 @@ h5.card-title {
 }
 
 
-/* Responsive adjustments */
-@media (max-width: 768px) {
+/* Styles for screens smaller than 768px (mobile/tablet) */
+@media (max-width: 767.98px) {
   .sidebar {
-    left: -240px;
+    left: -260px;
   }
   .sidebar.open {
     left: 0;
@@ -1101,9 +1156,38 @@ h5.card-title {
   .content {
     margin-left: 0 !important;
   }
-  /* Navbar on smaller screens: full width, no left padding */
   .navbar {
-    padding-left: 1rem !important; /* Adjust if Bootstrap's px-3 means 1rem by default */
+    padding-left: 1rem !important;
+  }
+  .sidebar-close-btn {
+    display: block; /* Tombol close terlihat di mobile */
+  }
+  /* Pada mobile, pastikan logo berada di posisi normal atau sedikit digeser jika diinginkan */
+  .sidebar-logo {
+    margin-left: 0; /* Reset margin-left yang negatif */
+    max-width: calc(100% - 60px); /* Pastikan gambar mengecil */
+  }
+}
+
+/* Styles for screens larger than or equal to 768px (desktop/larger tablet) */
+@media (min-width: 768px) {
+  .sidebar {
+    left: 0;
+  }
+  .content {
+    margin-left: 260px;
+  }
+  .navbar {
+    padding-left: 275px !important;
+    width: auto;
+    right: 0;
+    left: 0;
+  }
+  .navbar .btn-outline-secondary.d-md-none {
+    display: none !important;
+  }
+  .sidebar-close-btn {
+    display: none !important; /* Sembunyikan tombol close di desktop */
   }
 }
 

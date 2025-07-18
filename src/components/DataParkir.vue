@@ -4,7 +4,7 @@
       <div
         class="sidebar-header d-flex justify-content-between align-items-center"
       >
-        <h5 class="text-white m-0">SIPATUH</h5>
+        <img src="/src/assets/img/LogoSipatuhLong_Transparent.svg" alt="" class="sidebar-logo">
         <button class="btn btn-sm btn-light d-md-none" @click="toggleSidebar">
           ✕
         </button>
@@ -471,6 +471,336 @@ export default {
 </script>
 
 <style scoped>
+/* Main background for body and content */
+body,
+.content {
+  background-color: #2b0057; /* Existing dark purple background */
+  color: #fdfdfd; /* Changed to FDFDFD for main content text */
+}
+
+/* Sidebar Specific Styles - START */
+/* Sidebar style */
+.sidebar {
+  background-color: #5a0099; /* Darker purple for sidebar */
+  color: #fdfdfd; /* Changed to FDFDFD */
+  width: 260px; /* Lebar sidebar yang diperbesar */
+  height: 100vh;
+  padding-top: 1rem;
+  position: fixed;
+  transition: all 0.3s;
+  left: 0;
+  z-index: 2000;
+  overflow-x: hidden; /* Penting untuk mencegah konten melebihi lebar sidebar */
+}
+
+/* Style for the logo inside the sidebar header */
+.sidebar-logo {
+  max-width: calc(100% - 60px); /* Batasi lebar agar ada ruang untuk tombol close, misal 60px untuk tombol dan padding */
+  height: auto;    /* Maintain aspect ratio */
+  display: block;  /* Treat it as a block element */
+  margin-right: auto; /* Mendorong logo ke kiri dalam flexbox */
+  margin-left: -5%; /* Geser logo lebih ke kiri, sesuaikan persentase ini */
+  box-sizing: border-box; /* Pastikan padding dihitung dalam total lebar elemen */
+}
+
+/* Styles for the sidebar close button */
+.sidebar-close-btn {
+  margin-right: 0.5rem; /* Memberi sedikit ruang dari tepi kanan sidebar */
+  background-color: rgba(255, 255, 255, 0.2); /* Sedikit transparan agar terlihat */
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #fdfdfd; /* Warna teks putih */
+  font-weight: bold;
+  font-size: 1rem;
+  line-height: 1; /* Pastikan tinggi baris untuk '✕' pas */
+  padding: 0.25rem 0.5rem; /* Padding tombol */
+  border-radius: 5px;
+  flex-shrink: 0; /* Pastikan tombol tidak menyusut */
+}
+
+.sidebar-close-btn:hover {
+  background-color: rgba(255, 255, 255, 0.4);
+  color: #fff;
+}
+
+.sidebar .nav-link {
+  color: #eee; /* Kept slightly off-white for contrast against FDFDFD main text */
+  padding: 10px;
+  display: block;
+  border-radius: 5px;
+}
+
+.sidebar .nav-link.router-link-exact-active,
+.sidebar .nav-link:hover {
+  background-color: #fc0; /* Consistent secondary accent color */
+  color: #000; /* Kept black for contrast on yellow background */
+  font-weight: bold;
+}
+
+.sidebar-header {
+  padding: 0.75rem 1rem; /* Padding kontainer utama */
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  /* Sudah ada d-flex justify-content-between align-items-center di HTML,
+     jadi flexbox akan menangani positioning anak-anaknya. */
+}
+/* Sidebar Specific Styles - END */
+
+
+/* Router Link Active/Exact Active and Nav Link Base Style */
+.router-link-active,
+.router-link-exact-active,
+.nav-link {
+  margin-right: 20px;
+  margin-bottom: 8px;
+}
+
+/* Card Title */
+h5.card-title {
+  color: #fdfdfd; /* Changed to FDFDFD for card titles */
+}
+
+/* Date Input Customization */
+/* Add a custom style to remove the default calendar icon on date inputs for Webkit browsers (Chrome, Safari) */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  width: 100%; /* Make the clickable area cover the entire input */
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  cursor: pointer; /* Show pointer cursor on hover */
+  z-index: 1; /* Pastikan ini di atas ikon kustom jika perlu */
+  filter: invert(1); /* Invert color for dark theme if native icon is visible */
+}
+
+/* For Firefox, you might need a different approach or accept its default behavior */
+input[type="date"] {
+  position: relative; /* Ensure it's positioned for the absolute overlay */
+  color-scheme: dark; /* Force dark mode for calendar popup if browser supports */
+}
+
+.date-input-container {
+  position: relative;
+}
+
+/* Styling dasar untuk input date */
+#filterDateParkir {
+  width: 100%;
+  padding-right: 40px; /* Beri ruang di kanan untuk ikon */
+  background-color: #36394c; /* Contoh: latar belakang gelap dari tema Anda */
+  color: #fdfdfd; /* Warna teks terang */
+  border: 1px solid #555; /* Border yang cocok untuk tema gelap */
+  border-radius: 5px;
+}
+
+/* Atur posisi dan warna ikon Font Awesome kustom */
+.calendar-icon {
+  position: absolute;
+  right: 10px; /* Atur posisi horizontal ikon dari kanan */
+  top: 55%; /* Atur posisi vertikal ke tengah */
+  transform: translateY(-50%); /* Geser ke atas 50% dari tingginya sendiri untuk pusatkan */
+  pointer-events: none; /* Sangat penting: agar klik tembus ke input di belakangnya */
+  color: #fc0; /* Warna ikon sesuai permintaan Anda (kuning/oranye) */
+  font-size: 1.2em; /* Ukuran ikon */
+  z-index: 2; /* Pastikan ikon kustom terlihat di atas indikator bawaan */
+}
+
+
+/* Navbar style */
+.navbar {
+  background-color: #210038 !important; /* Slightly lighter purple for the navbar */
+  color: #fdfdfd; /* Changed to FDFDFD */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); /* Add a subtle shadow */
+  position: fixed;
+  top: 0;
+  width: 100%;
+  z-index: 1030;
+  transition: padding-left 0.3s;
+  /* padding-left akan diatur di media query untuk desktop */
+}
+
+.navbar .btn-outline-secondary {
+  border-color: #fc0; /* Use accent color for button border */
+  color: #fc0; /* Use accent color for button text */
+}
+
+.navbar .btn-outline-secondary:hover {
+  background-color: #fc0; /* Accent color on hover */
+  color: #000; /* Black text on accent background */
+}
+
+/* Card styles - adjusted for better contrast and consistency */
+.card {
+  background-color: rgba(0, 0, 0, 0.25); /* Darker transparent background for cards */
+  color: #fdfdfd; /* Changed to FDFDFD for card titles */
+  border: none;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); /* More prominent shadow for cards */
+}
+
+.card-header {
+  background-color: rgba(0, 0, 0, 0.35); /* Even darker for card headers */
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Statistik Cards specific colors - now unified to purple shades */
+.card.bg-primary,
+.card.bg-success,
+.card.bg-warning,
+.card.bg-info {
+  background-color: #4d0073 !important; /* A uniform dark purple for all statistic cards */
+  color: #fdfdfd !important; /* Changed to FDFDFD */
+}
+
+/* You can still add subtle variations if desired, e.g., slightly different shades on hover or with borders */
+.card.bg-primary {
+  border-left: 5px solid #a64dff;
+} /* Example: a lighter purple border */
+.card.bg-success {
+  border-left: 5px solid #00cc66;
+} /* Example: green border for success */
+.card.bg-warning {
+  border-left: 5px solid #fc0;
+} /* Example: accent yellow border for warning */
+.card.bg-info {
+  border-left: 5px solid #008cba;
+} /* Example: blue border for info */
+
+/* Custom button style - if you add more custom buttons */
+.btn-custom {
+  background-color: #fc0; /* Consistent secondary accent color */
+  color: #000; /* Kept black for contrast on yellow background */
+  font-weight: 600;
+  border: none;
+  height: 48px; /* Ensure consistent height for buttons */
+}
+.btn-custom:hover {
+  background-color: #e6b800; /* Slightly darker accent on hover */
+}
+
+/* Table style */
+.table {
+  color: #fdfdfd; /* Ensure table text is FDFDFD */
+}
+
+.table-dark {
+  background-color: #4d0073; /* Darker purple for table header */
+  color: #fdfdfd; /* Ensure header text is FDFDFD */
+}
+
+.table-striped > tbody > tr:nth-of-type(odd) {
+  background-color: rgba(255, 255, 255, 0.08); /* Slightly more visible stripe */
+}
+
+/* Crucial: Ensure all TD elements in the table body are FDFDFD */
+.table tbody td {
+  color: #fdfdfd !important; /* Force FDFDFD color for all table body cells */
+}
+
+/* Text for the "Belum ada data hari ini." message */
+.table .text-muted {
+  color: #ccc !important; /* Keep it slightly muted for informational text */
+}
+
+/* Activity Log */
+.list-group-item {
+  background-color: transparent !important; /* Removed background for list items */
+  color: #fdfdfd; /* Ensure list item text is FDFDFD */
+  border-color: rgba(255, 255, 255, 0.1); /* Subtle border for separation */
+}
+
+.list-group-item:first-child {
+  border-top-width: 0;
+}
+
+.list-group-item:last-child {
+  border-bottom-width: 0;
+}
+
+.list-group-item .text-muted {
+  color: #ccc !important;
+}
+
+/* Badges for status */
+.badge.bg-success {
+  background-color: #00cc66 !important;
+  color: #000 !important;
+}
+.badge.bg-secondary {
+  background-color: #777 !important;
+  color: #fdfdfd !important;
+}
+
+/* NEW: Wrapper for content below fixed navbar */
+.content-wrapper {
+  padding-top: 56px; /* Adjust this to the height of your fixed navbar */
+}
+
+
+/* Responsive adjustments */
+/* Styles for screens smaller than 768px (mobile/tablet) */
+@media (max-width: 767.98px) { /* Use 767.98px for Bootstrap's 'md' breakpoint */
+  .sidebar {
+    left: -260px; /* Sidebar tersembunyi secara default */
+  }
+  .sidebar.open {
+    left: 0; /* Sidebar terbuka */
+  }
+  .content {
+    margin-left: 0 !important; /* Konten tanpa margin saat sidebar tersembunyi */
+  }
+  .navbar {
+    padding-left: 1rem !important; /* Sesuaikan padding kiri navbar mobile */
+  }
+  /* Tombol close di sidebar harus terlihat di mobile */
+  .sidebar-close-btn {
+    display: block;
+  }
+  /* Pada mobile, pastikan logo berada di posisi normal atau sedikit digeser jika diinginkan */
+  .sidebar-logo {
+    margin-left: 0; /* Reset margin-left yang negatif */
+    max-width: calc(100% - 60px); /* Pastikan gambar mengecil */
+  }
+}
+
+/* Styles for screens larger than or equal to 768px (desktop/larger tablet) */
+@media (min-width: 768px) {
+  .sidebar {
+    left: 0; /* Pastikan sidebar selalu terlihat di desktop */
+  }
+  .content {
+    margin-left: 260px; /* Dorong konten ke kanan sejauh lebar sidebar */
+  }
+  .navbar {
+    padding-left: 275px !important; /* Lebar sidebar (260px) + padding tambahan (15px) */
+    width: auto; /* Biarkan lebar mengikuti konten setelah padding */
+    right: 0; /* Agar navbar memenuhi sisa lebar layar */
+    left: 0; /* Ensure navbar starts from left on desktop */
+  }
+  /* Tombol hamburger di navbar harus disembunyikan di desktop */
+  .navbar .btn-outline-secondary.d-md-none {
+    display: none !important;
+  }
+  /* Tombol close di sidebar harus disembunyikan di desktop */
+  .sidebar-close-btn {
+    display: none !important;
+  }
+}
+
+.content {
+  /* margin-left: 240px; Dihapus karena sudah ada di media query min-width: 768px */
+  width: 100%; /* Pastikan konten mengambil lebar penuh yang tersedia */
+  transition: margin-left 0.3s;
+}
+
+.card-body canvas {
+  width: 100% !important;
+  height: 300px !important;
+}
+
+/* Specific styles for DataParkir.vue - Tabulator */
+.tabulator-table-container {
+  overflow-x: auto; /* Memastikan scroll horizontal untuk tabel Tabulator jika terlalu lebar */
+}
+
 /* Sembunyikan header tabel ketika mode mobile-card aktif */
 .tabulator[data-mobile-card-active="true"] .tabulator-header {
     display: none;
@@ -595,302 +925,6 @@ export default {
     text-align: right; /* Rata kanan nilai */
 }
 
-/* Main background for body and content */
-body,
-.content {
-  background-color: #2b0057; /* Existing dark purple background */
-  color: #fdfdfd; /* Changed to FDFDFD for main content text */
-}
-
-/* Add a custom style to remove the default calendar icon on date inputs for Webkit browsers (Chrome, Safari) */
-input[type="date"]::-webkit-calendar-picker-indicator {
-  opacity: 0;
-  width: 100%; /* Make the clickable area cover the entire input */
-  height: 100%;
-  position: absolute;
-  top: 0;
-  left: 0;
-  cursor: pointer; /* Show pointer cursor on hover */
-}
-
-/* For Firefox, you might need a different approach or accept its default behavior */
-input[type="date"] {
-  position: relative; /* Ensure it's positioned for the absolute overlay */
-}
-
-/* If you previously had custom styles for .date-input-container-modal or .calendar-icon-modal, you can remove them */
-.date-input-container-modal, .calendar-icon-modal {
-  display: none !important; /* Hide them if they somehow persist */
-}
-
-.router-link-active,
-.router-link-exact-active,
-.nav-link {
-  margin-right: 20px;
-  margin-bottom: 8px;
-}
-h5.card-title {
-  color: #fdfdfd; /* Changed to FDFDFD for card titles */
-}
-
-.date-input-container {
-  position: relative;
-  /* Atur lebar sesuai kebutuhan, atau biarkan input mengambil lebar penuh */
-  /* width: 250px; */
-}
-
-/* Styling dasar untuk input date */
-#filterDateParkir {
-  width: 100%;
-  padding-right: 40px; /* Beri ruang di kanan untuk ikon */
-  background-color: #36394c; /* Contoh: latar belakang gelap dari tema Anda */
-  color: #fdfdfd; /* Warna teks terang */
-  border: 1px solid #555; /* Border yang cocok untuk tema gelap */
-  border-radius: 5px;
-}
-
-/* Sembunyikan ikon kalender bawaan di Chrome/Safari */
-#filterDateParkir::-webkit-calendar-picker-indicator {
-  opacity: 0; /* Membuat ikon bawaan tidak terlihat */
-  position: absolute; /* Menutupi seluruh input */
-  width: 100%;
-  height: 100%;
-  top: 0;
-  left: 0;
-  cursor: pointer; /* Pertahankan kursor pointer agar pengguna tahu bisa diklik */
-  z-index: 1; /* Pastikan ini di atas ikon kustom jika perlu */
-}
-
-/* Atur posisi dan warna ikon Font Awesome kustom */
-.calendar-icon {
-  position: absolute;
-  right: 10px; /* Atur posisi horizontal ikon dari kanan */
-  top: 55%; /* Atur posisi vertikal ke tengah */
-  transform: translateY(
-    -50%
-  ); /* Geser ke atas 50% dari tingginya sendiri untuk pusatkan */
-  pointer-events: none; /* Sangat penting: agar klik tembus ke input di belakangnya */
-  color: #fc0; /* Warna ikon sesuai permintaan Anda (kuning/oranye) */
-  font-size: 1.2em; /* Ukuran ikon */
-  z-index: 2; /* Pastikan ikon kustom terlihat di atas indikator bawaan */
-}
-
-/* Sidebar style */
-.sidebar {
-  background-color: #5a0099; /* Darker purple for sidebar */
-  color: #fdfdfd; /* Changed to FDFDFD */
-  width: 240px;
-  height: 100vh;
-  padding-top: 1rem;
-  position: fixed;
-  transition: all 0.3s;
-  left: 0;
-  z-index: 2000;
-}
-
-.sidebar .nav-link {
-  color: #eee; /* Kept slightly off-white for contrast against FDFDFD main text */
-  padding: 10px;
-  display: block;
-  border-radius: 5px;
-}
-
-.sidebar .nav-link.router-link-exact-active,
-.sidebar .nav-link:hover {
-  background-color: #fc0; /* Consistent secondary accent color */
-  color: #000; /* Kept black for contrast on yellow background */
-  font-weight: bold;
-}
-
-.sidebar-header {
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-/* Navbar style */
-.navbar {
-  background-color: #210038 !important; /* Slightly lighter purple for the navbar */
-  color: #fdfdfd; /* Changed to FDFDFD */
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); /* Add a subtle shadow */
-  /* NEW: Tambahkan properti fixed untuk navbar */
-  position: fixed;
-  top: 0;
-  width: 100%;
-  z-index: 1030; /* Pastikan di atas konten dan di bawah modal */
-  padding-left: 240px !important; /* Untuk memberi ruang pada sidebar di desktop */
-  transition: padding-left 0.3s; /* Transisi halus */
-}
-
-.navbar .btn-outline-secondary {
-  border-color: #fc0; /* Use accent color for button border */
-  color: #fc0; /* Use accent color for button text */
-}
-
-.navbar .btn-outline-secondary:hover {
-  background-color: #fc0; /* Accent color on hover */
-  color: #000; /* Black text on accent background */
-}
-
-/* Card styles - adjusted for better contrast and consistency */
-.card {
-  background-color: rgba(
-    0,
-    0,
-    0,
-    0.25
-  ); /* Darker transparent background for cards */
-  color: #fdfdfd; /* Changed to FDFDFD for card titles */
-  border: none;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); /* More prominent shadow for cards */
-}
-
-.card-header {
-  background-color: rgba(0, 0, 0, 0.35); /* Even darker for card headers */
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-/* Statistik Cards specific colors - now unified to purple shades */
-.card.bg-primary,
-.card.bg-success,
-.card.bg-warning,
-.card.bg-info {
-  background-color: #4d0073 !important; /* A uniform dark purple for all statistic cards */
-  color: #fdfdfd !important; /* Changed to FDFDFD */
-}
-
-/* You can still add subtle variations if desired, e.g., slightly different shades on hover or with borders */
-.card.bg-primary {
-  border-left: 5px solid #a64dff;
-} /* Example: a lighter purple border */
-.card.bg-success {
-  border-left: 5px solid #00cc66;
-} /* Example: green border for success */
-.card.bg-warning {
-  border-left: 5_0px solid #fc0;
-} /* Example: accent yellow border for warning */
-.card.bg-info {
-  border-left: 5px solid #008cba;
-} /* Example: blue border for info */
-
-/* Custom button style - if you add more custom buttons */
-.btn-custom {
-  background-color: #fc0; /* Consistent secondary accent color */
-  color: #000; /* Kept black for contrast on yellow background */
-  font-weight: 600;
-  border: none;
-  height: 48px;
-}
-.btn-custom:hover {
-  background-color: #e6b800; /* Slightly darker accent on hover */
-}
-
-/* Table style */
-.table {
-  color: #fdfdfd; /* Ensure table text is FDFDFD */
-}
-
-.table-dark {
-  background-color: #4d0073; /* Darker purple for table header */
-  color: #fdfdfd; /* Ensure header text is FDFDFD */
-}
-
-.table-striped > tbody > tr:nth-of-type(odd) {
-  background-color: rgba(
-    255,
-    255,
-    255,
-    0.08
-  ); /* Slightly more visible stripe */
-}
-
-/* Crucial: Ensure all TD elements in the table body are FDFDFD */
-.table tbody td {
-  color: #fdfdfd !important; /* Force FDFDFD color for all table body cells */
-}
-
-/* Text for the "Belum ada data hari ini." message */
-.table .text-muted {
-  color: #ccc !important; /* Keep it slightly muted for informational text */
-}
-
-/* Activity Log */
-.list-group-item {
-  background-color: transparent !important; /* Removed background for list items */
-  color: #fdfdfd; /* Ensure list item text is FDFDFD */
-  border-color: rgba(255, 255, 255, 0.1); /* Subtle border for separation */
-}
-
-.list-group-item:first-child {
-  border-top-width: 0;
-}
-
-.list-group-item:last-child {
-  border-bottom-width: 0;
-}
-
-.list-group-item .text-muted {
-  color: #ccc !important;
-}
-
-/* Badges for status */
-.badge.bg-success {
-  background-color: #00cc66 !important;
-  color: #000 !important;
-}
-.badge.bg-secondary {
-  background-color: #777 !important;
-  color: #fdfdfd !important;
-}
-
-/* NEW: Wrapper for content below fixed navbar */
-.content-wrapper {
-  padding-top: 56px; /* Adjust this to the height of your fixed navbar */
-}
-
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .sidebar {
-    left: -240px;
-  }
-  .sidebar.open {
-    left: 0;
-  }
-  .content {
-    margin-left: 0 !important;
-  }
-  /* Navbar on smaller screens: full width, no left padding */
-  .navbar {
-    padding-left: 1rem !important; /* Adjust if Bootstrap's px-3 means 1rem by default */
-  }
-}
-
-.content {
-  margin-left: 240px;
-  width: 100%;
-  transition: margin-left 0.3s;
-}
-
-.card-body canvas {
-  width: 100% !important;
-  height: 300px !important;
-}
-
-/* Specific styles for DataParkir.vue */
-.tabulator-table-container {
-  overflow-x: auto;
-}
-
-/* Custom button style */
-.btn-custom {
-  background-color: #fc0;
-  color: #000;
-  font-weight: 600;
-  border: none;
-}
-.btn-custom:hover {
-  background-color: #e6b800;
-}
 
 /* Modal specific styles to match dark theme */
 .custom-modal-content {
@@ -932,14 +966,6 @@ h5.card-title {
   box-shadow: 0 0 0 0.25rem rgba(255, 204, 0, 0.25);
 }
 
-/* Date input specific styles */
-input[type="date"]::-webkit-calendar-picker-indicator {
-  filter: invert(1);
-}
-input[type="date"] {
-  color-scheme: dark;
-}
-
 /* CUSTOM BACKDROP STYLES */
 .custom-modal-backdrop {
   position: absolute;
@@ -979,11 +1005,6 @@ body.modal-custom-open {
 body.modal-open {
   padding-right: 0px !important;
   overflow: hidden !important;
-}
-
-/* Specific styles for DataParkir.vue */
-.tabulator-table-container {
-  overflow-x: auto;
 }
 
 /* Tabulator Dark Theme Overrides */
