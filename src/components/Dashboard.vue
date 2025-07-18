@@ -4,7 +4,11 @@
       <div
         class="sidebar-header d-flex justify-content-between align-items-center"
       >
-        <img src="/src/assets/img/LogoSipatuhLong_Transparent.svg" alt="" class="sidebar-logo">
+        <img
+          src="/src/assets/img/LogoSipatuhLong_Transparent.svg"
+          alt=""
+          class="sidebar-logo"
+        />
         <button class="btn btn-sm btn-light d-md-none" @click="toggleSidebar">
           ✕
         </button>
@@ -41,7 +45,11 @@
           </router-link>
         </li>
         <li>
-          <router-link to="/logout" class="nav-link" style="color: red; font-weight: bolder;">
+          <router-link
+            to="/logout"
+            class="nav-link"
+            style="color: red; font-weight: bolder"
+          >
             <i class="fa-solid fa-right-from-bracket"></i> Logout
           </router-link>
         </li>
@@ -229,54 +237,53 @@ export default {
     const API_DOMAIN =
       import.meta.env.VITE_DOMAIN_SERVER || "http://localhost:3000";
 
-    console.log(
-      `Connecting to WebSocket server at ${API_DOMAIN}...`
-    );
+    console.log(`Connecting to WebSocket server at ${API_DOMAIN}...`);
+    // Dashboard.vue - dalam setup()
     // Dashboard.vue - dalam setup()
     const formatTimeAgo = (dateString) => {
-      // dateString format: '2025-07-16T12:04:18.000Z'
-      // Tapi sebenarnya ini sudah dalam WIB, bukan UTC
+      if (!dateString) return "Tidak ada waktu";
 
-      // Alternatif 1: Hapus 'Z' dari string dan treat sebagai waktu lokal
-      const cleanDateString = dateString.replace("Z", "");
-      const past = new Date(cleanDateString);
-
-      // Alternatif 2: Atau konversi manual dengan offset timezone
-      // const utcTime = new Date(dateString);
-      // const past = new Date(utcTime.getTime() - (7 * 60 * 60 * 1000)); // Kurangi 7 jam
+      // --- Perbaikan di sini ---
+      // Biarkan new Date() menginterpretasikan string ISO 8601 dengan 'Z' (UTC)
+      // Ini akan membuat objek Date yang secara internal merepresentasikan 10:36:10 UTC
+      const past = new Date(dateString);
 
       // Waktu sekarang
+      // new Date() tanpa argumen akan selalu membuat waktu saat ini di zona waktu lokal sistem
       const now = new Date();
 
-      // --- Debugging logs ---
+      // --- Debugging logs (sesuaikan untuk menunjukkan interpretasi yang benar) ---
       console.log("--- TimeAgo Debugging (Fixed) ---");
       console.log(`Input dateString (from DB): ${dateString}`);
-      console.log(`Clean dateString (without Z): ${cleanDateString}`);
+      console.log(`Past Time (Internal UTC): ${past.toISOString()}`); // Tampilkan dalam ISO UTC untuk konfirmasi
+      console.log(`Past Time (as Local Browser Time): ${past}`); // Bagaimana browser menampilkannya secara default
       console.log(`Current Time (System/Local): ${now}`);
-      console.log(`Past Time (treated as local): ${past}`);
 
-      // Display in WIB format for comparison
+      // Tampilkan waktu dalam WIB untuk perbandingan visual yang akurat
       console.log(
-        `Current Time (WIB): ${now.toLocaleString("id-ID", {
+        `Past Time (WIB via toLocaleString): ${past.toLocaleString("id-ID", {
           timeZone: "Asia/Jakarta",
           hour12: false,
         })}`
       );
       console.log(
-        `Past Time (WIB): ${past.toLocaleString("id-ID", {
+        `Current Time (WIB via toLocaleString): ${now.toLocaleString("id-ID", {
           timeZone: "Asia/Jakarta",
           hour12: false,
         })}`
       );
+      // --- End Debugging logs ---
 
-      // Calculate difference in milliseconds
+      // Hitung perbedaan dalam milidetik
+      // Perhitungan ini sudah benar jika `past` dan `now` adalah objek Date yang valid
+      // dan diinterpretasikan dengan benar secara internal.
       const diffMilliseconds = now.getTime() - past.getTime();
       const diffSeconds = Math.floor(diffMilliseconds / 1000);
       const diffMinutes = Math.floor(diffSeconds / 60);
       const diffHours = Math.floor(diffMinutes / 60);
       const diffDays = Math.floor(diffHours / 24);
-      const diffMonths = Math.floor(diffDays / 30.44);
-      const diffYears = Math.floor(diffDays / 365.25);
+      const diffMonths = Math.floor(diffDays / 30.44); // Rata-rata hari per bulan
+      const diffYears = Math.floor(diffDays / 365.25); // Rata-rata hari per tahun (termasuk kabisat)
 
       console.log(`Raw Diff (ms): ${diffMilliseconds}`);
       console.log(`Diff Seconds: ${diffSeconds}`);
@@ -285,9 +292,9 @@ export default {
       console.log(`Diff Days: ${diffDays}`);
       console.log("-----------------------------------");
 
-      // Return relative time
+      // Kembalikan waktu relatif
       if (diffSeconds < 0) {
-        return "Waktu masa depan"; // Handle negative values
+        return "Waktu masa depan"; // Handle nilai negatif (waktu di masa depan)
       } else if (diffMinutes >= 0 && diffMinutes < 2) {
         return "Baru saja";
       } else if (diffMinutes < 60) {
@@ -659,7 +666,9 @@ h5.card-title {
 
 /* Style for the logo inside the sidebar header */
 .sidebar-logo {
-  max-width: calc(100% - 60px); /* Batasi lebar agar ada ruang untuk tombol close, misal 60px untuk tombol dan padding */
+  max-width: calc(
+    100% - 60px
+  ); /* Batasi lebar agar ada ruang untuk tombol close, misal 60px untuk tombol dan padding */
   height: auto;
   display: block;
   /* Gunakan margin-right: auto untuk mendorong tombol ke kanan */
@@ -675,7 +684,7 @@ h5.card-title {
   margin-right: 0.5rem; /* Memberi sedikit ruang dari tepi kanan sidebar */
   background-color: rgba(255, 255, 255, 0.2);
   border: 1px solid rgba(255, 255, 255, 0.3);
-  color: #fdfdfd;
+  color: #fc0;
   font-weight: bold;
   font-size: 1rem;
   line-height: 1;
@@ -752,10 +761,18 @@ h5.card-title {
   color: #fdfdfd !important;
 }
 
-.card.bg-primary { border-left: 5px solid #a64dff; }
-.card.bg-success { border-left: 5px solid #00cc66; }
-.card.bg-warning { border-left: 5px solid #fc0; }
-.card.bg-info { border-left: 5px solid #008cba; }
+.card.bg-primary {
+  border-left: 5px solid #a64dff;
+}
+.card.bg-success {
+  border-left: 5px solid #00cc66;
+}
+.card.bg-warning {
+  border-left: 5px solid #fc0;
+}
+.card.bg-info {
+  border-left: 5px solid #008cba;
+}
 
 .btn-custom {
   background-color: #fc0;
@@ -768,7 +785,9 @@ h5.card-title {
 }
 
 /* Table style */
-.table { color: #fdfdfd; }
+.table {
+  color: #fdfdfd;
+}
 .table-dark {
   background-color: #4d0073;
   color: #fdfdfd;
@@ -789,8 +808,12 @@ h5.card-title {
   color: #fdfdfd;
   border-color: rgba(255, 255, 255, 0.1);
 }
-.list-group-item:first-child { border-top-width: 0; }
-.list-group-item:last-child { border-bottom-width: 0; }
+.list-group-item:first-child {
+  border-top-width: 0;
+}
+.list-group-item:last-child {
+  border-bottom-width: 0;
+}
 .list-group-item .text-muted {
   color: #ccc !important;
 }

@@ -341,6 +341,7 @@
   </div>
 </template>
 
+
 <script>
 // --- Impor File JS Kustom Anda ---
 // Pastikan urutan impor JS benar jika ada dependensi
@@ -360,7 +361,7 @@ export default {
   name: "ParkingForm",
   setup() {
     // Inisialisasi router
-    const router = useRouter(); // <--- TAMBAHKAN INI
+    const router = useRouter(); 
 
     const formMasuk = ref({
       nomor_tiket: "",
@@ -651,12 +652,7 @@ export default {
       });
 
       try {
-        const waktu_masuk = new Date()
-          .toISOString()
-          .slice(0, 19)
-          .replace("T", " ");
-
-        // Create FormData for multipart upload or JSON for base64
+        // waktu_masuk removed from frontend, will be generated on backend.
         let requestData;
         let requestOptions = {
           method: "POST",
@@ -682,7 +678,8 @@ export default {
           requestData = {
             nomor_tiket: formMasuk.value.nomor_tiket.trim().toUpperCase(),
             plat_nomor: formMasuk.value.plat_nomor.trim().toUpperCase(),
-            waktu_masuk: waktu_masuk,
+            // waktu_masuk is now generated in the backend, no need to send it from frontend
+            // waktu_masuk: waktu_masuk, 
             foto_base64: selectedImage.value,
           };
 
@@ -698,16 +695,17 @@ export default {
             "plat_nomor",
             formMasuk.value.plat_nomor.trim().toUpperCase()
           );
-          formData.append("waktu_masuk", waktu_masuk);
+          // waktu_masuk is now generated in the backend, no need to send it from frontend
+          // formData.append("waktu_masuk", waktu_masuk); 
           formData.append("foto_masuk", fileInput.value.files[0]);
 
           requestOptions.body = formData;
         } else {
-          // No photo
           requestData = {
             nomor_tiket: formMasuk.value.nomor_tiket,
             plat_nomor: formMasuk.value.plat_nomor.trim().toUpperCase(),
-            waktu_masuk: waktu_masuk,
+            // waktu_masuk is now generated in the backend, no need to send it from frontend
+            // waktu_masuk: waktu_masuk, 
           };
 
           requestOptions.headers = {
@@ -790,14 +788,14 @@ export default {
       });
 
       try {
-        const waktu_keluar = new Date()
-          .toISOString()
-          .slice(0, 19)
-          .replace("T", " ");
+        // const waktu_keluar = new Date() // Hapus baris ini
+        //   .toISOString()
+        //   .slice(0, 19)
+        //   .replace("T", " ");
 
         const requestData = {
           nomor_tiket: formKeluar.value.nomor_tiket.trim().toUpperCase(),
-          waktu_keluar: waktu_keluar,
+          // waktu_keluar: waktu_keluar, // Hapus pengiriman waktu_keluar dari frontend
         };
 
         console.log(
@@ -864,19 +862,15 @@ export default {
       console.log("API Domain:", API_DOMAIN);
       document.body.classList.add("style_2");
 
-      // Fetch initial log parkir data
       fetchLogParkir();
 
-      // Initialize Bootstrap tabs
-      // Hapus event listener untuk 'nav-dashboard-tab' karena sekarang itu adalah router-link
       const tabElms = document.querySelectorAll(
         "#nav-masuk-tab, #nav-keluar-tab"
-      ); // Hanya target tab yang sebenarnya
+      ); 
       tabElms.forEach((tab) => {
         tab.addEventListener("click", function (event) {
           event.preventDefault();
 
-          // Stop camera when switching tabs
           if (videoStream.value) {
             videoStream.value.getTracks().forEach((track) => {
               track.stop();
@@ -887,7 +881,6 @@ export default {
         });
       });
 
-      // Handle window load
       window.addEventListener("load", () => {
         console.log("Window loaded");
         const loader = document.querySelector('[data-loader="circle-side"]');
