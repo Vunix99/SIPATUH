@@ -57,7 +57,7 @@
           ☰
         </button>
         <h5 class="m-0 ms-2" style="color: #fdfdfd; font-weight: bold">
-          Tambah Admin Baru
+          Verifikasi Admin
         </h5>
       </nav>
 
@@ -65,56 +65,60 @@
         <div class="container-fluid pt-4 px-3 form-wrapper-top">
           <div class="row justify-content-center align-items-center h-100">
             <div class="col-lg-12 col-md-12">
-              <div class="card shadow w-100">
+              <div class="card shadow w-100 text-center">
                 <div class="card-header text-left">
-                  <h4 class="mb-0" style="color: #fdfdfd;">Registrasi Admin Baru</h4>
+                  <h4 class="mb-0" style="color: #fdfdfd;">Verifikasi Akun Admin</h4>
                 </div>
                 <div class="card-body">
-                  <form @submit.prevent="registerAdmin">
+                  <i class="fa-solid fa-envelope-circle-check fa-5x mb-4" style="color: #fc0;"></i>
+                  <h5 class="card-title mb-3" style="color: #fdfdfd;">Verifikasi Email Anda</h5>
+                  <p class="card-text mb-4">
+                    Kami telah mengirimkan kode verifikasi ke alamat email Anda:
+                    <br><strong>{{ emailToVerify }}</strong>.
+                  </p>
+
+                  <form @submit.prevent="verifyCode" class="mb-4">
                     <div class="mb-3">
-                      <label for="adminEmail" class="form-label">Email</label>
+                      <label for="emailInput" class="form-label">Email Anda</label>
                       <input
                         type="email"
-                        class="form-control"
-                        id="adminEmail"
-                        v-model="adminForm.email"
+                        class="form-control text-center"
+                        id="emailInput"
+                        v-model="emailInput"
                         required
-                        placeholder="Masukkan email admin"
+                        readonly
                       />
                     </div>
                     <div class="mb-3">
-                      <label for="adminPassword" class="form-label"
-                        >Password</label
-                      >
+                      <label for="codeInput" class="form-label">Kode Verifikasi (6 digit)</label>
                       <input
-                        type="password"
-                        class="form-control"
-                        id="adminPassword"
-                        v-model="adminForm.password"
+                        type="text"
+                        class="form-control text-center"
+                        id="codeInput"
+                        v-model="codeInput"
+                        maxlength="6"
                         required
-                        placeholder="Masukkan password"
+                        placeholder="Masukkan kode 6 digit"
                       />
                     </div>
-                    <div class="mb-3">
-                      <label for="confirmPassword" class="form-label"
-                        >Konfirmasi Password</label
-                      >
-                      <input
-                        type="password"
-                        class="form-control"
-                        id="confirmPassword"
-                        v-model="adminForm.confirmPassword"
-                        required
-                        placeholder="Konfirmasi password"
-                      />
-                    </div>
-                    <button
-                      type="submit"
-                      class="btn btn-custom w-100 mt-3"
-                    >
-                      Tambah Admin
+                    <button type="submit" class="btn btn-custom w-100 mt-3">
+                      Verifikasi Akun
                     </button>
                   </form>
+
+                  <p class="card-text mb-2" v-if="!canResend">
+                    Anda dapat mengirim ulang kode dalam: <strong>{{ formattedCountdown }}</strong>
+                  </p>
+                  <button
+                    @click="resendVerification"
+                    :disabled="!canResend"
+                    :class="['btn', 'mt-3', 'ms-2', canResend ? 'btn-outline-warning' : 'btn-outline-secondary']"
+                  >
+                    Kirim Ulang Kode Verifikasi
+                  </button>
+                  <button @click="goToLogin" class="btn btn-custom-outline mt-3 ms-2">
+                    Kembali ke Halaman Login
+                  </button>
                 </div>
               </div>
             </div>
@@ -126,197 +130,330 @@
 </template>
 
 <script>
-import { ref, computed } from "vue";
-import Swal from "sweetalert2";
+import { ref, onMounted, onUnmounted, computed } from "vue";
+import { useRouter, useRoute } from 'vue-router';
+import Swal from "sweetalert2"; // Import SweetAlert2 for notifications
 import "@fortawesome/fontawesome-free/css/all.min.css";
-import { useRouter } from 'vue-router'; // Import useRouter
 
 export default {
-  name: "TambahAdmin",
+  name: "VerifikasiAdmin",
   setup() {
     const sidebarOpen = ref(false);
+    const emailToVerify = ref(''); // Email displayed to the user
+    const emailInput = ref(''); // Email input for the form
+    const codeInput = ref(''); // Code input for the form
+    const router = useRouter();
+    const route = useRoute();
+
+    const countdown = ref(0); // Initialize countdown to 0
+    const canResend = ref(false);
+    let countdownInterval = null;
+
+    const API_DOMAIN = import.meta.env.VITE_DOMAIN_SERVER || "http://localhost:3000";
+    const VERIFICATION_EXPIRATION_SECONDS = 5 * 60; // 5 minutes in seconds
+
     const toggleSidebar = () => {
       sidebarOpen.value = !sidebarOpen.value;
     };
 
-    const adminForm = ref({
-      email: "",
-      password: "",
-      confirmPassword: "",
-    });
+    const goToLogin = () => {
+      router.push('/login'); // Assuming your login route is /login
+    };
 
-    const router = useRouter(); // Initialize useRouter
+    const formatTime = (seconds) => {
+      const minutes = Math.floor(seconds / 60);
+      const remainingSeconds = seconds % 60;
+      return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+    };
 
-    const API_DOMAIN =
-      import.meta.env.VITE_DOMAIN_SERVER || "http://localhost:3000";
+    const formattedCountdown = computed(() => formatTime(countdown.value));
 
-    const isFormValid = computed(() => {
-      const { email, password, confirmPassword } = adminForm.value;
-      return (
-        email.trim() !== "" &&
-        password.trim() !== "" &&
-        confirmPassword.trim() !== "" &&
-        password === confirmPassword
-      );
-    });
+    const startCountdown = (initialSeconds) => {
+      // Clear any existing interval to prevent multiple timers
+      if (countdownInterval) {
+        clearInterval(countdownInterval);
+      }
+      countdown.value = initialSeconds;
+      canResend.value = false;
 
-    const registerAdmin = async () => {
-      if (!isFormValid.value) {
+      countdownInterval = setInterval(() => {
+        if (countdown.value > 0) {
+          countdown.value--;
+        } else {
+          clearInterval(countdownInterval);
+          canResend.value = true;
+        }
+      }, 1000);
+    };
+
+    // New method for manual code verification via form
+    const verifyCode = async () => {
+      if (!emailInput.value || !codeInput.value || codeInput.value.length !== 6) {
         Swal.fire({
-          icon: "warning",
-          title: "Input Tidak Valid",
-          text: "Harap isi semua kolom dan pastikan password cocok.",
-          confirmButtonText: "OK",
+          icon: 'warning',
+          title: 'Input Tidak Valid',
+          text: 'Harap masukkan email dan kode verifikasi 6 digit yang valid.',
+          confirmButtonText: 'OK'
         });
         return;
       }
 
-      if (adminForm.value.password.length < 6) {
-        Swal.fire({
-          icon: "warning",
-          title: "Password Terlalu Pendek",
-          text: "Password minimal 6 karakter.",
-          confirmButtonText: "OK",
-        });
-        return;
-      }
-
-      const { value: confirmationText } = await Swal.fire({
-        title: 'Konfirmasi Pendaftaran Admin',
-        text: 'Untuk melanjutkan, ketik "SIPATUH" di bawah ini:',
-        input: 'text',
-        inputPlaceholder: 'Ketik "SIPATUH" di sini...',
-        showCancelButton: true,
-        confirmButtonText: 'Konfirmasi',
-        cancelButtonText: 'Batal',
-        inputValidator: (value) => {
-          if (!value) {
-            return 'Anda perlu mengetik "SIPATUH"!';
-          }
-          if (value.trim() !== 'SIPATUH') { // Added .trim() for robustness
-            return 'Teks tidak cocok. Harap ketik "SIPATUH" dengan benar.';
-          }
-        },
-        customClass: {
-          container: 'swal-custom-container',
-          popup: 'swal-custom-popup',
-          confirmButton: 'swal-custom-confirm-button',
-          cancelButton: 'swal-custom-cancel-button',
-          input: 'swal-custom-input',
-        },
-        icon: 'warning',
+      Swal.fire({
+        title: "Memverifikasi Kode...",
+        text: "Mohon tunggu sebentar",
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading(),
       });
 
-      if (confirmationText === 'SIPATUH') {
+      try {
+        const response = await fetch(`${API_DOMAIN}/api/admin/verify_code`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email: emailInput.value, code: codeInput.value }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          Swal.fire({
+            icon: 'success',
+            title: 'Verifikasi Berhasil!',
+            text: data.message || 'Akun Anda berhasil diverifikasi.',
+            confirmButtonText: 'OK'
+          }).then(() => {
+            router.push('/login'); // Redirect to login page
+          });
+        } else {
+          Swal.fire({
+            icon: 'error',
+            title: 'Verifikasi Gagal!',
+            text: data.error || 'Kode verifikasi tidak valid atau telah kedaluwarsa.',
+            confirmButtonText: 'OK'
+          });
+        }
+      } catch (error) {
+        console.error('Error during code verification:', error);
         Swal.fire({
-          title: "Mendaftarkan Admin...",
+          icon: 'error',
+          title: 'Kesalahan Jaringan',
+          text: 'Tidak dapat terhubung ke server. Silakan coba lagi nanti.',
+          confirmButtonText: 'OK'
+        });
+      }
+    };
+
+    const resendVerification = async () => {
+      if (!canResend.value && countdown.value > 0) { // Added countdown.value > 0 check
+        Swal.fire({
+          icon: 'info',
+          title: 'Tunggu Sebentar',
+          text: `Anda dapat mengirim ulang kode dalam ${formattedCountdown.value}.`,
+          confirmButtonText: 'OK'
+        });
+        return;
+      }
+
+      if (!emailToVerify.value || emailToVerify.value === 'alamat email Anda') {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Email Tidak Ditemukan',
+          text: 'Tidak dapat mengirim ulang. Email tidak terdeteksi. Silakan kembali ke halaman pendaftaran.',
+          confirmButtonText: 'OK'
+        });
+        return;
+      }
+
+      Swal.fire({
+        title: "Mengirim Ulang Kode...",
+        text: "Mohon tunggu sebentar",
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading(),
+      });
+
+      try {
+        // We re-use the /api/admin/register endpoint for resending,
+        // as it handles generating a new code and updating pendingAdminRegistrations.
+        // We send a dummy password because the backend expects it for this endpoint,
+        // but it won't be used to update the password for an existing pending entry.
+        // The backend logic now handles deleting expired pending entries and creating new ones.
+        const response = await fetch(`${API_DOMAIN}/api/admin/register`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email: emailToVerify.value, password: "dummy_password_for_resend" }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          Swal.fire({
+            icon: 'success',
+            title: 'Berhasil!',
+            text: data.message || 'Kode verifikasi baru telah dikirim ulang.',
+            confirmButtonText: 'OK'
+          });
+          // After resending, fetch the new status to get the correct countdown
+          fetchPendingStatus(emailToVerify.value); // Re-fetch status to update countdown
+        } else {
+          Swal.fire({
+            icon: 'error',
+            title: 'Gagal!',
+            text: data.error || 'Gagal mengirim ulang kode verifikasi. Pastikan email Anda benar.',
+            confirmButtonText: 'OK'
+          });
+        }
+      } catch (error) {
+        console.error('Error resending verification email:', error);
+        Swal.fire({
+          icon: 'error',
+          title: 'Kesalahan Jaringan',
+          text: 'Tidak dapat terhubung ke server. Silakan coba lagi nanti.',
+          confirmButtonText: 'OK'
+        });
+      }
+    };
+
+    // New function to fetch pending status from backend
+    const fetchPendingStatus = async (email) => {
+      if (!email || email === 'alamat email Anda') {
+        // No valid email to fetch status for
+        return;
+      }
+      try {
+        const response = await fetch(`${API_DOMAIN}/api/admin/pending-status?email=${encodeURIComponent(email)}`);
+        const data = await response.json();
+
+        if (response.ok) {
+          // Initialize countdown with remainingSeconds from backend
+          startCountdown(data.remainingSeconds);
+          if (data.isExpired) {
+            canResend.value = true; // Allow resend if already expired
+          }
+        } else {
+          // No pending entry found or other error, allow resend
+          console.warn("Failed to fetch pending status for countdown:", data.error);
+          canResend.value = true; // Allow resend if no pending status found
+          countdown.value = 0; // Set countdown to 0
+        }
+      } catch (error) {
+        console.error("Network error fetching pending status:", error);
+        canResend.value = true; // Allow resend on network error
+        countdown.value = 0; // Set countdown to 0
+      }
+    };
+
+
+    // Handle initial load: check for email and code in URL
+    onMounted(async () => {
+      // Get the email from route query parameters (from TambahAdmin or direct link)
+      if (route.query.email) {
+        emailToVerify.value = decodeURIComponent(route.query.email);
+        emailInput.value = decodeURIComponent(route.query.email); // Pre-fill email input
+        
+        // Fetch pending status to get the accurate countdown
+        await fetchPendingStatus(emailToVerify.value);
+
+      } else {
+        emailToVerify.value = 'alamat email Anda';
+        canResend.value = true; // If no email, assume no pending code, allow resend
+        countdown.value = 0;
+        Swal.fire({
+          icon: 'info',
+          title: 'Email Tidak Ditemukan',
+          text: 'Tidak ada email yang terdeteksi. Silakan kembali ke halaman pendaftaran untuk memulai proses verifikasi.',
+          confirmButtonText: 'OK'
+        }).then(() => {
+          router.push('/tambah-admin'); // Redirect to registration if no email
+        });
+        return; // Stop further execution if no email
+      }
+
+      // If code is also present in URL, attempt auto-verification
+      if (route.query.code) { // Only attempt if email is also present (checked above)
+        const emailFromUrl = decodeURIComponent(route.query.email);
+        const codeFromUrl = route.query.code;
+
+        Swal.fire({
+          title: "Memverifikasi Otomatis...",
           text: "Mohon tunggu sebentar",
           allowOutsideClick: false,
           didOpen: () => Swal.showLoading(),
         });
 
         try {
-          const response = await fetch(`${API_DOMAIN}/api/admin/register`, {
-            method: "POST",
+          const response = await fetch(`${API_DOMAIN}/api/admin/verify?email=${encodeURIComponent(emailFromUrl)}&code=${codeFromUrl}`, {
+            method: 'GET', // This is a GET request for link verification
             headers: {
-              "Content-Type": "application/json",
+              'Content-Type': 'application/json', // Note: Backend returns HTML, but we set this for consistency
             },
-            body: JSON.stringify({
-              email: adminForm.value.email,
-              password: adminForm.value.password,
-            }),
           });
 
-          const data = await response.json();
-
+          // Note: Backend /api/admin/verify (GET) returns HTML, not JSON on success/failure.
+          // So, we check response.ok and then show a generic success/failure message.
+          // For a more robust frontend, the backend should return JSON for API calls.
           if (response.ok) {
-            // Simpan email ke variabel lokal SEBELUM form di-reset
-            const emailForRedirect = adminForm.value.email; 
-
-            let timerInterval;
             Swal.fire({
-              icon: "success",
-              title: "Email Verifikasi Terkirim!",
-              html: `<strong>${data.message}</strong><br>Anda akan diarahkan dalam <strong><span id="countdown-timer">5</span></strong> detik.`,
-              timer: 5000, // 5 seconds
-              timerProgressBar: true,
-              allowOutsideClick: false,
-              didOpen: () => {
-                Swal.showLoading();
-                const timerElement = Swal.getHtmlContainer().querySelector('#countdown-timer');
-                timerInterval = setInterval(() => {
-                  // Menggunakan Math.ceil untuk membulatkan ke atas agar tidak ada desimal
-                  timerElement.textContent = Math.ceil(Swal.getTimerLeft() / 1000);
-                }, 100);
-              },
-              willClose: () => {
-                clearInterval(timerInterval);
-              }
+              icon: 'success',
+              title: 'Verifikasi Berhasil!',
+              text: 'Akun Anda berhasil diverifikasi. Anda dapat login sekarang.',
+              confirmButtonText: 'OK'
+            }).then(() => {
+              router.push('/login');
             });
-
-            // Memastikan navigasi terjadi setelah 5 detik, terlepas dari bagaimana SweetAlert ditutup
-            setTimeout(() => {
-              // Gunakan variabel lokal yang sudah disimpan
-              router.push({ name: 'verifikasi-admin', query: { email: emailForRedirect } }); // Diperbaiki: 'verifikasi-admin'
-            }, 5000); // Waktu yang sama dengan timer SweetAlert
-
-            // Reset form setelah navigasi dipastikan akan terjadi
-            adminForm.value.email = "";
-            adminForm.value.password = "";
-            adminForm.value.confirmPassword = "";
           } else {
-            // Check if backend explicitly provided a redirectUrl for pending requests
-            if (data.redirectUrl) {
-              // Simpan email ke variabel lokal sebelum form di-reset
-              const emailForRedirect = adminForm.value.email; 
-
-              Swal.fire({
-                icon: "info",
-                title: "Permintaan Verifikasi Tertunda",
-                text: data.message || "Email ini sudah memiliki permintaan verifikasi yang tertunda. Silakan cek email Anda.",
-                confirmButtonText: "OK",
-              }).then(() => {
-                // Redirect immediately if there's a pending request and backend suggests redirection
-                router.push({ name: 'verifikasi-admin', query: { email: emailForRedirect } }); // Diperbaiki: 'verifikasi-admin'
-              });
-            } else {
-              Swal.fire({
-                icon: "error",
-                title: "Gagal Mendaftar",
-                text: data.error || "Terjadi kesalahan saat mendaftarkan admin.",
-                confirmButtonText: "OK",
-              });
-            }
+            const errorHtml = await response.text(); // Get the HTML error message
+            // You might want to parse the HTML to extract a specific message
+            // For now, let's just show a generic error or the raw HTML if needed for debugging
+            Swal.fire({
+              icon: 'error',
+              title: 'Verifikasi Gagal!',
+              text: 'Tautan verifikasi tidak valid atau telah kedaluwarsa. Silakan coba masukkan kode secara manual atau minta kirim ulang.',
+              confirmButtonText: 'OK'
+            });
+            // Re-fetch status if auto-verification failed, in case the code expired during the process
+            fetchPendingStatus(emailToVerify.value);
           }
         } catch (error) {
-          console.error("Error during admin registration:", error);
+          console.error('Error during auto-verification:', error);
           Swal.fire({
-            icon: "error",
-            title: "Kesalahan Jaringan",
-            text: "Tidak dapat terhubung ke server. Silakan coba lagi nanti.",
-            confirmButtonText: "OK",
+            icon: 'error',
+            title: 'Kesalahan Jaringan',
+            text: 'Tidak dapat terhubung ke server untuk verifikasi otomatis. Silakan coba masukkan kode secara manual.',
+            confirmButtonText: 'OK'
           });
+          // Re-fetch status if auto-verification failed due to network error
+          fetchPendingStatus(emailToVerify.value);
         }
-      } else if (confirmationText === undefined) {
-        Swal.fire({
-          icon: 'info',
-          title: 'Dibatalkan',
-          text: 'Pendaftaran admin dibatalkan.',
-          confirmButtonText: 'OK'
-        });
       }
-    };
+    });
+
+    onUnmounted(() => {
+      // Clear interval when component is unmounted to prevent memory leaks
+      if (countdownInterval) {
+        clearInterval(countdownInterval);
+      }
+    });
 
     return {
       sidebarOpen,
       toggleSidebar,
-      adminForm,
-      isFormValid,
-      registerAdmin,
+      emailToVerify,
+      emailInput,
+      codeInput,
+      goToLogin,
+      countdown,
+      formattedCountdown,
+      canResend,
+      verifyCode, // Expose the new method
+      resendVerification,
     };
   },
 };
 </script>
+
 
 <style scoped>
 /* Main background for body and content */
@@ -476,6 +613,19 @@ h5.card-title {
 .btn-custom:hover {
   background-color: #e6b800; /* Slightly darker accent on hover */
 }
+
+/* New: Outline button for secondary actions */
+.btn-custom-outline {
+  background-color: transparent;
+  color: #fc0;
+  border: 1px solid #fc0;
+  font-weight: 600;
+}
+.btn-custom-outline:hover {
+  background-color: rgba(252, 204, 0, 0.1);
+  color: #fc0;
+}
+
 
 /* Table style */
 .table {
@@ -708,5 +858,10 @@ h5.card-title {
   .card-body {
     padding: 1.5rem;
   }
+}
+.form-control.text-center {
+    text-align: center;
+    font-size: 1.25rem; /* Larger font for code input */
+    letter-spacing: 0.2em; /* Spacing between digits */
 }
 </style>

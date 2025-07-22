@@ -16,6 +16,7 @@ import crypto from "crypto";
 import http from "http";
 import { Server } from "socket.io";
 import { exec } from "child_process"; // Import exec from child_process
+import nodemailer from "nodemailer"; // Import nodemailer
 
 // Polyfill for __filename and __dirname in ES Modules
 const __filename = fileURLToPath(import.meta.url);
@@ -33,6 +34,9 @@ const {
   TIME_ZONE, // Note: TIME_ZONE from .env isn't directly used in dbPool currently, but good to have
   JWT_SECRET,
   VITE_DOMAIN_SERVER, // This is crucial for CORS and Socket.IO origin
+  GMAIL_USER, // NEW: Gmail user for SMTP
+  GMAIL_APP_PASSWORD, // NEW: Gmail App Password
+  EMAIL_SENDER_NAME, // NEW: Sender name for emails
 } = process.env;
 
 // Log environment variables for debugging purposes (especially during deployment)
@@ -42,9 +46,11 @@ console.log("DB_USER:", process.env.DB_USER);
 console.log("DB_PASS:", process.env.DB_PASS ? "********" : "NOT SET"); // Mask password
 console.log("DB_NAME:", process.env.DB_NAME);
 console.log("JWT_SECRET (present):", !!process.env.JWT_SECRET);
-// Log VITE_DOMAIN_SERVER to ensure it's loaded correctly at runtime
 console.log("VITE_DOMAIN_SERVER:", process.env.VITE_DOMAIN_SERVER);
 console.log("TIME_ZONE (from .env):", process.env.TIME_ZONE);
+console.log("GMAIL_USER:", process.env.GMAIL_USER); // Log new Gmail user
+console.log("GMAIL_APP_PASSWORD (present):", !!process.env.GMAIL_APP_PASSWORD); // Log presence of App Password
+console.log("EMAIL_SENDER_NAME:", process.env.EMAIL_SENDER_NAME); // Log sender name
 console.log("=============================");
 
 // Initialize Express app and HTTP server
@@ -147,11 +153,31 @@ app.use(cookieParser());
 app.use("/uploads", express.static(uploadsDir));
 app.use("/backups", express.static(backupsDir));
 
-// Critical check for JWT_SECRET
+// Critical check for JWT_SECRET and Gmail config
 if (!JWT_SECRET) {
   console.error("FATAL ERROR: JWT_SECRET is not defined in .env file.");
   process.exit(1);
 }
+if (!GMAIL_USER || !GMAIL_APP_PASSWORD || !EMAIL_SENDER_NAME) {
+  console.error("FATAL ERROR: Gmail SMTP credentials (GMAIL_USER, GMAIL_APP_PASSWORD, EMAIL_SENDER_NAME) are not defined in .env file.");
+  process.exit(1);
+}
+
+// Nodemailer transporter setup
+// This transporter will be used to send emails via Gmail SMTP
+const transporter = nodemailer.createTransport({
+  host: "smtp.gmail.com",
+  port: 587,
+  secure: false, // Use STARTTLS
+  auth: {
+    user: GMAIL_USER,
+    pass: GMAIL_APP_PASSWORD,
+  },
+  tls: {
+    // Do not fail on invalid certs, useful for development but not recommended for production
+    // rejectUnauthorized: false
+  }
+});
 
 // Helper function to save Base64 images
 const saveBase64Image = (base64Data, filename) => {
@@ -422,6 +448,15 @@ async function createTables(db) {
         password VARCHAR(255) NOT NULL
       );
 
+      -- NEW TABLE: For storing pending admin registrations
+      CREATE TABLE IF NOT EXISTS PendingAdmins (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        email VARCHAR(50) NOT NULL UNIQUE,
+        verification_code VARCHAR(10) NOT NULL,
+        hashed_password VARCHAR(255) NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
       CREATE TABLE IF NOT EXISTS Log_Backup (
         id INT AUTO_INCREMENT PRIMARY KEY,
         waktu_backup DATETIME NOT NULL,
@@ -441,7 +476,7 @@ async function createTables(db) {
         tanggal_pesan DATETIME DEFAULT CURRENT_TIMESTAMP, 
         isi_pesan TEXT NOT NULL,
         id_admin INT,
-        FOREIGN KEY (id_admin) REFERENCES Admin(id)
+        FOREIGN KEY (id_admin) REFERENCES Admin(id) ON DELETE CASCADE
       );
 
       CREATE TABLE IF NOT EXISTS LogPemulihan (
@@ -483,15 +518,11 @@ async function startServer(rebuild = false) {
       connectionLimit: 10,
       queueLimit: 0,
       multipleStatements: true,
-      // Penting: Pastikan timezone disetel ke 'local' agar objek Date dari Node.js
-      // tidak dikonversi lagi oleh driver jika kita sudah memformatnya ke WIB.
-      timezone: "local", // UBAH INI KE "local"
-      // PERTAHANKAN hook init ini untuk berjaga-jaga jika ada query NOW() lain
-      // atau tools lain yang bergantung pada sesi timezone.
+      timezone: "local",
       init: async (connection) => {
         try {
           await connection.query("SET time_zone = '+07:00'");
-          console.log("Session timezone set to +07:00 for new connection."); // Debugging
+          console.log("Session timezone set to +07:00 for new connection.");
         } catch (err) {
           console.error(
             "Failed to set session timezone for connection pool:",
@@ -519,6 +550,7 @@ async function startServer(rebuild = false) {
             DROP TABLE IF EXISTS Kendaraan;
             DROP TABLE IF EXISTS LogMessages;
             DROP TABLE IF EXISTS LogPemulihan;
+            DROP TABLE IF EXISTS PendingAdmins; -- Drop new table if exists
             SET FOREIGN_KEY_CHECKS = 1;
           `
         );
@@ -539,7 +571,6 @@ async function startServer(rebuild = false) {
       console.log("A client connected via WebSocket:", socket.id);
 
       // Emit initial data to the newly connected client
-      // This ensures the dashboard is populated immediately upon connection
       emitDashboardUpdate("parkingLogs");
       emitDashboardUpdate("availableTickets");
       emitDashboardUpdate("totalAvailableTickets");
@@ -554,7 +585,6 @@ async function startServer(rebuild = false) {
     });
 
     // === API ENDPOINTS ===
-    // (All your existing API endpoints follow here. No major changes needed)
 
     app.post("/api/tiket", authenticateToken, async (req, res) => {
       const { nomor_tiket } = req.body;
@@ -675,7 +705,6 @@ async function startServer(rebuild = false) {
           lp.id,
           k.plat_nomor,
           t.nomor_tiket,
-          -- Ambil langsung waktu karena DB sekarang akan menyimpan dalam WIB (setelah init hook)
           lp.waktu_masuk,
           lp.waktu_keluar,
           CONCAT('${VITE_DOMAIN_SERVER}/backend/uploads/', lp.foto_masuk) AS foto_masuk,
@@ -707,17 +736,12 @@ async function startServer(rebuild = false) {
           req.file ? req.file.filename : "No file via Multer"
         );
 
-        // --- PERUBAHAN UTAMA DI SINI ---
-        // 1. Hapus `waktu_masuk` dari destructuring req.body.
-        //    Karena kita akan menggunakan NOW() di MySQL, kita tidak perlu mengambilnya dari body request.
         const { plat_nomor, nomor_tiket, foto_base64 } = req.body;
         const { id: adminId, email: adminEmail } = req.admin;
 
-        // 2. Sesuaikan validasi: `waktu_masuk` tidak lagi divalidasi karena dibuat di backend oleh NOW().
-        //    Cukup pastikan `plat_nomor` dan `nomor_tiket` ada.
         if (!plat_nomor || !nomor_tiket) {
           return res.status(400).json({
-            error: "Missing required fields: plat_nomor, nomor_tiket", // Pesan error diperbarui
+            error: "Missing required fields: plat_nomor, nomor_tiket",
           });
         }
 
@@ -745,17 +769,6 @@ async function startServer(rebuild = false) {
               foto_filename
             );
           }
-
-          // --- HAPUS BAGIAN INI ---
-          // Kita tidak lagi membuat waktu masuk dalam WIB di Node.js
-          // const now = new Date();
-          // const offsetWIB = now.getTimezoneOffset() + (7 * 60);
-          // const waktu_masuk_wib = new Date(now.getTime() + offsetWIB * 60 * 1000);
-          // const formatted_waktu_masuk = waktu_masuk_wib.toISOString()
-          //                                  .slice(0, 19)
-          //                                  .replace('T', ' ');
-          // console.log(`Waktu masuk (WIB) yang akan diinsert: ${formatted_waktu_masuk}`);
-          // --- END HAPUS ---
 
           const connection = await dbPool.getConnection();
 
@@ -796,12 +809,9 @@ async function startServer(rebuild = false) {
               [id_tiket]
             );
 
-            // --- KEMBALIKAN PENGGUNAAN NOW() ---
-            // Waktu masuk akan menggunakan NOW() MySQL.
-            // Ini akan bergantung pada `SET time_zone = '+07:00'` di init hook dbPool.
             const [logResult] = await connection.query(
               `INSERT INTO Log_Parkir (id_kendaraan, id_tiket, waktu_masuk, foto_masuk) VALUES (?, ?, NOW(), ?)`,
-              [id_kendaraan, id_tiket, foto_filename] // <-- Perubahan di sini
+              [id_kendaraan, id_tiket, foto_filename]
             );
 
             await connection.commit();
@@ -846,31 +856,12 @@ async function startServer(rebuild = false) {
     );
 
     app.post("/api/parkirKeluar", authenticateToken, async (req, res) => {
-      // --- PERUBAHAN UTAMA DI SINI ---
-      // 1. Hapus `waktu_keluar` dari destructuring req.body.
-      //    Karena kita akan menggunakan NOW() di MySQL, kita tidak perlu mengambilnya dari body request.
       const { nomor_tiket } = req.body;
       const { id: adminId, email: adminEmail } = req.admin;
 
-      // 2. Validasi disesuaikan: `waktu_keluar` tidak lagi divalidasi karena dibuat di backend oleh NOW().
-      //    Cukup pastikan `nomor_tiket` ada.
       if (!nomor_tiket) {
         return res.status(400).json({ error: "Nomor tiket wajib diisi" });
       }
-
-      // --- HAPUS BAGIAN INI ---
-      // Kita tidak lagi membuat waktu keluar dalam WIB di Node.js
-      // const now = new Date();
-      // const offsetWIB = now.getTimezoneOffset() + 7 * 60;
-      // const waktu_keluar_wib = new Date(now.getTime() + offsetWIB * 60 * 1000);
-      // const formatted_waktu_keluar = waktu_keluar_wib
-      //   .toISOString()
-      //   .slice(0, 19)
-      //   .replace("T", " ");
-      // console.log(
-      //   `Waktu keluar (WIB) yang akan diupdate: ${formatted_waktu_keluar}`
-      // );
-      // --- END HAPUS ---
 
       const connection = await dbPool.getConnection();
 
@@ -896,16 +887,13 @@ async function startServer(rebuild = false) {
         }
         const { id: logId, id_tiket, plat_nomor } = logInfo[0];
 
-        // --- KEMBALIKAN PENGGUNAAN NOW() ---
-        // Waktu keluar akan menggunakan NOW() MySQL.
-        // Ini akan bergantung pada `SET time_zone = '+07:00'` di init hook dbPool.
         const [updateLogResult] = await connection.query(
           `
           UPDATE Log_Parkir
-          SET waktu_keluar = NOW() -- <-- Perubahan di sini: Gunakan NOW()
+          SET waktu_keluar = NOW()
           WHERE id = ?
         `,
-          [logId] // <-- Perubahan di sini: formatted_waktu_keluar diganti logId
+          [logId]
         );
 
         await connection.query(
@@ -941,8 +929,7 @@ async function startServer(rebuild = false) {
       }
     });
 
-    // ... (sisa kode server.js)
-
+    // --- ENDPOINT UNTUK MEMULAI PENDAFTARAN ADMIN (MENGIRIM KODE VERIFIKASI) ---
     app.post("/api/admin/register", async (req, res) => {
       const { email, password } = req.body;
       if (!email || !password) {
@@ -951,28 +938,502 @@ async function startServer(rebuild = false) {
           .json({ error: "Email dan password harus diisi" });
       }
 
+      const VERIFICATION_EXPIRATION_MS = 5 * 60 * 1000; // 5 menit
+
       try {
+        // Cek apakah email sudah terdaftar di tabel Admin (sudah diverifikasi)
+        const [existingAdmin] = await dbPool.query(
+          `SELECT id FROM Admin WHERE email = ?`,
+          [email]
+        );
+        if (existingAdmin.length > 0) {
+          return res.status(400).json({ error: "Email ini sudah terdaftar sebagai admin yang aktif." });
+        }
+
+        // Cek apakah email sudah ada di tabel PendingAdmins (sedang menunggu verifikasi)
+        const [existingPendingAdminRows] = await dbPool.query(
+          `SELECT * FROM PendingAdmins WHERE email = ?`,
+          [email]
+        );
+        const existingPendingAdmin = existingPendingAdminRows[0];
+
+        if (existingPendingAdmin) {
+          const createdAtTimestamp = new Date(existingPendingAdmin.created_at).getTime();
+          // Jika ada entri pending dan belum kedaluwarsa, kembalikan pesan bahwa sudah ada
+          if (Date.now() - createdAtTimestamp < VERIFICATION_EXPIRATION_MS) {
+            return res.status(400).json({
+              message: "Email ini sudah memiliki permintaan verifikasi yang tertunda. Silakan cek email Anda atau coba lagi nanti.",
+              email: email,
+              redirectUrl: `${VITE_DOMAIN_SERVER}/verifikasi-admin?email=${encodeURIComponent(email)}`
+            });
+          } else {
+            // Jika sudah kedaluwarsa, hapus entri lama
+            await dbPool.query(`DELETE FROM PendingAdmins WHERE email = ?`, [email]);
+            console.log(`Expired pending admin entry for ${email} deleted.`);
+            // Lanjutkan untuk membuat entri baru di bawah
+          }
+        }
+
         const hashedPassword = await bcrypt.hash(password, 10);
-        const sql = `INSERT INTO Admin (email, password) VALUES (?, ?)`;
-        const [result] = await dbPool.query(sql, [email, hashedPassword]);
+        // Generate a 6-digit numeric code
+        const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+        // --- SIMPAN KE TABEL PENDINGADMINS ---
+        const [insertPendingResult] = await dbPool.query(
+          `INSERT INTO PendingAdmins (email, verification_code, hashed_password, created_at) VALUES (?, ?, ?, NOW())`,
+          [email, verificationCode, hashedPassword]
+        );
+        console.log(`Pendaftaran pending untuk ${email} disimpan di DB dengan ID: ${insertPendingResult.insertId}`);
+
+
+        // Buat link verifikasi menggunakan VITE_DOMAIN_SERVER
+        // Link ini sekarang membawa email dan kode verifikasi
+        const verificationLink = `${VITE_DOMAIN_SERVER}/verifikasi-admin?email=${encodeURIComponent(email)}&code=${verificationCode}`;
+        const expirationTimeMinutes = 5; // Kode berlaku 5 menit
+
+        // --- HTML Email Template ---
+        const htmlEmailContent = `
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Verifikasi Akun Anda</title>
+    <style type="text/css">
+        /* Basic Resets & Compatibility */
+        body { margin: 0; padding: 0; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+        table { border-collapse: collapse; mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+        img { border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; }
+        p { display: block; margin: 0; padding: 0; }
+        a { text-decoration: none; }
+        /* Outlook-specific styles */
+        .ExternalClass { width: 100%; }
+        .ExternalClass, .ExternalClass p, .ExternalClass span, .ExternalClass font, .ExternalClass td, .ExternalClass div { line-height: 100%; }
+
+        /* General Styles for Desktop */
+        .email-body { background-color: #f4f4f4; padding: 20px 0 30px 0; }
+        .main-table { border-collapse: collapse; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.05); }
+        .content-area { padding: 40px; text-align: center; }
+        .logo { display: block; margin: 0 auto 20px auto; }
+        .heading { font-family: Arial, sans-serif; font-size: 28px; color: #333333; margin: 0 0 20px 0; }
+        .paragraph { font-family: Arial, sans-serif; font-size: 16px; line-height: 24px; color: #555555; margin: 0 0 25px 0; }
+        .code-box-table { margin: 30px auto; width: 100%; max-width: 300px; } /* Added max-width here */
+        .code-box-cell { background-color: #e8f5e9; padding: 20px; border-radius: 8px; }
+        .code-text { font-family: 'Courier New', Courier, monospace; font-size: 32px; font-weight: bold; color: #2e7d32; letter-spacing: 5px; /* Reduced letter spacing for better fit */ margin: 0; word-break: break-all; /* Helps if placeholder text is long */ }
+        .button-table { margin: 0 auto; }
+        .button-cell { border-radius: 5px; }
+        .button-link { font-size: 16px; font-family: Arial, sans-serif; color: #ffffff; text-decoration: none; border-radius: 5px; padding: 12px 25px; border: 1px solid #3498db; display: inline-block; background-color: #3498db; }
+        .footer-area { padding: 30px 40px; background-color: #f0f0f0; text-align: center; }
+        .footer-text { font-family: Arial, sans-serif; font-size: 12px; color: #777777; margin: 0; }
+
+        /* Media Queries for Responsive Design (Mobile) */
+        @media screen and (max-width: 600px) {
+            .email-body { padding: 10px 0 20px 0 !important; }
+            .main-table { width: 100% !important; border-radius: 0 !important; } /* Full width on mobile */
+            .content-area { padding: 20px !important; }
+            .heading { font-size: 24px !important; }
+            .paragraph { font-size: 15px !important; line-height: 22px !important; }
+            .code-box-table { width: 90% !important; max-width: 90% !important; }
+            .code-text { font-size: 28px !important; letter-spacing: 3px !important; } /* Adjust for smaller screens */
+            .button-table { width: 100% !important; }
+            .button-cell { width: 100% !important; text-align: center !important; }
+            .button-link { width: calc(100% - 50px) !important; padding: 12px 0 !important; }
+            .footer-area { padding: 20px !important; }
+        }
+    </style>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f4f4;">
+    <table border="0" cellpadding="0" cellspacing="0" width="100%" class="email-body">
+        <tr>
+            <td align="center">
+                <table align="center" border="0" cellpadding="0" cellspacing="0" width="600" class="main-table">
+                    <tr>
+                        <td class="content-area">
+                            <img src="${VITE_DOMAIN_SERVER}/backend/uploads/LogoSipatuhLong_WH_BG.svg" alt="Logo SIPATUH HMTB" width="230" height="auto" class="logo"/>
+                            <h1 class="heading">Verifikasi Akun Anda</h1>
+                            <p class="paragraph">
+                                Halo ${email.split('@')[0]},
+                            </p>
+                            <p class="paragraph">
+                                Terima kasih telah mendaftar di <b>SIPATUH</b>. Untuk menyelesaikan pendaftaran Anda, mohon masukkan kode verifikasi 6 digit di bawah ini ke website kami:
+                            </p>
+                            <table border="0" cellpadding="0" cellspacing="0" class="code-box-table">
+                                <tr>
+                                    <td align="center" class="code-box-cell">
+                                        <p class="code-text">
+                                            ${verificationCode}
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <p class="paragraph">
+                                Kode ini berlaku selama <b>${expirationTimeMinutes} menit</b>. Jika Anda tidak meminta kode ini, mohon abaikan email ini.
+                            </p>
+
+                            <table border="0" cellpadding="0" cellspacing="0" class="button-table">
+                                <tr>
+                                    <td align="center" class="button-cell">
+                                        <a href="${verificationLink}" target="_blank" class="button-link">
+                                            Buka Halaman Verifikasi
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                            <p class="paragraph" style="margin-top: 30px; font-size: 14px; line-height: 20px; color: #999999;">
+                                Jika Anda mengalami masalah, silakan hubungi tim dukungan kami.
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="footer-area">
+                            <p class="footer-text">
+                                &copy; ${new Date().getFullYear()} SIPATUH. Semua hak dilindungi.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+                </td>
+        </tr>
+    </table>
+</body>
+</html>
+        `;
+
+        // Kirim email verifikasi menggunakan Nodemailer
+        const mailOptions = {
+          from: `"${EMAIL_SENDER_NAME}" <${GMAIL_USER}>`,
+          to: email,
+          subject: "Verifikasi Akun Admin SIPATUH HMTB Anda",
+          html: htmlEmailContent,
+        };
+
+        await transporter.sendMail(mailOptions);
 
         await createLogMessage(
-          `email_admin telah menambah admin baru dengan email: ${email}`,
-          null,
+          `Permintaan pendaftaran admin baru untuk email: ${email}. Email verifikasi dikirim.`,
+          null, // adminId null karena belum terdaftar
           email
         );
 
         res.json({
-          message: "Admin berhasil didaftarkan",
-          id: result.insertId,
+          message: "Email verifikasi telah dikirim. Silakan cek kotak masuk Anda untuk menyelesaikan pendaftaran.",
+          email: email, // Kirim email kembali agar frontend bisa menggunakannya
+          redirectUrl: `${VITE_DOMAIN_SERVER}/verifikasi-admin?email=${encodeURIComponent(email)}` // URL redirect
         });
+
       } catch (err) {
-        if (err.code === "ER_DUP_ENTRY") {
-          return res.status(400).json({ error: "Email sudah terdaftar" });
+        console.error("Error during admin registration initiation:", err);
+        // Tangani error spesifik dari Nodemailer atau SMTP
+        let errorMessage = "Gagal memulai pendaftaran admin. Terjadi masalah saat mengirim email verifikasi.";
+        if (err.responseCode && err.response) {
+            errorMessage += ` (SMTP Error: ${err.responseCode} - ${err.response})`;
+        } else if (err.message) {
+            errorMessage = err.message;
         }
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: errorMessage });
       }
     });
+
+    // --- ENDPOINT UNTUK VERIFIKASI AKUN ADMIN VIA LINK (GET) ---
+    // URL format: /api/admin/verify?email=[email_admin]&code=[6digitkode]
+    app.get("/api/admin/verify", async (req, res) => {
+      const { email, code } = req.query;
+
+      if (!email || !code) {
+        return res.status(400).send(`
+          <html>
+          <head>
+              <title>Verifikasi Gagal</title>
+              <style>
+                  body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background-color: #f4f4f4; color: #333; }
+                  .container { background-color: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: inline-block; }
+                  h1 { color: #dc3545; }
+              </style>
+          </head>
+          <body>
+              <div class="container">
+                  <h1>Verifikasi Gagal!</h1>
+                  <p>Email atau kode verifikasi tidak ditemukan dalam tautan.</p>
+                  <p>Silakan coba proses pendaftaran lagi atau hubungi administrator.</p>
+              </div>
+          </body>
+          </html>
+        `);
+      }
+
+      const VERIFICATION_EXPIRATION_MS = 5 * 60 * 1000; // 5 menit
+
+      let pendingAdminData;
+      try {
+        const [rows] = await dbPool.query(
+          `SELECT * FROM PendingAdmins WHERE email = ?`,
+          [email]
+        );
+        pendingAdminData = rows[0]; // Ambil baris pertama jika ada
+      } catch (dbErr) {
+        console.error("Error fetching pending admin from DB:", dbErr);
+        return res.status(500).send(`
+          <html>
+          <head>
+              <title>Verifikasi Gagal</title>
+              <style>
+                  body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background-color: #f4f4f4; color: #333; }
+                  .container { background-color: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: inline-block; }
+                  h1 { color: #dc3545; }
+              </style>
+          </head>
+          <body>
+              <div class="container">
+                  <h1>Verifikasi Gagal!</h1>
+                  <p>Terjadi kesalahan saat mencari data verifikasi Anda. Silakan coba lagi.</p>
+                  <p>Detail Error: ${dbErr.message}</p>
+              </div>
+          </body>
+          </html>
+        `);
+      }
+
+      // Konversi created_at dari objek Date ke timestamp milidetik untuk perbandingan
+      const createdAtTimestamp = pendingAdminData ? new Date(pendingAdminData.created_at).getTime() : 0;
+
+      if (!pendingAdminData || pendingAdminData.verification_code !== code || (Date.now() - createdAtTimestamp > VERIFICATION_EXPIRATION_MS)) {
+        let errorMessage = "Kode verifikasi tidak valid atau telah kedaluwarsa.";
+        if (pendingAdminData && pendingAdminData.verification_code !== code) {
+            errorMessage = "Kode verifikasi tidak cocok.";
+        } else if (pendingAdminData && (Date.now() - createdAtTimestamp > VERIFICATION_EXPIRATION_MS)) {
+            errorMessage = "Kode verifikasi telah kedaluwarsa (lebih dari 5 menit). Silakan minta kirim ulang.";
+        } else if (!pendingAdminData) {
+            errorMessage = "Tidak ada permintaan verifikasi yang tertunda untuk email ini.";
+        }
+
+        return res.status(400).send(`
+          <html>
+          <head>
+              <title>Verifikasi Gagal</title>
+              <style>
+                  body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background-color: #f4f4f4; color: #333; }
+                  .container { background-color: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: inline-block; }
+                  h1 { color: #dc3545; }
+              </style>
+          </head>
+          <body>
+              <div class="container">
+                  <h1>Verifikasi Gagal!</h1>
+                  <p>${errorMessage}</p>
+                  <p>Silakan coba proses pendaftaran lagi atau hubungi administrator.</p>
+              </div>
+          </body>
+          </html>
+        `);
+      }
+
+      try {
+        const { hashed_password } = pendingAdminData;
+
+        // Cek lagi apakah email sudah ada di tabel Admin, untuk mencegah duplikasi jika verifikasi link sudah dilakukan
+        const [existingAdmin] = await dbPool.query(
+            `SELECT id FROM Admin WHERE email = ?`,
+            [email]
+        );
+        if (existingAdmin.length > 0) {
+            // Hapus dari pending jika sudah ada di Admin (mungkin verifikasi ganda)
+            await dbPool.query(`DELETE FROM PendingAdmins WHERE email = ?`, [email]);
+            return res.status(400).send(`
+                <html>
+                <head>
+                    <title>Verifikasi Gagal</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background-color: #f4f4f4; color: #333; }
+                        .container { background-color: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: inline-block; }
+                        h1 { color: #dc3545; }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <h1>Verifikasi Gagal!</h1>
+                        <p>Email ini sudah terdaftar sebagai admin yang aktif. Verifikasi tidak diperlukan.</p>
+                        <p>Anda sekarang dapat login.</p>
+                    </div>
+                </body>
+                </html>
+            `);
+        }
+
+        const sql = `INSERT INTO Admin (email, password) VALUES (?, ?)`;
+        const [result] = await dbPool.query(sql, [email, hashed_password]);
+
+        // Hapus data dari tabel PendingAdmins setelah berhasil disimpan ke Admin
+        await dbPool.query(`DELETE FROM PendingAdmins WHERE email = ?`, [email]);
+        console.log(`Akun admin untuk ${email} berhasil diverifikasi dan dibuat.`);
+
+        await createLogMessage(
+          `Akun admin baru dengan email: ${email} berhasil diverifikasi.`,
+          result.insertId, // ID admin yang baru dibuat
+          email
+        );
+
+        res.status(200).send(`
+          <html>
+          <head>
+              <title>Verifikasi Berhasil</title>
+              <style>
+                  body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background-color: #f4f4f4; color: #333; }
+                  .container { background-color: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: inline-block; }
+                  h1 { color: #28a745; }
+              </style>
+          </head>
+          <body>
+              <div class="container">
+                  <h1>Verifikasi Berhasil!</h1>
+                  <p>Akun admin untuk <strong>${email}</strong> telah berhasil diverifikasi dan dibuat.</p>
+                  <p>Anda sekarang dapat login.</p>
+              </div>
+          </body>
+          </html>
+        `);
+      } catch (err) {
+        console.error("Error during admin verification:", err);
+        let errorMessage = "Terjadi kesalahan saat memproses verifikasi akun Anda.";
+        if (err.code === "ER_DUP_ENTRY") {
+            errorMessage = "Email ini sudah terdaftar sebagai admin yang aktif. Verifikasi tidak diperlukan.";
+            // Coba hapus dari pending jika memang sudah ada di Admin
+            await dbPool.query(`DELETE FROM PendingAdmins WHERE email = ?`, [email]);
+        }
+        res.status(500).send(`
+          <html>
+          <head>
+              <title>Verifikasi Gagal</title>
+              <style>
+                  body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background-color: #f4f4f4; color: #333; }
+                  .container { background-color: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: inline-block; }
+                  h1 { color: #dc3545; }
+              </style>
+          </head>
+          <body>
+              <div class="container">
+                  <h1>Verifikasi Gagal!</h1>
+                  <p>${errorMessage}</p>
+                  <p>Silakan coba proses pendaftaran lagi atau hubungi administrator.</p>
+              </div>
+          </body>
+          </html>
+        `);
+      }
+    });
+
+    // --- ENDPOINT UNTUK VERIFIKASI AKUN ADMIN VIA FORM (POST) ---
+    app.post("/api/admin/verify_code", async (req, res) => {
+      const { email, code } = req.body;
+
+      if (!email || !code) {
+        return res.status(400).json({ error: "Email dan kode verifikasi wajib diisi." });
+      }
+
+      const VERIFICATION_EXPIRATION_MS = 5 * 60 * 1000; // 5 menit
+
+      let pendingAdminData;
+      try {
+        const [rows] = await dbPool.query(
+          `SELECT * FROM PendingAdmins WHERE email = ?`,
+          [email]
+        );
+        pendingAdminData = rows[0];
+      } catch (dbErr) {
+        console.error("Error fetching pending admin from DB:", dbErr);
+        return res.status(500).json({ error: "Terjadi kesalahan saat mencari data verifikasi Anda." });
+      }
+
+      const createdAtTimestamp = pendingAdminData ? new Date(pendingAdminData.created_at).getTime() : 0;
+
+      if (!pendingAdminData || pendingAdminData.verification_code !== code || (Date.now() - createdAtTimestamp > VERIFICATION_EXPIRATION_MS)) {
+        let errorMessage = "Kode verifikasi tidak valid atau telah kedaluwarsa.";
+        if (pendingAdminData && pendingAdminData.verification_code !== code) {
+            errorMessage = "Kode verifikasi tidak cocok.";
+        } else if (pendingAdminData && (Date.now() - createdAtTimestamp > VERIFICATION_EXPIRATION_MS)) {
+            errorMessage = "Kode verifikasi telah kedaluwarsa (lebih dari 5 menit). Silakan minta kirim ulang.";
+        } else if (!pendingAdminData) {
+            errorMessage = "Tidak ada permintaan verifikasi yang tertunda untuk email ini. Silakan daftar ulang.";
+        }
+        return res.status(400).json({ error: errorMessage });
+      }
+
+      try {
+        const { hashed_password } = pendingAdminData;
+
+        // Cek lagi apakah email sudah ada di tabel Admin, untuk mencegah duplikasi jika verifikasi link sudah dilakukan
+        const [existingAdmin] = await dbPool.query(
+            `SELECT id FROM Admin WHERE email = ?`,
+            [email]
+        );
+        if (existingAdmin.length > 0) {
+            await dbPool.query(`DELETE FROM PendingAdmins WHERE email = ?`, [email]);
+            return res.status(400).json({ error: "Email ini sudah terdaftar sebagai admin yang aktif. Verifikasi tidak diperlukan." });
+        }
+
+        const sql = `INSERT INTO Admin (email, password) VALUES (?, ?)`;
+        const [result] = await dbPool.query(sql, [email, hashed_password]);
+
+        // Hapus data dari tabel PendingAdmins setelah berhasil disimpan ke Admin
+        await dbPool.query(`DELETE FROM PendingAdmins WHERE email = ?`, [email]);
+        console.log(`Akun admin untuk ${email} berhasil diverifikasi dan dibuat melalui form.`);
+
+        await createLogMessage(
+          `Akun admin baru dengan email: ${email} berhasil diverifikasi.`,
+          result.insertId,
+          email
+        );
+
+        res.status(200).json({ message: "Verifikasi berhasil! Akun admin Anda telah dibuat." });
+      } catch (err) {
+        console.error("Error during admin verification via code:", err);
+        let errorMessage = "Terjadi kesalahan saat memproses verifikasi akun Anda.";
+        if (err.code === "ER_DUP_ENTRY") {
+            errorMessage = "Email ini sudah terdaftar sebagai admin yang aktif. Verifikasi tidak diperlukan.";
+            await dbPool.query(`DELETE FROM PendingAdmins WHERE email = ?`, [email]);
+        }
+        res.status(500).json({ error: errorMessage });
+      }
+    });
+
+    // NEW ENDPOINT: Get pending admin status for countdown
+    app.get("/api/admin/pending-status", async (req, res) => {
+      const { email } = req.query;
+
+      if (!email) {
+        return res.status(400).json({ error: "Email is required." });
+      }
+
+      try {
+        const [rows] = await dbPool.query(
+          `SELECT created_at FROM PendingAdmins WHERE email = ?`,
+          [email]
+        );
+
+        if (rows.length === 0) {
+          return res.status(404).json({ error: "No pending verification found for this email." });
+        }
+
+        const pendingEntry = rows[0];
+        const createdAtTimestamp = new Date(pendingEntry.created_at).getTime();
+        const VERIFICATION_EXPIRATION_MS = 5 * 60 * 1000; // 5 minutes
+
+        const remainingTimeMs = VERIFICATION_EXPIRATION_MS - (Date.now() - createdAtTimestamp);
+        const remainingSeconds = Math.max(0, Math.ceil(remainingTimeMs / 1000)); // Ensure non-negative and round up
+
+        res.json({
+          email: email,
+          createdAt: createdAtTimestamp,
+          remainingSeconds: remainingSeconds,
+          isExpired: remainingSeconds <= 0
+        });
+
+      } catch (error) {
+        console.error("Error fetching pending admin status:", error);
+        res.status(500).json({ error: "Failed to fetch pending status." });
+      }
+    });
+
 
     app.post("/api/admin/login", async (req, res) => {
       const { email, password } = req.body;
@@ -1220,7 +1681,6 @@ async function startServer(rebuild = false) {
     );
 
     const getMonthNameForApi = (monthNumber) => {
-      // Renamed to avoid conflict if already defined
       const months = [
         "Jan",
         "Feb",

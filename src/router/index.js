@@ -10,6 +10,7 @@ import Pemasukan from '../components/Pemasukan.vue'; // Komponen Pemasukan Anda 
 import DataParkir from '../components/DataParkir.vue'; // Komponen Data Parkir Anda yang sudah ada
 import LogAktivitas from '../components/LogAktivitas.vue'; // Komponen Data Parkir Anda yang sudah ada
 import PencadanganPemulihan from '../components/PencadanganPemulihan.vue'; // Komponen Pencadangan Pemulihan Anda yang sudah ada
+import VerifikasiAdmin from '../components/VerifikasiAdmin.vue';
 
 // 2. Definisikan routes Anda
 const routes = [
@@ -66,7 +67,13 @@ const routes = [
     component: PencadanganPemulihan, // Menggunakan komponen PencadanganPemulihan Anda
     meta: { requiresAuth: true } // Rute ini MEMERLUKAN otentikasi
   },
-
+  {
+    path: '/verifikasi-admin',
+    name: 'verifikasi-admin',
+    component: VerifikasiAdmin,
+    props: true, // Menggunakan komponen VerifikasiAdmin Anda
+    meta: { requiresAuth: true } // Rute ini MEMERLUKAN otentikasi
+  },
   {
     path: '/logout',
     name: 'logout',
