@@ -17,6 +17,7 @@ import http from "http";
 import { Server } from "socket.io";
 import { exec } from "child_process"; // Import exec from child_process
 import nodemailer from "nodemailer"; // Import nodemailer
+import cron from "node-cron"; // Import node-cron
 
 // Polyfill for __filename and __dirname in ES Modules
 const __filename = fileURLToPath(import.meta.url);
@@ -38,6 +39,8 @@ const {
   GMAIL_APP_PASSWORD, // NEW: Gmail App Password
   EMAIL_SENDER_NAME, // NEW: Sender name for emails
   GMAIL_IMAGE_BRANDING,
+  RECAPTCHA_SECRET_KEY, // NEW: ReCAPTCHA Secret Key
+  ADMIN_AUTO_BACKUP_RECIPIENT_EMAIL, // NEW: Default admin email for auto backup
 } = process.env;
 
 const mail_image_logo = VITE_DOMAIN_SERVER + GMAIL_IMAGE_BRANDING;
@@ -46,7 +49,7 @@ const mail_image_logo = VITE_DOMAIN_SERVER + GMAIL_IMAGE_BRANDING;
 console.log("=== ENVIRONMENT VARIABLES ===");
 console.log("DB_HOST:", process.env.DB_HOST);
 console.log("DB_USER:", process.env.DB_USER);
-console.log("DB_PASS:", process.env.DB_PASS ? "********" : "NOT SET"); // Mask password
+console.log("DB_PASS (present):", !!process.env.DB_PASS); // Mask password
 console.log("DB_NAME:", process.env.DB_NAME);
 console.log("JWT_SECRET (present):", !!process.env.JWT_SECRET);
 console.log("VITE_DOMAIN_SERVER:", process.env.VITE_DOMAIN_SERVER);
@@ -54,6 +57,14 @@ console.log("TIME_ZONE (from .env):", process.env.TIME_ZONE);
 console.log("GMAIL_USER:", process.env.GMAIL_USER); // Log new Gmail user
 console.log("GMAIL_APP_PASSWORD (present):", !!process.env.GMAIL_APP_PASSWORD); // Log presence of App Password
 console.log("EMAIL_SENDER_NAME:", process.env.EMAIL_SENDER_NAME); // Log sender name
+console.log(
+  "RECAPTCHA_SECRET_KEY (present):",
+  !!process.env.RECAPTCHA_SECRET_KEY
+); // Log presence of ReCAPTCHA key
+console.log(
+  "ADMIN_AUTO_BACKUP_RECIPIENT_EMAIL:",
+  process.env.ADMIN_AUTO_BACKUP_RECIPIENT_EMAIL
+); // Log default auto backup email
 console.log("=============================");
 
 // Initialize Express app and HTTP server
@@ -162,8 +173,16 @@ if (!JWT_SECRET) {
   process.exit(1);
 }
 if (!GMAIL_USER || !GMAIL_APP_PASSWORD || !EMAIL_SENDER_NAME) {
-  console.error("FATAL ERROR: Gmail SMTP credentials (GMAIL_USER, GMAIL_APP_PASSWORD, EMAIL_SENDER_NAME) are not defined in .env file.");
+  console.error(
+    "FATAL ERROR: Gmail SMTP credentials (GMAIL_USER, GMAIL_APP_PASSWORD, EMAIL_SENDER_NAME) are not defined in .env file."
+  );
   process.exit(1);
+}
+if (!RECAPTCHA_SECRET_KEY) {
+  console.error(
+    "WARNING: RECAPTCHA_SECRET_KEY is not defined in .env file. ReCAPTCHA verification will not work."
+  );
+  // process.exit(1); // Decide if this should be a fatal error
 }
 
 // Nodemailer transporter setup
@@ -179,7 +198,7 @@ const transporter = nodemailer.createTransport({
   tls: {
     // Do not fail on invalid certs, useful for development but not recommended for production
     // rejectUnauthorized: false
-  }
+  },
 });
 
 // Helper function to save Base64 images
@@ -292,12 +311,12 @@ const emitDashboardUpdate = async (type) => {
       case "revenueSummary":
         const [monthlyRevenue] = await dbPool.query(
           `SELECT
-                  MONTH(tanggal_pemasukan) AS month_number,
-                  SUM(nominal_pemasukan) AS total_revenue
-               FROM PemasukanMingguan
-               WHERE YEAR(tanggal_pemasukan) = YEAR(CURDATE())
-               GROUP BY MONTH(tanggal_pemasukan)
-               ORDER BY month_number ASC`
+                    MONTH(tanggal_pemasukan) AS month_number,
+                    SUM(nominal_pemasukan) AS total_revenue
+                  FROM PemasukanMingguan
+                  WHERE YEAR(tanggal_pemasukan) = YEAR(CURDATE())
+                  GROUP BY MONTH(tanggal_pemasukan)
+                  ORDER BY month_number ASC`
         );
         const getMonthName = (monthNumber) => {
           const months = [
@@ -323,34 +342,34 @@ const emitDashboardUpdate = async (type) => {
         break;
       case "logMessages":
         const [logMsgs] = await dbPool.query(`
-              SELECT
-                  lm.id,
-                  lm.tanggal_pesan,
-                  lm.isi_pesan,
-                  a.email AS admin_email
-              FROM LogMessages lm
-              LEFT JOIN Admin a ON lm.id_admin = a.id
-              ORDER BY lm.tanggal_pesan DESC
-              LIMIT 50
-          `);
+          SELECT
+              lm.id,
+              lm.tanggal_pesan,
+              lm.isi_pesan,
+              a.email AS admin_email
+          FROM LogMessages lm
+          LEFT JOIN Admin a ON lm.id_admin = a.id
+          ORDER BY lm.tanggal_pesan DESC
+          LIMIT 50
+        `);
         data = logMsgs;
         break;
       case "weeklyParkingTrend":
         const [weeklyParkingDataRaw] = await dbPool.query(`
-              SELECT
-                  -- MySQL's WEEK(date, mode) function. Mode 0 means Sunday is the first day of the week.
-                  -- This calculates week number within the month.
-                  WEEK(lp.waktu_masuk, 0) -
-                  WEEK(DATE_FORMAT(lp.waktu_masuk, '%Y-%m-01'), 0) + 1 AS week_in_month,
-                  COUNT(*) AS total_vehicles
-              FROM Log_Parkir lp
-              WHERE
-                  YEAR(lp.waktu_masuk) = YEAR(CURDATE()) AND MONTH(lp.waktu_masuk) = MONTH(CURDATE())
-              GROUP BY
-                  week_in_month
-              ORDER BY
-                  week_in_month;
-          `);
+          SELECT
+              -- MySQL's WEEK(date, mode) function. Mode 0 means Sunday is the first day of the week.
+              -- This calculates week number within the month.
+              WEEK(lp.waktu_masuk, 0) -
+              WEEK(DATE_FORMAT(lp.waktu_masuk, '%Y-%m-01'), 0) + 1 AS week_in_month,
+              COUNT(*) AS total_vehicles
+          FROM Log_Parkir lp
+          WHERE
+              YEAR(lp.waktu_masuk) = YEAR(CURDATE()) AND MONTH(lp.waktu_masuk) = MONTH(CURDATE())
+          GROUP BY
+              week_in_month
+          ORDER BY
+              week_in_month;
+        `);
 
         const allWeeksLabels = [
           "Minggu 1",
@@ -486,7 +505,7 @@ async function createTables(db) {
 
       CREATE TABLE IF NOT EXISTS LogMessages (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        tanggal_pesan DATETIME DEFAULT CURRENT_TIMESTAMP, 
+        tanggal_pesan DATETIME DEFAULT CURRENT_TIMESTAMP,  
         isi_pesan TEXT NOT NULL,
         id_admin INT,
         FOREIGN KEY (id_admin) REFERENCES Admin(id) ON DELETE CASCADE
@@ -499,11 +518,14 @@ async function createTables(db) {
         FOREIGN KEY (id_admin) REFERENCES Admin(id) ON DELETE CASCADE
       );
 
-      -- NEW TABLE: For system-wide settings like auto backup
-      CREATE TABLE IF NOT EXISTS SystemSettings (
+      -- MODIFIED TABLE: For admin-specific settings like auto backup (formerly SystemSettings)
+      CREATE TABLE IF NOT EXISTS AdminSettings (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        setting_name VARCHAR(100) NOT NULL UNIQUE,
-        setting_value TEXT
+        id_admin INT NOT NULL, -- Each admin has one settings row
+        setting_name VARCHAR(100) NOT NULL,
+        setting_value TEXT,
+        FOREIGN KEY (id_admin) REFERENCES Admin(id) ON DELETE CASCADE,
+        UNIQUE (id_admin, setting_name) -- Ensure unique setting per admin
       );
     `
     );
@@ -511,6 +533,34 @@ async function createTables(db) {
   } catch (err) {
     console.error("Error creating tables:", err);
     throw err;
+  }
+}
+
+// Function to add default AdminSettings for a new admin
+// MODIFIED: Now accepts 'db' parameter
+async function addDefaultAdminSettings(db, adminId, adminEmail) {
+  try {
+    console.log(
+      `Adding default settings for new admin ${adminEmail} (ID: ${adminId}).`
+    );
+    // Default: auto_backup_enabled = FALSE, auto_backup_email = NULL
+    const settings = [
+      { name: "auto_backup_enabled", value: "false" }, // Stored as string 'true'/'false'
+      { name: "auto_backup_email", value: "" }, // Stored as string, empty means null/not set
+      { name: "last_auto_backup_timestamp", value: "" }, // To track last auto backup time
+    ];
+
+    for (const setting of settings) {
+      await db.query(
+        // Use the passed 'db' object here
+        `INSERT INTO AdminSettings (id_admin, setting_name, setting_value) VALUES (?, ?, ?)`,
+        [adminId, setting.name, setting.value]
+      );
+    }
+    console.log(`Default settings added for admin ${adminId}.`);
+  } catch (error) {
+    console.error(`Error adding default settings for admin ${adminId}:`, error);
+    // It's crucial not to block admin creation if settings fail, but log the error
   }
 }
 
@@ -566,13 +616,13 @@ async function startServer(rebuild = false) {
             DROP TABLE IF EXISTS Log_Parkir;
             DROP TABLE IF EXISTS PemasukanMingguan;
             DROP TABLE IF EXISTS Tiket;
+            DROP TABLE IF EXISTS AdminSettings; -- Drop AdminSettings first
             DROP TABLE IF EXISTS Admin;
             DROP TABLE IF EXISTS Kendaraan;
             DROP TABLE IF EXISTS LogMessages;
             DROP TABLE IF EXISTS LogPemulihan;
             DROP TABLE IF EXISTS PendingAdmins;
             DROP TABLE IF EXISTS PasswordResetTokens;
-            DROP TABLE IF EXISTS SystemSettings;
             SET FOREIGN_KEY_CHECKS = 1;
           `
         );
@@ -735,7 +785,7 @@ async function startServer(rebuild = false) {
         JOIN Kendaraan k ON lp.id_kendaraan = k.id
         JOIN Tiket t ON lp.id_tiket = t.id
         ORDER BY lp.waktu_masuk DESC
-      `
+        `
         );
         res.json(results);
       } catch (err) {
@@ -969,7 +1019,9 @@ async function startServer(rebuild = false) {
           [email]
         );
         if (existingAdmin.length > 0) {
-          return res.status(400).json({ error: "Email ini sudah terdaftar sebagai admin yang aktif." });
+          return res.status(400).json({
+            error: "Email ini sudah terdaftar sebagai admin yang aktif.",
+          });
         }
 
         // Cek apakah email sudah ada di tabel PendingAdmins (sedang menunggu verifikasi)
@@ -980,17 +1032,24 @@ async function startServer(rebuild = false) {
         const existingPendingAdmin = existingPendingAdminRows[0];
 
         if (existingPendingAdmin) {
-          const createdAtTimestamp = new Date(existingPendingAdmin.created_at).getTime();
+          const createdAtTimestamp = new Date(
+            existingPendingAdmin.created_at
+          ).getTime();
           // Jika ada entri pending dan belum kedaluwarsa, kembalikan pesan bahwa sudah ada
           if (Date.now() - createdAtTimestamp < VERIFICATION_EXPIRATION_MS) {
             return res.status(400).json({
-              message: "Email ini sudah memiliki permintaan verifikasi yang tertunda. Silakan cek email Anda atau coba lagi nanti.",
+              message:
+                "Email ini sudah memiliki permintaan verifikasi yang tertunda. Silakan cek email Anda atau coba lagi nanti.",
               email: email,
-              redirectUrl: `${VITE_DOMAIN_SERVER}/verifikasi-admin?email=${encodeURIComponent(email)}`
+              redirectUrl: `${VITE_DOMAIN_SERVER}/verifikasi-admin?email=${encodeURIComponent(
+                email
+              )}`,
             });
           } else {
             // Jika sudah kedaluwarsa, hapus entri lama
-            await dbPool.query(`DELETE FROM PendingAdmins WHERE email = ?`, [email]);
+            await dbPool.query(`DELETE FROM PendingAdmins WHERE email = ?`, [
+              email,
+            ]);
             console.log(`Expired pending admin entry for ${email} deleted.`);
             // Lanjutkan untuk membuat entri baru di bawah
           }
@@ -998,19 +1057,24 @@ async function startServer(rebuild = false) {
 
         const hashedPassword = await bcrypt.hash(password, 10);
         // Generate a 6-digit numeric code
-        const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const verificationCode = Math.floor(
+          100000 + Math.random() * 900000
+        ).toString();
 
         // --- SIMPAN KE TABEL PENDINGADMINS ---
         const [insertPendingResult] = await dbPool.query(
           `INSERT INTO PendingAdmins (email, verification_code, hashed_password, created_at) VALUES (?, ?, ?, NOW())`,
           [email, verificationCode, hashedPassword]
         );
-        console.log(`Pendaftaran pending untuk ${email} disimpan di DB dengan ID: ${insertPendingResult.insertId}`);
-
+        console.log(
+          `Pendaftaran pending untuk ${email} disimpan di DB dengan ID: ${insertPendingResult.insertId}`
+        );
 
         // Buat link verifikasi menggunakan VITE_DOMAIN_SERVER
         // Link ini sekarang membawa email dan kode verifikasi
-        const verificationLink = `${VITE_DOMAIN_SERVER}/verifikasi-admin?email=${encodeURIComponent(email)}&code=${verificationCode}`;
+        const verificationLink = `${VITE_DOMAIN_SERVER}/verifikasi-admin?email=${encodeURIComponent(
+          email
+        )}&code=${verificationCode}`;
         const expirationTimeMinutes = 5; // Kode berlaku 5 menit
 
         // --- HTML Email Template ---
@@ -1074,7 +1138,7 @@ async function startServer(rebuild = false) {
                             <img src="${mail_image_logo}" alt="Logo SIPATUH HMTB" width="230" height="auto" class="logo"/>
                             <h1 class="heading">Verifikasi Akun Anda</h1>
                             <p class="paragraph">
-                                Halo ${email.split('@')[0]},
+                                Halo ${email.split("@")[0]},
                             </p>
                             <p class="paragraph">
                                 Terima kasih telah mendaftar di <b>SIPATUH</b>. Untuk menyelesaikan pendaftaran Anda, mohon masukkan kode verifikasi 6 digit di bawah ini ke website kami:
@@ -1139,19 +1203,22 @@ async function startServer(rebuild = false) {
         );
 
         res.json({
-          message: "Email verifikasi telah dikirim. Silakan cek kotak masuk Anda untuk menyelesaikan pendaftaran.",
+          message:
+            "Email verifikasi telah dikirim. Silakan cek kotak masuk Anda untuk menyelesaikan pendaftaran.",
           email: email, // Kirim email kembali agar frontend bisa menggunakannya
-          redirectUrl: `${VITE_DOMAIN_SERVER}/verifikasi-admin?email=${encodeURIComponent(email)}` // URL redirect
+          redirectUrl: `${VITE_DOMAIN_SERVER}/verifikasi-admin?email=${encodeURIComponent(
+            email
+          )}`, // URL redirect
         });
-
       } catch (err) {
         console.error("Error during admin registration initiation:", err);
         // Tangani error spesifik dari Nodemailer atau SMTP
-        let errorMessage = "Gagal memulai pendaftaran admin. Terjadi masalah saat mengirim email verifikasi.";
+        let errorMessage =
+          "Gagal memulai pendaftaran admin. Terjadi masalah saat mengirim email verifikasi.";
         if (err.responseCode && err.response) {
-            errorMessage += ` (SMTP Error: ${err.responseCode} - ${err.response})`;
+          errorMessage += ` (SMTP Error: ${err.responseCode} - ${err.response})`;
         } else if (err.message) {
-            errorMessage = err.message;
+          errorMessage = err.message;
         }
         res.status(500).json({ error: errorMessage });
       }
@@ -1217,16 +1284,28 @@ async function startServer(rebuild = false) {
       }
 
       // Konversi created_at dari objek Date ke timestamp milidetik untuk perbandingan
-      const createdAtTimestamp = pendingAdminData ? new Date(pendingAdminData.created_at).getTime() : 0;
+      const createdAtTimestamp = pendingAdminData
+        ? new Date(pendingAdminData.created_at).getTime()
+        : 0;
 
-      if (!pendingAdminData || pendingAdminData.verification_code !== code || (Date.now() - createdAtTimestamp > VERIFICATION_EXPIRATION_MS)) {
-        let errorMessage = "Kode verifikasi tidak valid atau telah kedaluwarsa.";
+      if (
+        !pendingAdminData ||
+        pendingAdminData.verification_code !== code ||
+        Date.now() - createdAtTimestamp > VERIFICATION_EXPIRATION_MS
+      ) {
+        let errorMessage =
+          "Kode verifikasi tidak valid atau telah kedaluwarsa.";
         if (pendingAdminData && pendingAdminData.verification_code !== code) {
-            errorMessage = "Kode verifikasi tidak cocok.";
-        } else if (pendingAdminData && (Date.now() - createdAtTimestamp > VERIFICATION_EXPIRATION_MS)) {
-            errorMessage = "Kode verifikasi telah kedaluwarsa (lebih dari 5 menit). Silakan minta kirim ulang.";
+          errorMessage = "Kode verifikasi tidak cocok.";
+        } else if (
+          pendingAdminData &&
+          Date.now() - createdAtTimestamp > VERIFICATION_EXPIRATION_MS
+        ) {
+          errorMessage =
+            "Kode verifikasi telah kedaluwarsa (lebih dari 5 menit). Silakan minta kirim ulang.";
         } else if (!pendingAdminData) {
-            errorMessage = "Tidak ada permintaan verifikasi yang tertunda untuk email ini.";
+          errorMessage =
+            "Tidak ada permintaan verifikasi yang tertunda untuk email ini.";
         }
 
         return res.status(400).send(`
@@ -1255,13 +1334,15 @@ async function startServer(rebuild = false) {
 
         // Cek lagi apakah email sudah ada di tabel Admin, untuk mencegah duplikasi jika verifikasi link sudah dilakukan
         const [existingAdmin] = await dbPool.query(
-            `SELECT id FROM Admin WHERE email = ?`,
-            [email]
+          `SELECT id FROM Admin WHERE email = ?`,
+          [email]
         );
         if (existingAdmin.length > 0) {
-            // Hapus dari pending jika sudah ada di Admin (mungkin verifikasi ganda)
-            await dbPool.query(`DELETE FROM PendingAdmins WHERE email = ?`, [email]);
-            return res.status(400).send(`
+          // Hapus dari pending jika sudah ada di Admin (mungkin verifikasi ganda)
+          await dbPool.query(`DELETE FROM PendingAdmins WHERE email = ?`, [
+            email,
+          ]);
+          return res.status(400).send(`
                 <html>
                 <head>
                     <title>Verifikasi Gagal</title>
@@ -1285,9 +1366,17 @@ async function startServer(rebuild = false) {
         const sql = `INSERT INTO Admin (email, password) VALUES (?, ?)`;
         const [result] = await dbPool.query(sql, [email, hashed_password]);
 
+        // **NEW: Add default settings for the newly created admin**
+        // MODIFIED: Pass dbPool as the first argument
+        await addDefaultAdminSettings(dbPool, result.insertId, email);
+
         // Hapus data dari tabel PendingAdmins setelah berhasil disimpan ke Admin
-        await dbPool.query(`DELETE FROM PendingAdmins WHERE email = ?`, [email]);
-        console.log(`Akun admin untuk ${email} berhasil diverifikasi dan dibuat.`);
+        await dbPool.query(`DELETE FROM PendingAdmins WHERE email = ?`, [
+          email,
+        ]);
+        console.log(
+          `Akun admin untuk ${email} berhasil diverifikasi dan dibuat.`
+        );
 
         await createLogMessage(
           `Akun admin baru dengan email: ${email} berhasil diverifikasi.`,
@@ -1316,11 +1405,15 @@ async function startServer(rebuild = false) {
         `);
       } catch (err) {
         console.error("Error during admin verification:", err);
-        let errorMessage = "Terjadi kesalahan saat memproses verifikasi akun Anda.";
+        let errorMessage =
+          "Terjadi kesalahan saat memproses verifikasi akun Anda.";
         if (err.code === "ER_DUP_ENTRY") {
-            errorMessage = "Email ini sudah terdaftar sebagai admin yang aktif. Verifikasi tidak diperlukan.";
-            // Coba hapus dari pending jika memang sudah ada di Admin
-            await dbPool.query(`DELETE FROM PendingAdmins WHERE email = ?`, [email]);
+          errorMessage =
+            "Email ini sudah terdaftar sebagai admin yang aktif. Verifikasi tidak diperlukan.";
+          // Coba hapus dari pending jika memang sudah ada di Admin
+          await dbPool.query(`DELETE FROM PendingAdmins WHERE email = ?`, [
+            email,
+          ]);
         }
         res.status(500).send(`
           <html>
@@ -1349,7 +1442,9 @@ async function startServer(rebuild = false) {
       const { email, code } = req.body;
 
       if (!email || !code) {
-        return res.status(400).json({ error: "Email dan kode verifikasi wajib diisi." });
+        return res
+          .status(400)
+          .json({ error: "Email dan kode verifikasi wajib diisi." });
       }
 
       const VERIFICATION_EXPIRATION_MS = 5 * 60 * 1000; // 5 menit
@@ -1363,19 +1458,33 @@ async function startServer(rebuild = false) {
         pendingAdminData = rows[0];
       } catch (dbErr) {
         console.error("Error fetching pending admin from DB:", dbErr);
-        return res.status(500).json({ error: "Terjadi kesalahan saat mencari data verifikasi Anda." });
+        return res.status(500).json({
+          error: "Terjadi kesalahan saat mencari data verifikasi Anda.",
+        });
       }
 
-      const createdAtTimestamp = pendingAdminData ? new Date(pendingAdminData.created_at).getTime() : 0;
+      const createdAtTimestamp = pendingAdminData
+        ? new Date(pendingAdminData.created_at).getTime()
+        : 0;
 
-      if (!pendingAdminData || pendingAdminData.verification_code !== code || (Date.now() - createdAtTimestamp > VERIFICATION_EXPIRATION_MS)) {
-        let errorMessage = "Kode verifikasi tidak valid atau telah kedaluwarsa.";
+      if (
+        !pendingAdminData ||
+        pendingAdminData.verification_code !== code ||
+        Date.now() - createdAtTimestamp > VERIFICATION_EXPIRATION_MS
+      ) {
+        let errorMessage =
+          "Kode verifikasi tidak valid atau telah kedaluwarsa.";
         if (pendingAdminData && pendingAdminData.verification_code !== code) {
-            errorMessage = "Kode verifikasi tidak cocok.";
-        } else if (pendingAdminData && (Date.now() - createdAtTimestamp > VERIFICATION_EXPIRATION_MS)) {
-            errorMessage = "Kode verifikasi telah kedaluwarsa (lebih dari 5 menit). Silakan minta kirim ulang.";
+          errorMessage = "Kode verifikasi tidak cocok.";
+        } else if (
+          pendingAdminData &&
+          Date.now() - createdAtTimestamp > VERIFICATION_EXPIRATION_MS
+        ) {
+          errorMessage =
+            "Kode verifikasi telah kedaluwarsa (lebih dari 5 menit). Silakan minta kirim ulang.";
         } else if (!pendingAdminData) {
-            errorMessage = "Tidak ada permintaan verifikasi yang tertunda untuk email ini. Silakan daftar ulang.";
+          errorMessage =
+            "Tidak ada permintaan verifikasi yang tertunda untuk email ini. Silakan daftar ulang.";
         }
         return res.status(400).json({ error: errorMessage });
       }
@@ -1385,20 +1494,33 @@ async function startServer(rebuild = false) {
 
         // Cek lagi apakah email sudah ada di tabel Admin, untuk mencegah duplikasi jika verifikasi link sudah dilakukan
         const [existingAdmin] = await dbPool.query(
-            `SELECT id FROM Admin WHERE email = ?`,
-            [email]
+          `SELECT id FROM Admin WHERE email = ?`,
+          [email]
         );
         if (existingAdmin.length > 0) {
-            await dbPool.query(`DELETE FROM PendingAdmins WHERE email = ?`, [email]);
-            return res.status(400).json({ error: "Email ini sudah terdaftar sebagai admin yang aktif. Verifikasi tidak diperlukan." });
+          await dbPool.query(`DELETE FROM PendingAdmins WHERE email = ?`, [
+            email,
+          ]);
+          return res.status(400).json({
+            error:
+              "Email ini sudah terdaftar sebagai admin yang aktif. Verifikasi tidak diperlukan.",
+          });
         }
 
         const sql = `INSERT INTO Admin (email, password) VALUES (?, ?)`;
         const [result] = await dbPool.query(sql, [email, hashed_password]);
 
+        // **NEW: Add default settings for the newly created admin**
+        // MODIFIED: Pass dbPool as the first argument
+        await addDefaultAdminSettings(dbPool, result.insertId, email);
+
         // Hapus data dari tabel PendingAdmins setelah berhasil disimpan ke Admin
-        await dbPool.query(`DELETE FROM PendingAdmins WHERE email = ?`, [email]);
-        console.log(`Akun admin untuk ${email} berhasil diverifikasi dan dibuat melalui form.`);
+        await dbPool.query(`DELETE FROM PendingAdmins WHERE email = ?`, [
+          email,
+        ]);
+        console.log(
+          `Akun admin untuk ${email} berhasil diverifikasi dan dibuat melalui form.`
+        );
 
         await createLogMessage(
           `Akun admin baru dengan email: ${email} berhasil diverifikasi.`,
@@ -1406,13 +1528,19 @@ async function startServer(rebuild = false) {
           email
         );
 
-        res.status(200).json({ message: "Verifikasi berhasil! Akun admin Anda telah dibuat." });
+        res.status(200).json({
+          message: "Verifikasi berhasil! Akun admin Anda telah dibuat.",
+        });
       } catch (err) {
         console.error("Error during admin verification via code:", err);
-        let errorMessage = "Terjadi kesalahan saat memproses verifikasi akun Anda.";
+        let errorMessage =
+          "Terjadi kesalahan saat memproses verifikasi akun Anda.";
         if (err.code === "ER_DUP_ENTRY") {
-            errorMessage = "Email ini sudah terdaftar sebagai admin yang aktif. Verifikasi tidak diperlukan.";
-            await dbPool.query(`DELETE FROM PendingAdmins WHERE email = ?`, [email]);
+          errorMessage =
+            "Email ini sudah terdaftar sebagai admin yang aktif. Verifikasi tidak diperlukan.";
+          await dbPool.query(`DELETE FROM PendingAdmins WHERE email = ?`, [
+            email,
+          ]);
         }
         res.status(500).json({ error: errorMessage });
       }
@@ -1433,7 +1561,9 @@ async function startServer(rebuild = false) {
         );
 
         if (rows.length === 0) {
-          return res.status(404).json({ error: "No pending verification found for this email." });
+          return res
+            .status(404)
+            .json({ error: "No pending verification found for this email." });
         }
 
         const pendingEntry = rows[0];
@@ -1441,17 +1571,17 @@ async function startServer(rebuild = false) {
 
         // Convert created_at from DB (which is a Date object) to a timestamp
         const createdAtTimestamp = new Date(pendingEntry.created_at).getTime();
-        
-        const remainingTimeMs = VERIFICATION_EXPIRATION_MS - (Date.now() - createdAtTimestamp);
+
+        const remainingTimeMs =
+          VERIFICATION_EXPIRATION_MS - (Date.now() - createdAtTimestamp);
         const remainingSeconds = Math.max(0, Math.ceil(remainingTimeMs / 1000)); // Ensure non-negative and round up
 
         res.json({
           email: email,
           createdAt: createdAtTimestamp,
           remainingSeconds: remainingSeconds,
-          isExpired: remainingSeconds <= 0
+          isExpired: remainingSeconds <= 0,
         });
-
       } catch (error) {
         console.error("Error fetching pending admin status:", error);
         res.status(500).json({ error: "Failed to fetch pending status." });
@@ -1459,61 +1589,77 @@ async function startServer(rebuild = false) {
     });
 
     // NEW ENDPOINT: Change Admin Password (requires current password)
-    app.put("/api/admin/change-password", authenticateToken, async (req, res) => {
-      const { currentPassword, newPassword, confirmNewPassword } = req.body;
-      const { id: adminId, email: adminEmail } = req.admin; // Authenticated admin's ID and email
+    app.put(
+      "/api/admin/change-password",
+      authenticateToken,
+      async (req, res) => {
+        const { currentPassword, newPassword, confirmNewPassword } = req.body;
+        const { id: adminId, email: adminEmail } = req.admin; // Authenticated admin's ID and email
 
-      // Log the adminId being used for debugging
-      console.log(`Attempting to change password for adminId: ${adminId}, email: ${adminEmail}`);
-
-
-      if (!currentPassword || !newPassword || !confirmNewPassword) {
-        return res.status(400).json({ error: "Semua kolom password harus diisi." });
-      }
-      if (newPassword !== confirmNewPassword) {
-        return res.status(400).json({ error: "Password baru dan konfirmasi password tidak cocok." });
-      }
-      if (newPassword.length < 6) {
-        return res.status(400).json({ error: "Password baru minimal 6 karakter." });
-      }
-
-      try {
-        const [adminRows] = await dbPool.query(
-          `SELECT password FROM Admin WHERE id = ?`,
-          [adminId]
+        // Log the adminId being used for debugging
+        console.log(
+          `Attempting to change password for adminId: ${adminId}, email: ${adminEmail}`
         );
 
-        if (adminRows.length === 0) {
-          // Log a more specific error if admin is not found despite authentication
-          console.error(`Admin with ID ${adminId} not found in DB during password change. Token might be stale.`);
-          return res.status(404).json({ error: "Admin tidak ditemukan. Sesi Anda mungkin sudah tidak valid. Silakan login ulang." });
+        if (!currentPassword || !newPassword || !confirmNewPassword) {
+          return res
+            .status(400)
+            .json({ error: "Semua kolom password harus diisi." });
+        }
+        if (newPassword !== confirmNewPassword) {
+          return res.status(400).json({
+            error: "Password baru dan konfirmasi password tidak cocok.",
+          });
+        }
+        if (newPassword.length < 6) {
+          return res
+            .status(400)
+            .json({ error: "Password baru minimal 6 karakter." });
         }
 
-        const admin = adminRows[0];
-        const match = await bcrypt.compare(currentPassword, admin.password);
+        try {
+          const [adminRows] = await dbPool.query(
+            `SELECT password FROM Admin WHERE id = ?`,
+            [adminId]
+          );
 
-        if (!match) {
-          return res.status(401).json({ error: "Password saat ini salah." });
+          if (adminRows.length === 0) {
+            // Log a more specific error if admin is not found despite authentication
+            console.error(
+              `Admin with ID ${adminId} not found in DB during password change. Token might be stale.`
+            );
+            return res.status(404).json({
+              error:
+                "Admin tidak ditemukan. Sesi Anda mungkin sudah tidak valid. Silakan login ulang.",
+            });
+          }
+
+          const admin = adminRows[0];
+          const match = await bcrypt.compare(currentPassword, admin.password);
+
+          if (!match) {
+            return res.status(401).json({ error: "Password saat ini salah." });
+          }
+
+          const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+          await dbPool.query(`UPDATE Admin SET password = ? WHERE id = ?`, [
+            hashedNewPassword,
+            adminId,
+          ]);
+
+          await createLogMessage(
+            `email_admin telah mengubah password akunnya.`,
+            adminId,
+            adminEmail
+          );
+
+          res.json({ message: "Password berhasil diubah." });
+        } catch (err) {
+          console.error("Error changing admin password:", err);
+          res.status(500).json({ error: "Gagal mengubah password." });
         }
-
-        const hashedNewPassword = await bcrypt.hash(newPassword, 10);
-        await dbPool.query(
-          `UPDATE Admin SET password = ? WHERE id = ?`,
-          [hashedNewPassword, adminId]
-        );
-
-        await createLogMessage(
-          `email_admin telah mengubah password akunnya.`,
-          adminId,
-          adminEmail
-        );
-
-        res.json({ message: "Password berhasil diubah." });
-      } catch (err) {
-        console.error("Error changing admin password:", err);
-        res.status(500).json({ error: "Gagal mengubah password." });
       }
-    });
+    );
 
     // NEW ENDPOINT: Request Password Reset (sends email with token)
     app.post("/api/admin/request-password-reset", async (req, res) => {
@@ -1530,16 +1676,24 @@ async function startServer(rebuild = false) {
 
         if (adminRows.length === 0) {
           // Send a generic success message even if email not found to prevent enumeration attacks
-          console.log(`Password reset requested for non-existent email: ${email}`);
-          return res.json({ message: "Jika email terdaftar, tautan reset password akan dikirimkan." });
+          console.log(
+            `Password reset requested for non-existent email: ${email}`
+          );
+          return res.json({
+            message:
+              "Jika email terdaftar, tautan reset password akan dikirimkan.",
+          });
         }
 
         const adminId = adminRows[0].id;
-        const resetToken = crypto.randomBytes(32).toString('hex'); // Generate a random token
+        const resetToken = crypto.randomBytes(32).toString("hex"); // Generate a random token
         const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // Token valid for 1 hour
 
         // Invalidate any old tokens for this admin
-        await dbPool.query(`DELETE FROM PasswordResetTokens WHERE admin_id = ?`, [adminId]);
+        await dbPool.query(
+          `DELETE FROM PasswordResetTokens WHERE admin_id = ?`,
+          [adminId]
+        );
 
         // Store new token in DB
         await dbPool.query(
@@ -1605,7 +1759,7 @@ async function startServer(rebuild = false) {
                             <img src="${mail_image_logo}" alt="Logo SIPATUH HMTB" width="230" height="auto" class="logo"/>
                             <h1 class="heading">Reset Password Akun Anda</h1>
                             <p class="paragraph">
-                                Halo ${email.split('@')[0]},
+                                Halo ${email.split("@")[0]},
                             </p>
                             <p class="paragraph">
                                 Kami menerima permintaan untuk mereset password akun SIPATUH Anda.
@@ -1659,14 +1813,18 @@ async function startServer(rebuild = false) {
           email
         );
 
-        res.json({ message: "Jika email terdaftar, tautan reset password akan dikirimkan." });
+        res.json({
+          message:
+            "Jika email terdaftar, tautan reset password akan dikirimkan.",
+        });
       } catch (err) {
         console.error("Error during password reset request:", err);
-        let errorMessage = "Gagal memproses permintaan reset password. Terjadi masalah saat mengirim email.";
+        let errorMessage =
+          "Gagal memproses permintaan reset password. Terjadi masalah saat mengirim email.";
         if (err.responseCode && err.response) {
-            errorMessage += ` (SMTP Error: ${err.responseCode} - ${err.response})`;
+          errorMessage += ` (SMTP Error: ${err.responseCode} - ${err.response})`;
         } else if (err.message) {
-            errorMessage = err.message;
+          errorMessage = err.message;
         }
         res.status(500).json({ error: errorMessage });
       }
@@ -1677,13 +1835,19 @@ async function startServer(rebuild = false) {
       const { token, newPassword, confirmNewPassword } = req.body;
 
       if (!token || !newPassword || !confirmNewPassword) {
-        return res.status(400).json({ error: "Token, password baru, dan konfirmasi password wajib diisi." });
+        return res.status(400).json({
+          error: "Token, password baru, dan konfirmasi password wajib diisi.",
+        });
       }
       if (newPassword !== confirmNewPassword) {
-        return res.status(400).json({ error: "Password baru dan konfirmasi password tidak cocok." });
+        return res.status(400).json({
+          error: "Password baru dan konfirmasi password tidak cocok.",
+        });
       }
       if (newPassword.length < 6) {
-        return res.status(400).json({ error: "Password baru minimal 6 karakter." });
+        return res
+          .status(400)
+          .json({ error: "Password baru minimal 6 karakter." });
       }
 
       const connection = await dbPool.getConnection();
@@ -1697,22 +1861,26 @@ async function startServer(rebuild = false) {
 
         if (tokenRows.length === 0) {
           await connection.rollback();
-          return res.status(400).json({ error: "Token reset password tidak valid atau sudah digunakan." });
+          return res.status(400).json({
+            error: "Token reset password tidak valid atau sudah digunakan.",
+          });
         }
 
         const resetTokenData = tokenRows[0];
         if (new Date() > new Date(resetTokenData.expires_at)) {
           await connection.rollback();
-          return res.status(400).json({ error: "Token reset password telah kedaluwarsa." });
+          return res
+            .status(400)
+            .json({ error: "Token reset password telah kedaluwarsa." });
         }
 
         const adminId = resetTokenData.admin_id;
         const hashedNewPassword = await bcrypt.hash(newPassword, 10);
 
-        await connection.query(
-          `UPDATE Admin SET password = ? WHERE id = ?`,
-          [hashedNewPassword, adminId]
-        );
+        await connection.query(`UPDATE Admin SET password = ? WHERE id = ?`, [
+          hashedNewPassword,
+          adminId,
+        ]);
 
         // Invalidate/delete the used token
         await connection.query(
@@ -1723,8 +1891,12 @@ async function startServer(rebuild = false) {
         await connection.commit();
 
         // Fetch admin email for logging
-        const [adminEmailRow] = await dbPool.query(`SELECT email FROM Admin WHERE id = ?`, [adminId]);
-        const adminEmail = adminEmailRow.length > 0 ? adminEmailRow[0].email : 'Unknown Admin';
+        const [adminEmailRow] = await dbPool.query(
+          `SELECT email FROM Admin WHERE id = ?`,
+          [adminId]
+        );
+        const adminEmail =
+          adminEmailRow.length > 0 ? adminEmailRow[0].email : "Unknown Admin";
 
         await createLogMessage(
           `Password admin untuk email: ${adminEmail} telah berhasil direset.`,
@@ -1732,8 +1904,9 @@ async function startServer(rebuild = false) {
           adminEmail
         );
 
-        res.json({ message: "Password berhasil direset. Anda dapat login sekarang." });
-
+        res.json({
+          message: "Password berhasil direset. Anda dapat login sekarang.",
+        });
       } catch (err) {
         await connection.rollback();
         console.error("Error during password reset:", err);
@@ -1744,38 +1917,46 @@ async function startServer(rebuild = false) {
     });
 
     // NEW ENDPOINT: Delete current admin account
-    app.delete("/api/admin/delete-my-account", authenticateToken, async (req, res) => {
-      const { id: adminId, email: adminEmail } = req.admin; // Authenticated admin's ID and email
+    app.delete(
+      "/api/admin/delete-my-account",
+      authenticateToken,
+      async (req, res) => {
+        const { id: adminId, email: adminEmail } = req.admin; // Authenticated admin's ID and email
 
-      try {
-        // Delete the admin account. ON DELETE CASCADE will handle related records.
-        const [result] = await dbPool.query(`DELETE FROM Admin WHERE id = ?`, [adminId]);
+        try {
+          // Delete the admin account. ON DELETE CASCADE will handle related records.
+          const [result] = await dbPool.query(
+            `DELETE FROM Admin WHERE id = ?`,
+            [adminId]
+          );
 
-        if (result.affectedRows === 0) {
-          return res.status(404).json({ error: "Akun admin tidak ditemukan." }); // Should not happen if authenticated
+          if (result.affectedRows === 0) {
+            return res
+              .status(404)
+              .json({ error: "Akun admin tidak ditemukan." }); // Should not happen if authenticated
+          }
+
+          // Clear the token cookie as the account is deleted
+          res.clearCookie("token", {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            maxAge: 0,
+            sameSite: "Lax",
+          });
+
+          await createLogMessage(
+            `Akun admin dengan email: ${adminEmail} telah dihapus.`,
+            adminId,
+            adminEmail
+          );
+
+          res.json({ message: "Akun admin berhasil dihapus." });
+        } catch (err) {
+          console.error("Error deleting admin account:", err);
+          res.status(500).json({ error: "Gagal menghapus akun admin." });
         }
-
-        // Clear the token cookie as the account is deleted
-        res.clearCookie("token", {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          maxAge: 0,
-          sameSite: "Lax",
-        });
-
-        await createLogMessage(
-          `Akun admin dengan email: ${adminEmail} telah dihapus.`,
-          adminId,
-          adminEmail
-        );
-
-        res.json({ message: "Akun admin berhasil dihapus." });
-      } catch (err) {
-        console.error("Error deleting admin account:", err);
-        res.status(500).json({ error: "Gagal menghapus akun admin." });
       }
-    });
-
+    );
 
     app.post("/api/admin/login", async (req, res) => {
       const { email, password } = req.body;
@@ -2046,10 +2227,10 @@ async function startServer(rebuild = false) {
           `SELECT
             MONTH(tanggal_pemasukan) AS month_number,
             SUM(nominal_pemasukan) AS total_revenue
-         FROM PemasukanMingguan
-         WHERE YEAR(tanggal_pemasukan) = YEAR(CURDATE())
-         GROUP BY MONTH(tanggal_pemasukan)
-         ORDER BY month_number ASC`
+          FROM PemasukanMingguan
+          WHERE YEAR(tanggal_pemasukan) = YEAR(CURDATE())
+          GROUP BY MONTH(tanggal_pemasukan)
+          ORDER BY month_number ASC`
         );
 
         const formattedResults = results.map((row) => ({
@@ -2274,32 +2455,125 @@ async function startServer(rebuild = false) {
       }
     );
 
-    // --- NEW: Endpoint to send backup via email ---
-    const sendBackupEmail = async (backupFilePath, backupFileName, targetEmail) => {
+    // --- NEW: Helper function to send backup via email ---
+    const sendBackupEmail = async (
+      backupFilePath,
+      backupFileName,
+      targetEmail
+    ) => {
       try {
         const mailOptions = {
           from: `"${EMAIL_SENDER_NAME}" <${GMAIL_USER}>`,
           to: targetEmail,
-          subject: `[SIPATUH] Pencadangan Database Otomatis - ${new Date().toLocaleDateString('id-ID')}`,
+          subject: `[SIPATUH] Pencadangan Database Otomatis - ${new Date().toLocaleDateString(
+            "id-ID"
+          )}`,
           html: `
-            <p>Halo Admin,</p>
-            <p>Terlampir adalah cadangan database otomatis Anda dari sistem SIPATUH.</p>
-            <p><strong>Nama File:</strong> ${backupFileName}</p>
-            <p>Cadangan ini dibuat pada tanggal ${new Date().toLocaleDateString('id-ID')} pukul ${new Date().toLocaleTimeString('id-ID')}.</p>
-            <p>Harap simpan file ini di tempat yang aman.</p>
-            <p>Terima kasih,</p>
-            <p>Tim SIPATUH</p>
+            <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+            <html xmlns="http://www.w3.org/1999/xhtml">
+            <head>
+                <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+                <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+                <title>Pencadangan Database Otomatis</title>
+                <style type="text/css">
+                    body { margin: 0; padding: 0; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+                    table { border-collapse: collapse; mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+                    img { border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; }
+                    p { display: block; margin: 0; padding: 0; }
+                    a { text-decoration: none; }
+                    .ExternalClass { width: 100%; }
+                    .ExternalClass, .ExternalClass p, .ExternalClass span, .ExternalClass font, .ExternalClass td, .ExternalClass div { line-height: 100%; }
+                    .email-body { background-color: #f4f4f4; padding: 20px 0 30px 0; }
+                    .main-table { border-collapse: collapse; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.05); }
+                    .content-area { padding: 40px; text-align: center; }
+                    .logo { display: block; margin: 0 auto 20px auto; }
+                    .heading { font-family: Arial, sans-serif; font-size: 28px; color: #333333; margin: 0 0 20px 0; }
+                    .paragraph { font-family: Arial, sans-serif; font-size: 16px; line-height: 24px; color: #555555; margin: 0 0 25px 0; }
+                    .button-table { margin: 30px auto; }
+                    .button-cell { border-radius: 5px; }
+                    .button-link { font-size: 16px; font-family: Arial, sans-serif; color: #ffffff; text-decoration: none; border-radius: 5px; padding: 12px 25px; border: 1px solid #28a745; display: inline-block; background-color: #28a745; }
+                    .footer-area { padding: 30px 40px; background-color: #f0f0f0; text-align: center; }
+                    .footer-text { font-family: Arial, sans-serif; font-size: 12px; color: #777777; margin: 0; }
+                    @media screen and (max-width: 600px) {
+                        .email-body { padding: 10px 0 20px 0 !important; }
+                        .main-table { width: 100% !important; border-radius: 0 !important; }
+                        .content-area { padding: 20px !important; }
+                        .heading { font-size: 24px !important; }
+                        .paragraph { font-size: 15px !important; line-height: 22px !important; }
+                        .button-table { width: 100% !important; }
+                        .button-cell { width: 100% !important; text-align: center !important; }
+                        .button-link { width: calc(100% - 50px) !important; padding: 12px 0 !important; }
+                        .footer-area { padding: 20px !important; }
+                    }
+                </style>
+            </head>
+            <body style="margin: 0; padding: 0; background-color: #f4f4f4;">
+                <table border="0" cellpadding="0" cellspacing="0" width="100%" class="email-body">
+                    <tr>
+                        <td align="center">
+                            <table align="center" border="0" cellpadding="0" cellspacing="0" width="600" class="main-table">
+                                <tr>
+                                    <td class="content-area">
+                                        <img src="${mail_image_logo}" alt="Logo SIPATUH HMTB" width="230" height="auto" class="logo"/>
+                                        <h1 class="heading">Pencadangan Database Otomatis</h1>
+                                        <p class="paragraph">
+                                            Halo Admin,
+                                        </p>
+                                        <p class="paragraph">
+                                            Terlampir adalah file cadangan database otomatis Anda dari sistem SIPATUH.
+                                            Anda juga bisa mengunduh file ini langsung melalui tautan di bawah.
+                                        </p>
+                                        <p class="paragraph">
+                                            <strong>Nama File:</strong> ${backupFileName}<br/>
+                                            <strong>Waktu Cadangan:</strong> ${new Date().toLocaleDateString(
+                                              "id-ID"
+                                            )} pukul ${new Date().toLocaleTimeString(
+            "id-ID"
+          )}
+                                        </p>
+                                        <table border="0" cellpadding="0" cellspacing="0" class="button-table">
+                                            <tr>
+                                                <td align="center" class="button-cell">
+                                                    <a href="${VITE_DOMAIN_SERVER}/backups/${backupFileName}" target="_blank" class="button-link">
+                                                        Unduh File Backup
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                        <p class="paragraph">
+                                            Harap simpan file ini di tempat yang aman.
+                                        </p>
+                                        <p class="paragraph" style="margin-top: 30px; font-size: 14px; line-height: 20px; color: #999999;">
+                                            Jika Anda tidak mengharapkan email ini, mohon hubungi administrator.
+                                        </p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="footer-area">
+                                        <p class="footer-text">
+                                            &copy; ${new Date().getFullYear()} SIPATUH. Semua hak dilindungi.
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </body>
+            </html>
           `,
           attachments: [
             {
               filename: backupFileName,
               path: backupFilePath,
-              contentType: 'application/sql'
-            }
-          ]
+              contentType: "application/sql",
+            },
+          ],
         };
         await transporter.sendMail(mailOptions);
-        console.log(`Backup email sent to ${targetEmail} with attachment ${backupFileName}`);
+        console.log(
+          `Backup email sent to ${targetEmail} with attachment ${backupFileName}`
+        );
         return true;
       } catch (error) {
         console.error(`Error sending backup email to ${targetEmail}:`, error);
@@ -2307,49 +2581,103 @@ async function startServer(rebuild = false) {
       }
     };
 
-    // --- NEW: Endpoint to get system settings ---
-    app.get("/api/settings", authenticateToken, async (req, res) => {
+    // --- NEW: Endpoint to get admin-specific settings (formerly SystemSettings) ---
+    app.get("/api/admin-settings", authenticateToken, async (req, res) => {
+      const { id: adminId } = req.admin;
       try {
-        const [rows] = await dbPool.query(`SELECT setting_name, setting_value FROM SystemSettings`);
+        const [rows] = await dbPool.query(
+          `SELECT setting_name, setting_value FROM AdminSettings WHERE id_admin = ?`,
+          [adminId]
+        );
         const settings = {};
-        rows.forEach(row => {
+        rows.forEach((row) => {
           settings[row.setting_name] = row.setting_value;
         });
+        // Convert boolean-like strings to actual booleans
+        if (settings.auto_backup_enabled !== undefined) {
+          settings.auto_backup_enabled =
+            settings.auto_backup_enabled === "true";
+        }
         res.json(settings);
       } catch (err) {
-        console.error("Error fetching system settings:", err);
-        res.status(500).json({ error: "Failed to fetch system settings." });
+        console.error("Error fetching admin settings:", err);
+        res.status(500).json({ error: "Failed to fetch admin settings." });
       }
-    });
+    }); // NEW: Endpoint to update admin-specific settings ---
 
-    // --- NEW: Endpoint to update system settings ---
-    app.put("/api/settings", authenticateToken, async (req, res) => {
-      const { setting_name, setting_value } = req.body;
+    // --- NEW: Endpoint to update admin-specific settings ---
+    app.put("/api/admin-settings", authenticateToken, async (req, res) => {
+      const { setting_name, setting_value, recaptchaToken } = req.body;
       const { id: adminId, email: adminEmail } = req.admin;
 
       if (!setting_name || setting_value === undefined) {
-        return res.status(400).json({ error: "setting_name and setting_value are required." });
+        return res
+          .status(400)
+          .json({ error: "setting_name and setting_value are required." });
+      } // Special handling for auto_backup_enabled with reCAPTCHA
+
+      if (setting_name === "auto_backup_enabled" && setting_value === "true") {
+        if (!recaptchaToken) {
+          return res.status(400).json({
+            error:
+              "Token reCAPTCHA wajib diisi untuk mengaktifkan auto backup.",
+          });
+        }
+
+        try {
+          const captchaVerificationUrl = `https://www.google.com/recaptcha/api/siteverify?secret=${RECAPTCHA_SECRET_KEY}&response=${recaptchaToken}`;
+          const captchaResponse = await fetch(captchaVerificationUrl, {
+            method: "POST",
+          });
+          const captchaJson = await captchaResponse.json(); // --- PERUBAHAN UNTUK reCAPTCHA v2 INVISIBLE --- // reCAPTCHA v2 hanya mengembalikan 'success' (boolean)
+          if (!captchaJson.success) {
+            // reCAPTCHA v2 hanya mengembalikan 'success' (boolean)
+            console.warn("Verifikasi reCAPTCHA gagal:", captchaJson);
+            let errorMessage = "Verifikasi reCAPTCHA gagal. Silakan coba lagi.";
+            if (
+              captchaJson["error-codes"] &&
+              captchaJson["error-codes"].length > 0
+            ) {
+              errorMessage += ` Kode error: ${captchaJson["error-codes"].join(
+                ", "
+              )}.`;
+            }
+            return res.status(400).json({ error: errorMessage });
+          }
+          console.log(`Verifikasi reCAPTCHA berhasil.`); // Hapus pesan skor
+        } catch (error) {
+          console.error("Error selama verifikasi reCAPTCHA:", error);
+          return res.status(500).json({
+            error:
+              "Terjadi kesalahan saat memverifikasi reCAPTCHA. Coba lagi nanti.",
+          });
+        }
       }
 
       try {
+        // Convert boolean to string for storage in TEXT column
+        const valueToStore =
+          typeof setting_value === "boolean"
+            ? String(setting_value)
+            : setting_value;
+
         const [result] = await dbPool.query(
-          `INSERT INTO SystemSettings (setting_name, setting_value) VALUES (?, ?)
+          `INSERT INTO AdminSettings (id_admin, setting_name, setting_value) VALUES (?, ?, ?)
            ON DUPLICATE KEY UPDATE setting_value = ?`,
-          [setting_name, setting_value, setting_value]
+          [adminId, setting_name, valueToStore, valueToStore]
         );
 
         await createLogMessage(
-          `email_admin telah memperbarui pengaturan '${setting_name}' menjadi '${setting_value}'.`,
+          `email_admin telah memperbarui pengaturan '${setting_name}' menjadi '${valueToStore}'.`,
           adminId,
           adminEmail
         );
         res.json({ message: "Setting updated successfully." });
       } catch (err) {
-        console.error("Error updating system setting:", err);
+        console.error("Error updating admin setting:", err);
         res.status(500).json({ error: "Failed to update setting." });
       }
     });
-
 
     // --- GET BACKUP LOGS ---
     app.get("/api/backup-logs", authenticateToken, async (req, res) => {
@@ -2396,7 +2724,202 @@ async function startServer(rebuild = false) {
       console.log(
         `Server API dan WebSocket berjalan di http://localhost:${PORT}`
       );
-    });
+      console.log("Starting scheduled tasks...");
+    }); // --- AUTOMATED BACKUP CRON JOB --- // Runs every 5 minutes. // --- AUTOMATED BACKUP CRON JOB --- // Runs every 5 minutes.
+    cron.schedule(
+      "0 6 * * 1",
+      async () => {
+        console.log("Running automated backup check...");
+        try {
+          // Fetch all admins who have auto_backup_enabled = 'true' and a valid email
+          const [adminsToBackup] = await dbPool.query(
+            `
+                SELECT
+                    a.id AS admin_id,
+                    a.email AS admin_email,
+                    COALESCE(TRIM(backup_email_setting.setting_value), '') AS backup_email, -- Ambil nilai email backup, COALESCE untuk NULL jadi string kosong
+                    last_backup_timestamp_setting.setting_value AS last_backup_time
+                FROM Admin a
+                JOIN AdminSettings enabled_setting ON a.id = enabled_setting.id_admin
+                    AND enabled_setting.setting_name = 'auto_backup_enabled'
+                    AND enabled_setting.setting_value = 'true'
+                LEFT JOIN AdminSettings backup_email_setting ON a.id = backup_email_setting.id_admin
+                    AND backup_email_setting.setting_name = 'auto_backup_email'
+                LEFT JOIN AdminSettings last_backup_timestamp_setting ON a.id = last_backup_timestamp_setting.id_admin
+                    AND last_backup_timestamp_setting.setting_name = 'last_auto_backup_timestamp'
+                WHERE COALESCE(TRIM(backup_email_setting.setting_value), '') != '' -- Pastikan email backup tidak kosong setelah di-trim
+                GROUP BY a.id, a.email
+            `.trim()
+          ); // Tetap gunakan .trim() untuk seluruh query string
+
+          // --- TAMBAHKAN LOG INI SEMENTARA UNTUK DEBUGGING ---
+          console.log("--- DEBUGGING ADMINS TO BACKUP ---");
+          console.log(
+            "ADMIN_AUTO_BACKUP_RECIPIENT_EMAIL (dari .env):",
+            ADMIN_AUTO_BACKUP_RECIPIENT_EMAIL
+          );
+          adminsToBackup.forEach((admin) => {
+            console.log(`Admin ${admin.admin_email}:`);
+            console.log(
+              `  - backup_email dari DB: '${
+                admin.backup_email
+              }' (Type: ${typeof admin.backup_email})`
+            );
+            const resolvedTargetEmail =
+              admin.backup_email || ADMIN_AUTO_BACKUP_RECIPIENT_EMAIL;
+            console.log(
+              `  - targetEmail setelah fallback: '${resolvedTargetEmail}'`
+            );
+            console.log(`  - is targetEmail falsy? ${!resolvedTargetEmail}`);
+          });
+          console.log("--- END DEBUGGING ---");
+          // --- AKHIR LOG DEBUGGING ---
+
+          for (const admin of adminsToBackup) {
+            const targetEmail =
+              admin.backup_email || ADMIN_AUTO_BACKUP_RECIPIENT_EMAIL; // Fallback to global if admin's is empty
+
+            // Only proceed if a target email is found
+            if (!targetEmail) {
+              // Ini seharusnya tidak lagi terpicu jika query di atas sudah benar
+              console.warn(
+                `Skipping auto backup for admin ${admin.admin_email}: No valid backup email configured.`
+              );
+              await createLogMessage(
+                `Gagal melakukan auto backup untuk email: ${admin.admin_email} - Tidak ada email penerima backup yang dikonfigurasi.`,
+                admin.admin_id,
+                admin.admin_email
+              );
+              continue;
+            }
+
+            // Check if last backup was less than a week ago (for weekly logic)
+            // For *testing every minute*, this check needs to be adjusted or temporarily removed.
+            // For actual weekly backup, uncomment the logic below:
+            /*
+                const lastBackupDate = admin.last_backup_time ? new Date(admin.last_backup_time) : null;
+                const oneWeekAgo = new Date();
+                oneWeekAgo.setDate(oneWeekAgo.getDate() - 7); // Subtract 7 days
+
+                if (lastBackupDate && lastBackupDate > oneWeekAgo) {
+                    console.log(`Skipping auto backup for admin ${admin.admin_email}: Backup already performed recently.`);
+                    continue; // Skip if backup was done within the last week
+                }
+                */
+            // For testing every minute, you might want to remove the above check or set it to check for 'last minute'
+
+            const timestamp = new Date()
+              .toISOString()
+              .replace(/:/g, "-")
+              .replace(/\./g, "_");
+            const backupFileName = `${DB_NAME}_${timestamp}.sql`;
+            const backupFilePath = path.join(backupsDir, backupFileName);
+
+            const command = `mysqldump -h ${DB_HOST} -u ${DB_USER} -p${DB_PASS} ${DB_NAME} > "${backupFilePath}"`;
+
+            console.log(
+              `Performing automated backup for ${admin.admin_email} to: ${backupFilePath}`
+            );
+            try {
+              await new Promise((resolve, reject) => {
+                exec(command, (error, stdout, stderr) => {
+                  if (error) {
+                    console.error(
+                      `Automated backup failed for ${admin.admin_email}: ${error.message}`
+                    );
+                    return reject(
+                      new Error(`Auto backup gagal: ${error.message}`)
+                    );
+                  }
+                  if (stderr) {
+                    console.warn(
+                      `Automated backup stderr for ${admin.admin_email}: ${stderr}`
+                    );
+                  }
+                  console.log(
+                    `Automated backup stdout for ${admin.admin_email}: ${stdout}`
+                  );
+                  console.log(
+                    `Automated database backup successful for ${admin.admin_email}: ${backupFileName}`
+                  );
+                  resolve();
+                });
+              });
+
+              // Send email
+              const emailSent = await sendBackupEmail(
+                backupFilePath,
+                backupFileName,
+                targetEmail
+              );
+
+              // Log in Log_Backup table
+              const logSql = `INSERT INTO Log_Backup (waktu_backup, id_admin) VALUES (NOW(), ?)`;
+              await dbPool.query(logSql, [admin.admin_id]);
+
+              // Update last_auto_backup_timestamp in AdminSettings
+              await dbPool.query(
+                `INSERT INTO AdminSettings (id_admin, setting_name, setting_value) VALUES (?, ?, ?)
+                         ON DUPLICATE KEY UPDATE setting_value = ?`,
+                [
+                  admin.admin_id,
+                  "last_auto_backup_timestamp",
+                  new Date().toISOString(),
+                  new Date().toISOString(),
+                ]
+              );
+
+              await createLogMessage(
+                `Auto backup database berhasil dikirim ke ${targetEmail} untuk email: ${admin.admin_email}.`,
+                admin.admin_id,
+                admin.admin_email
+              );
+
+              // Delete the file after sending email (optional, but good practice for temporary backups)
+              fs.unlink(backupFilePath, (err) => {
+                if (err)
+                  console.error(
+                    `Error deleting backup file ${backupFilePath}:`,
+                    err
+                  );
+                else
+                  console.log(
+                    `Deleted automated backup file: ${backupFilePath}`
+                  );
+              });
+            } catch (err) {
+              console.error(
+                `Failed to complete automated backup process for ${admin.admin_email}:`,
+                err
+              );
+              await createLogMessage(
+                `Gagal melakukan auto backup database untuk email: ${admin.admin_email} - ${err.message}.`,
+                admin.admin_id,
+                admin.admin_email
+              );
+              // Ensure file is deleted even if email fails
+              if (fs.existsSync(backupFilePath)) {
+                fs.unlink(backupFilePath, (deleteErr) => {
+                  if (deleteErr)
+                    console.error(
+                      `Error deleting failed backup file ${backupFilePath}:`,
+                      deleteErr
+                    );
+                });
+              }
+            }
+          }
+        } catch (error) {
+          console.error(
+            "Error fetching admins for auto backup or during general cron job:",
+            error
+          );
+        }
+      },
+      {
+        timezone: "Asia/Jakarta", // Ensure the cron job runs in the correct timezone
+      }
+    );
   } catch (error) {
     console.error("Gagal memulai server:", error);
     process.exit(1);
@@ -2431,6 +2954,10 @@ if (args[0] === "--add-admin") {
         const hashedPassword = await bcrypt.hash(password, 10);
         const sql = "INSERT INTO Admin (email, password) VALUES (?, ?)";
         const [result] = await connection.query(sql, [email, hashedPassword]);
+
+        // **NEW: Add default settings for the newly created admin via CLI**
+        // MODIFIED: Pass the 'connection' object to addDefaultAdminSettings
+        await addDefaultAdminSettings(connection, result.insertId, email);
 
         console.log("✅ Admin berhasil dibuat dengan ID:", result.insertId);
       } catch (err) {

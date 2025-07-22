@@ -1,8 +1,12 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/src/assets/img/LogoSipatuhSmall_WH_BG.svg" />
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="/src/assets/img/LogoSipatuhSmall_WH_BG.svg"
+    />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SIPATUH</title>
   </head>
@@ -17,7 +21,20 @@
     <!-- Wizard script -->
     <script src="/src/assets/js/survey_func.js"></script>
     <script src="https://apis.google.com/js/api.js"></script>
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script
+      src="https://www.google.com/recaptcha/api.js?onload=onRecaptchaLoad&render=explicit&hl=id"
+      async
+      defer
+    ></script>
 
+    <script>
+      window.onRecaptchaLoad = function () {
+        console.log("reCAPTCHA script has loaded and is ready.");
+        // Anda bisa memicu event kustom di sini jika diperlukan oleh Vue
+        // Misalnya: window.dispatchEvent(new Event('recaptcha-ready'));
+        // Atau cukup biarkan komponen Vue memantaunya
+      };
+    </script>
   </body>
 </html>
