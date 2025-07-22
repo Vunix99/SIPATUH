@@ -4,7 +4,11 @@
       <div
         class="sidebar-header d-flex justify-content-between align-items-center"
       >
-        <img src="/src/assets/img/LogoSipatuhLong_Transparent.svg" alt="" class="sidebar-logo">
+        <img
+          src="/src/assets/img/LogoSipatuhLong_Transparent.svg"
+          alt=""
+          class="sidebar-logo"
+        />
         <button class="btn btn-sm btn-light d-md-none" @click="toggleSidebar">
           ✕
         </button>
@@ -37,7 +41,7 @@
         </li>
         <li>
           <router-link to="/pencadangan-pemulihan" class="nav-link">
-            <i class="fa-solid fa-arrows-rotate"></i> Pencadangan dan Pemulihan
+            <i class="fa-solid fa-arrows-rotate"></i> Pencadangan & Pemulihan
           </router-link>
         </li>
         <li>
@@ -45,8 +49,23 @@
             <i class="fa-solid fa-gear"></i> Pengaturan Admin
           </router-link>
         </li>
+
+        <li class="sidebar-divider my-3"></li>
+
         <li>
-          <router-link to="/logout" class="nav-link" style="color: red; font-weight: bolder;">
+          <router-link
+            to="/parking"
+            class="nav-link parkir-kendaraan-link"
+          >
+            <i class="fa-solid fa-car"></i> Parkirkan Kendaraan!
+          </router-link>
+        </li>
+        <li>
+          <router-link
+            to="/logout"
+            class="nav-link"
+            style="color: red; font-weight: bolder"
+          >
             <i class="fa-solid fa-right-from-bracket"></i> Logout
           </router-link>
         </li>
@@ -659,6 +678,14 @@ h5.card-title {
   left: 0;
   z-index: 2000;
   overflow-x: hidden;
+}
+
+.sidebar-divider {
+  border-top: 2px solid #fc0; /* Ubah ke warna kuning (#fc0) */
+  margin: 1.5rem 0; /* Jarak atas dan bawah, sesuaikan jika my-3 di HTML sudah cukup */
+  padding: 0 1.5rem;
+  list-style: none; /* Pastikan tidak ada bullet point */
+  padding: 0; /* Hapus padding default li */
 }
 
 /* Style for the logo inside the sidebar header */

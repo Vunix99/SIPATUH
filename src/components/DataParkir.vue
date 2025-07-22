@@ -4,7 +4,11 @@
       <div
         class="sidebar-header d-flex justify-content-between align-items-center"
       >
-        <img src="/src/assets/img/LogoSipatuhLong_Transparent.svg" alt="" class="sidebar-logo">
+        <img
+          src="/src/assets/img/LogoSipatuhLong_Transparent.svg"
+          alt=""
+          class="sidebar-logo"
+        />
         <button class="btn btn-sm btn-light d-md-none" @click="toggleSidebar">
           ✕
         </button>
@@ -37,7 +41,7 @@
         </li>
         <li>
           <router-link to="/pencadangan-pemulihan" class="nav-link">
-            <i class="fa-solid fa-arrows-rotate"></i> Pencadangan dan Pemulihan
+            <i class="fa-solid fa-arrows-rotate"></i> Pencadangan & Pemulihan
           </router-link>
         </li>
         <li>
@@ -45,8 +49,23 @@
             <i class="fa-solid fa-gear"></i> Pengaturan Admin
           </router-link>
         </li>
+
+        <li class="sidebar-divider my-3"></li>
+
         <li>
-          <router-link to="/logout" class="nav-link" style="color: red; font-weight: bolder;">
+          <router-link
+            to="/parking"
+            class="nav-link parkir-kendaraan-link"
+          >
+            <i class="fa-solid fa-car"></i> Parkirkan Kendaraan!
+          </router-link>
+        </li>
+        <li>
+          <router-link
+            to="/logout"
+            class="nav-link"
+            style="color: red; font-weight: bolder"
+          >
             <i class="fa-solid fa-right-from-bracket"></i> Logout
           </router-link>
         </li>
@@ -118,8 +137,8 @@ import axios from "axios";
 import Swal from "sweetalert2";
 
 // GLightbox imports
-import GLightbox from 'glightbox';
-import 'glightbox/dist/css/glightbox.min.css';
+import GLightbox from "glightbox";
+import "glightbox/dist/css/glightbox.min.css";
 
 export default {
   name: "DataParkir",
@@ -167,10 +186,12 @@ export default {
     const formatFotoMasuk = (imageUrl, isMobileView = false) => {
       if (imageUrl) {
         // Konten tombol akan berbeda tergantung isMobileView
-        const buttonContent = isMobileView ? 'Lihat Gambar' : '<i class="fa-solid fa-eye"></i>';
+        const buttonContent = isMobileView
+          ? "Lihat Gambar"
+          : '<i class="fa-solid fa-eye"></i>';
         return `<button type="button" class="btn btn-sm btn-info view-photo-btn" data-image-url="${imageUrl}">${buttonContent}</button>`;
       }
-      return 'Tidak Ada Foto';
+      return "Tidak Ada Foto";
     };
     // --- Akhir Fungsi Helper ---
 
@@ -203,7 +224,9 @@ export default {
       }
 
       // Deteksi apakah layar adalah mobile
-      const isMobile = window.matchMedia(`(max-width: ${mobileBreakpoint - 1}px)`).matches;
+      const isMobile = window.matchMedia(
+        `(max-width: ${mobileBreakpoint - 1}px)`
+      ).matches;
 
       // Hancurkan instance Tabulator yang ada jika ada
       if (tabulatorInstance) {
@@ -280,18 +303,18 @@ export default {
           resizable: false,
           // Panggil formatter dengan isMobileView = false untuk desktop
           formatter: (cell) => formatFotoMasuk(cell.getValue(), false),
-          cellClick: function(e, cell) {
-            const button = e.target.closest('.view-photo-btn');
+          cellClick: function (e, cell) {
+            const button = e.target.closest(".view-photo-btn");
             if (button) {
               e.stopPropagation();
               const imageUrl = button.dataset.imageUrl;
               if (imageUrl) {
-                if (typeof GLightbox !== 'undefined') {
+                if (typeof GLightbox !== "undefined") {
                   if (lightboxInstance) {
                     lightboxInstance.destroy();
                   }
                   lightboxInstance = GLightbox({
-                    elements: [{ 'href': imageUrl, 'type': 'image' }]
+                    elements: [{ href: imageUrl, type: "image" }],
                   });
                   lightboxInstance.open();
                 } else {
@@ -328,10 +351,10 @@ export default {
             field: "id", // Bisa field apa saja, yang penting ada 1 kolom
             formatter: "html", // Penting: agar bisa merender HTML kustom
             headerSort: false,
-            resizable: false
-          }
+            resizable: false,
+          },
         ];
-        tabulatorOptions.rowFormatter = function(row){
+        tabulatorOptions.rowFormatter = function (row) {
           const data = row.getData();
           const element = row.getElement();
 
@@ -355,40 +378,51 @@ export default {
             </div>
             <div class="custom-mobile-card-field" style="margin-bottom: 8px;">
                 <span class="custom-mobile-card-label" style="font-weight: bold; color: #fc0">Tiket:</span>
-                <span class="custom-mobile-card-value">${data.nomor_tiket}</span>
+                <span class="custom-mobile-card-value">${
+                  data.nomor_tiket
+                }</span>
             </div>
             <div class="custom-mobile-card-field" style="margin-bottom: 8px;">
                 <span class="custom-mobile-card-label" style="font-weight: bold; color: #fc0">Masuk:</span>
-                <span class="custom-mobile-card-value">${formatDateTime(data.waktu_masuk)}</span>
+                <span class="custom-mobile-card-value">${formatDateTime(
+                  data.waktu_masuk
+                )}</span>
             </div>
             <div class="custom-mobile-card-field" style="margin-bottom: 8px;">
                 <span class="custom-mobile-card-label" style="font-weight: bold; color: #fc0">Keluar:</span>
-                <span class="custom-mobile-card-value">${formatDateTime(data.waktu_keluar)}</span>
+                <span class="custom-mobile-card-value">${formatDateTime(
+                  data.waktu_keluar
+                )}</span>
             </div>
             <div class="custom-mobile-card-field" style="margin-bottom: 8px;">
                 <span class="custom-mobile-card-label" style="font-weight: bold; color: #fc0">Status:</span>
-                <span class="custom-mobile-card-value">${formatStatus(data.status)}</span>
+                <span class="custom-mobile-card-value">${formatStatus(
+                  data.status
+                )}</span>
             </div>
             <div class="custom-mobile-card-field" style="margin-bottom: 8px;">
                 <span class="custom-mobile-card-label" style="font-weight: bold; color: #fc0">Foto:</span>
-                <span class="custom-mobile-card-value">${formatFotoMasuk(data.foto_masuk, true)}</span>
+                <span class="custom-mobile-card-value">${formatFotoMasuk(
+                  data.foto_masuk,
+                  true
+                )}</span>
             </div>
           `;
           element.appendChild(rowContent);
 
           // Re-attach cellClick listener for the photo button in the custom row
-          const photoButton = rowContent.querySelector('.view-photo-btn');
+          const photoButton = rowContent.querySelector(".view-photo-btn");
           if (photoButton) {
-            photoButton.addEventListener('click', (e) => {
+            photoButton.addEventListener("click", (e) => {
               e.stopPropagation();
               const imageUrl = photoButton.dataset.imageUrl;
               if (imageUrl) {
-                if (typeof GLightbox !== 'undefined') {
+                if (typeof GLightbox !== "undefined") {
                   if (lightboxInstance) {
                     lightboxInstance.destroy();
                   }
                   lightboxInstance = GLightbox({
-                    elements: [{ 'href': imageUrl, 'type': 'image' }]
+                    elements: [{ href: imageUrl, type: "image" }],
                   });
                   lightboxInstance.open();
                 } else {
@@ -402,7 +436,11 @@ export default {
         // Mode desktop: gunakan fitColumns dan responsiveLayout collapse
         tabulatorOptions.layout = "fitColumns"; // Atur layout untuk desktop
         tabulatorOptions.responsiveLayout = "collapse";
-        tabulatorOptions.rowHeader = {formatter:"responsiveCollapse", width:30, hozAlign:"center"};
+        tabulatorOptions.rowHeader = {
+          formatter: "responsiveCollapse",
+          width: 30,
+          hozAlign: "center",
+        };
         tabulatorOptions.columns = baseColumns;
         tabulatorOptions.rowFormatter = null; // Hapus formatter jika kembali ke desktop
         // Hapus atribut untuk CSS agar header kembali terlihat
@@ -500,9 +538,11 @@ body,
 
 /* Style for the logo inside the sidebar header */
 .sidebar-logo {
-  max-width: calc(100% - 60px); /* Batasi lebar agar ada ruang untuk tombol close, misal 60px untuk tombol dan padding */
-  height: auto;    /* Maintain aspect ratio */
-  display: block;  /* Treat it as a block element */
+  max-width: calc(
+    100% - 60px
+  ); /* Batasi lebar agar ada ruang untuk tombol close, misal 60px untuk tombol dan padding */
+  height: auto; /* Maintain aspect ratio */
+  display: block; /* Treat it as a block element */
   margin-right: auto; /* Mendorong logo ke kiri dalam flexbox */
   margin-left: -5%; /* Geser logo lebih ke kiri, sesuaikan persentase ini */
   box-sizing: border-box; /* Pastikan padding dihitung dalam total lebar elemen */
@@ -511,7 +551,12 @@ body,
 /* Styles for the sidebar close button */
 .sidebar-close-btn {
   margin-right: 0.5rem; /* Memberi sedikit ruang dari tepi kanan sidebar */
-  background-color: rgba(255, 255, 255, 0.2); /* Sedikit transparan agar terlihat */
+  background-color: rgba(
+    255,
+    255,
+    255,
+    0.2
+  ); /* Sedikit transparan agar terlihat */
   border: 1px solid rgba(255, 255, 255, 0.3);
   color: #fdfdfd; /* Warna teks putih */
   font-weight: bold;
@@ -548,7 +593,6 @@ body,
      jadi flexbox akan menangani positioning anak-anaknya. */
 }
 /* Sidebar Specific Styles - END */
-
 
 /* Router Link Active/Exact Active and Nav Link Base Style */
 .router-link-active,
@@ -602,13 +646,14 @@ input[type="date"] {
   position: absolute;
   right: 10px; /* Atur posisi horizontal ikon dari kanan */
   top: 55%; /* Atur posisi vertikal ke tengah */
-  transform: translateY(-50%); /* Geser ke atas 50% dari tingginya sendiri untuk pusatkan */
+  transform: translateY(
+    -50%
+  ); /* Geser ke atas 50% dari tingginya sendiri untuk pusatkan */
   pointer-events: none; /* Sangat penting: agar klik tembus ke input di belakangnya */
   color: #fc0; /* Warna ikon sesuai permintaan Anda (kuning/oranye) */
   font-size: 1.2em; /* Ukuran ikon */
   z-index: 2; /* Pastikan ikon kustom terlihat di atas indikator bawaan */
 }
-
 
 /* Navbar style */
 .navbar {
@@ -635,7 +680,12 @@ input[type="date"] {
 
 /* Card styles - adjusted for better contrast and consistency */
 .card {
-  background-color: rgba(0, 0, 0, 0.25); /* Darker transparent background for cards */
+  background-color: rgba(
+    0,
+    0,
+    0,
+    0.25
+  ); /* Darker transparent background for cards */
   color: #fdfdfd; /* Changed to FDFDFD for card titles */
   border: none;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); /* More prominent shadow for cards */
@@ -692,7 +742,12 @@ input[type="date"] {
 }
 
 .table-striped > tbody > tr:nth-of-type(odd) {
-  background-color: rgba(255, 255, 255, 0.08); /* Slightly more visible stripe */
+  background-color: rgba(
+    255,
+    255,
+    255,
+    0.08
+  ); /* Slightly more visible stripe */
 }
 
 /* Crucial: Ensure all TD elements in the table body are FDFDFD */
@@ -739,10 +794,10 @@ input[type="date"] {
   padding-top: 56px; /* Adjust this to the height of your fixed navbar */
 }
 
-
 /* Responsive adjustments */
 /* Styles for screens smaller than 768px (mobile/tablet) */
-@media (max-width: 767.98px) { /* Use 767.98px for Bootstrap's 'md' breakpoint */
+@media (max-width: 767.98px) {
+  /* Use 767.98px for Bootstrap's 'md' breakpoint */
   .sidebar {
     left: -260px; /* Sidebar tersembunyi secara default */
   }
@@ -808,128 +863,129 @@ input[type="date"] {
 
 /* Sembunyikan header tabel ketika mode mobile-card aktif */
 .tabulator[data-mobile-card-active="true"] .tabulator-header {
-    display: none;
+  display: none;
 }
 
 /* Pastikan kontainer utama Tabulator mengambil lebar penuh */
 .tabulator {
-    width: 100% !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    box-sizing: border-box;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  box-sizing: border-box;
 }
 
 /* Targetkan tabulator-tableholder dan tabulator-table di dalamnya */
 /* Ini adalah elemen yang bertanggung jawab untuk scroll dan lebar tabel internal */
 .tabulator .tabulator-tableholder {
-    width: 100% !important;
-    overflow: auto; /* Memastikan scrollbar muncul jika konten terlalu lebar */
+  width: 100% !important;
+  overflow: auto; /* Memastikan scrollbar muncul jika konten terlalu lebar */
 }
 
 /* Ini yang paling penting untuk mengisi lebar penuh di mobile mode (ketika rowFormatter aktif) */
-.tabulator[data-mobile-card-active="true"] .tabulator-tableholder .tabulator-table {
-    width: 100% !important;
-    min-width: 100% !important; /* INI SANGAT PENTING */
-    box-sizing: border-box;
+.tabulator[data-mobile-card-active="true"]
+  .tabulator-tableholder
+  .tabulator-table {
+  width: 100% !important;
+  min-width: 100% !important; /* INI SANGAT PENTING */
+  box-sizing: border-box;
 
-    /* Gaya yang Anda inginkan, dengan penyesuaian untuk mobile */
-    background-color: #666 !important; /* Latar belakang abu-abu */
-    color: #fff !important; /* Warna teks putih */
-    display: block !important; /* UBAH DARI inline-block KE block */
-    overflow: hidden !important; /* Sembunyikan overflow untuk table, konten akan di-wrap */
-    position: relative !important;
-    white-space: normal !important; /* UBAH DARI nowrap KE normal untuk wrapping */
+  /* Gaya yang Anda inginkan, dengan penyesuaian untuk mobile */
+  background-color: #666 !important; /* Latar belakang abu-abu */
+  color: #fff !important; /* Warna teks putih */
+  display: block !important; /* UBAH DARI inline-block KE block */
+  overflow: hidden !important; /* Sembunyikan overflow untuk table, konten akan di-wrap */
+  position: relative !important;
+  white-space: normal !important; /* UBAH DARI nowrap KE normal untuk wrapping */
 }
 
 /* Menargetkan sel dummy yang dibuat oleh rowFormatter */
 .tabulator[data-mobile-card-active="true"] .tabulator-row .tabulator-cell {
-    width: 100% !important; /* Ini harus 100% */
-    min-width: 100% !important; /* Ini juga sangat penting untuk mengatasi min-width */
-    padding: 0 !important; /* Hapus padding default */
-    margin: 0 !important; /* Hapus margin default */
-    display: block !important; /* Pastikan sel ini berperilaku sebagai blok */
-    box-sizing: border-box;
-    background-color: transparent !important; /* Pastikan selnya transparan */
-    color: inherit !important; /* Warisi warna teks dari parent */
+  width: 100% !important; /* Ini harus 100% */
+  min-width: 100% !important; /* Ini juga sangat penting untuk mengatasi min-width */
+  padding: 0 !important; /* Hapus padding default */
+  margin: 0 !important; /* Hapus margin default */
+  display: block !important; /* Pastikan sel ini berperilaku sebagai blok */
+  box-sizing: border-box;
+  background-color: transparent !important; /* Pastikan selnya transparan */
+  color: inherit !important; /* Warisi warna teks dari parent */
 }
 
 /* Styling untuk konten baris kustom (mode kartu) */
 .custom-mobile-card {
-    padding: 10px;
-    border-bottom: 1px solid #444;
-    background-color: #2b2e32; /* Warna latar belakang kartu */
-    color: #eee; /* Warna teks kartu */
-    font-size: 0.9em;
-    width: 100%; /* Ini sudah benar */
-    margin-bottom:20px;
-    box-sizing: border-box;
+  padding: 10px;
+  border-bottom: 1px solid #444;
+  background-color: #2b2e32; /* Warna latar belakang kartu */
+  color: #eee; /* Warna teks kartu */
+  font-size: 0.9em;
+  width: 100%; /* Ini sudah benar */
+  margin-bottom: 20px;
+  box-sizing: border-box;
 }
 
 .custom-mobile-card:last-child {
-    border-bottom: none;
+  border-bottom: none;
 }
 .custom-mobile-card-field {
-    margin-bottom: 15px;
-    display: flex; /* Gunakan flexbox untuk label & value */
-    align-items: flex-start;
+  margin-bottom: 15px;
+  display: flex; /* Gunakan flexbox untuk label & value */
+  align-items: flex-start;
 }
 .custom-mobile-card-label {
-    font-weight: bold;
-    min-width: 100px; /* Lebar minimum untuk label */
-    margin-bottom: 15px;
-    margin-right: 10px;
-    color: #bbb; /* Warna label */
+  font-weight: bold;
+  min-width: 100px; /* Lebar minimum untuk label */
+  margin-bottom: 15px;
+  margin-right: 10px;
+  color: #bbb; /* Warna label */
 }
 .custom-mobile-card-value {
-    flex-grow: 1; /* Memungkinkan nilai mengambil sisa ruang */
-    word-wrap: break-word; /* Pastikan teks panjang membungkus */
-    white-space: normal;
+  flex-grow: 1; /* Memungkinkan nilai mengambil sisa ruang */
+  word-wrap: break-word; /* Pastikan teks panjang membungkus */
+  white-space: normal;
 }
 
 /* Styling badge di mobile card */
 .custom-mobile-card .badge {
-    padding: 0.3em 0.6em;
-    font-size: 0.75em;
-    display: inline-block; /* Agar badge tidak pecah di baris baru jika ada flex */
+  padding: 0.3em 0.6em;
+  font-size: 0.75em;
+  display: inline-block; /* Agar badge tidak pecah di baris baru jika ada flex */
 }
 
 /* Styling tombol di mobile card */
 .custom-mobile-card .btn {
-    padding: 0.4em 0.8em;
-    font-size: 0.85em;
+  padding: 0.4em 0.8em;
+  font-size: 0.85em;
 }
 
 /* Pastikan sel wrap di desktop juga, jika belum */
 /* Ini berlaku untuk sel non-custom-mobile-card (yaitu di desktop / collapse view) */
 .tabulator-cell {
-    white-space: normal !important;
-    word-wrap: break-word;
-    overflow: visible !important;
-    text-overflow: clip !important;
-    height: auto !important; /* Penting untuk wrapping */
+  white-space: normal !important;
+  word-wrap: break-word;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  height: auto !important; /* Penting untuk wrapping */
 }
 .tabulator .tabulator-row {
-    height: auto !important;
+  height: auto !important;
 }
 
 /* Tambahan: Penyesuaian untuk responsiveCollapse di desktop */
 .tabulator-responsive-collapse table {
-    width: 100%;
-    border-collapse: collapse;
+  width: 100%;
+  border-collapse: collapse;
 }
 .tabulator-responsive-collapse td {
-    padding: 5px 0;
-    vertical-align: top;
-    border-bottom: 1px dashed #444; /* Garis putus-putus antar item di collapse */
+  padding: 5px 0;
+  vertical-align: top;
+  border-bottom: 1px dashed #444; /* Garis putus-putus antar item di collapse */
 }
 .tabulator-responsive-collapse td:first-child {
-    font-weight: bold;
-    width: 35%; /* Sesuaikan lebar label */
+  font-weight: bold;
+  width: 35%; /* Sesuaikan lebar label */
 }
 .tabulator-responsive-collapse td:last-child {
-    text-align: right; /* Rata kanan nilai */
+  text-align: right; /* Rata kanan nilai */
 }
-
 
 /* Modal specific styles to match dark theme */
 .custom-modal-content {
@@ -995,6 +1051,14 @@ input[type="date"] {
   justify-content: center;
   align-items: center;
   overflow: hidden;
+}
+
+.sidebar-divider {
+  border-top: 2px solid #fc0; /* Ubah ke warna kuning (#fc0) */
+  margin: 1.5rem 0; /* Jarak atas dan bawah, sesuaikan jika my-3 di HTML sudah cukup */
+  padding: 0 1.5rem;
+  list-style: none; /* Pastikan tidak ada bullet point */
+  padding: 0; /* Hapus padding default li */
 }
 
 .modal-dialog {
@@ -1150,15 +1214,15 @@ body.modal-open {
 }
 
 .tabulator .tabulator-footer .tabulator-resize-handle {
-    display: none !important;
+  display: none !important;
 }
 
 .parking-thumbnail {
-    width: 50px;
-    height: 50px;
-    object-fit: cover;
-    border-radius: 4px;
-    cursor: pointer;
-    vertical-align: middle;
+  width: 50px;
+  height: 50px;
+  object-fit: cover;
+  border-radius: 4px;
+  cursor: pointer;
+  vertical-align: middle;
 }
 </style>

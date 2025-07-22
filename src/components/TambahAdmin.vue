@@ -4,7 +4,11 @@
       <div
         class="sidebar-header d-flex justify-content-between align-items-center"
       >
-        <img src="/src/assets/img/LogoSipatuhLong_Transparent.svg" alt="" class="sidebar-logo">
+        <img
+          src="/src/assets/img/LogoSipatuhLong_Transparent.svg"
+          alt=""
+          class="sidebar-logo"
+        />
         <button class="btn btn-sm btn-light d-md-none" @click="toggleSidebar">
           ✕
         </button>
@@ -37,7 +41,7 @@
         </li>
         <li>
           <router-link to="/pencadangan-pemulihan" class="nav-link">
-            <i class="fa-solid fa-arrows-rotate"></i> Pencadangan dan Pemulihan
+            <i class="fa-solid fa-arrows-rotate"></i> Pencadangan & Pemulihan
           </router-link>
         </li>
         <li>
@@ -45,8 +49,23 @@
             <i class="fa-solid fa-gear"></i> Pengaturan Admin
           </router-link>
         </li>
+
+        <li class="sidebar-divider my-3"></li>
+
         <li>
-          <router-link to="/logout" class="nav-link" style="color: red; font-weight: bolder;">
+          <router-link
+            to="/parking"
+            class="nav-link parkir-kendaraan-link"
+          >
+            <i class="fa-solid fa-car"></i> Parkirkan Kendaraan!
+          </router-link>
+        </li>
+        <li>
+          <router-link
+            to="/logout"
+            class="nav-link"
+            style="color: red; font-weight: bolder"
+          >
             <i class="fa-solid fa-right-from-bracket"></i> Logout
           </router-link>
         </li>
@@ -113,10 +132,7 @@
                         placeholder="Konfirmasi password"
                       />
                     </div>
-                    <button
-                      type="submit"
-                      class="btn btn-custom w-100 mt-3"
-                    >
+                    <button type="submit" class="btn btn-custom w-100 mt-3">
                       Tambah Admin
                     </button>
                   </form>
@@ -134,7 +150,7 @@
 import { ref, computed } from "vue";
 import Swal from "sweetalert2";
 import "@fortawesome/fontawesome-free/css/all.min.css";
-import { useRouter } from 'vue-router'; // Import useRouter
+import { useRouter } from "vue-router"; // Import useRouter
 
 export default {
   name: "TambahAdmin",
@@ -187,32 +203,33 @@ export default {
       }
 
       const { value: confirmationText } = await Swal.fire({
-        title: 'Konfirmasi Pendaftaran Admin',
+        title: "Konfirmasi Pendaftaran Admin",
         text: 'Untuk melanjutkan, ketik "SIPATUH" di bawah ini:',
-        input: 'text',
+        input: "text",
         inputPlaceholder: 'Ketik "SIPATUH" di sini...',
         showCancelButton: true,
-        confirmButtonText: 'Konfirmasi',
-        cancelButtonText: 'Batal',
+        confirmButtonText: "Konfirmasi",
+        cancelButtonText: "Batal",
         inputValidator: (value) => {
           if (!value) {
             return 'Anda perlu mengetik "SIPATUH"!';
           }
-          if (value.trim() !== 'SIPATUH') { // Added .trim() for robustness
+          if (value.trim() !== "SIPATUH") {
+            // Added .trim() for robustness
             return 'Teks tidak cocok. Harap ketik "SIPATUH" dengan benar.';
           }
         },
         customClass: {
-          container: 'swal-custom-container',
-          popup: 'swal-custom-popup',
-          confirmButton: 'swal-custom-confirm-button',
-          cancelButton: 'swal-custom-cancel-button',
-          input: 'swal-custom-input',
+          container: "swal-custom-container",
+          popup: "swal-custom-popup",
+          confirmButton: "swal-custom-confirm-button",
+          cancelButton: "swal-custom-cancel-button",
+          input: "swal-custom-input",
         },
-        icon: 'warning',
+        icon: "warning",
       });
 
-      if (confirmationText === 'SIPATUH') {
+      if (confirmationText === "SIPATUH") {
         Swal.fire({
           title: "Mendaftarkan Admin...",
           text: "Mohon tunggu sebentar",
@@ -236,7 +253,7 @@ export default {
 
           if (response.ok) {
             // Simpan email ke variabel lokal SEBELUM form di-reset
-            const emailForRedirect = adminForm.value.email; 
+            const emailForRedirect = adminForm.value.email;
 
             let timerInterval;
             Swal.fire({
@@ -248,21 +265,27 @@ export default {
               allowOutsideClick: false,
               didOpen: () => {
                 Swal.showLoading();
-                const timerElement = Swal.getHtmlContainer().querySelector('#countdown-timer');
+                const timerElement =
+                  Swal.getHtmlContainer().querySelector("#countdown-timer");
                 timerInterval = setInterval(() => {
                   // Menggunakan Math.ceil untuk membulatkan ke atas agar tidak ada desimal
-                  timerElement.textContent = Math.ceil(Swal.getTimerLeft() / 1000);
+                  timerElement.textContent = Math.ceil(
+                    Swal.getTimerLeft() / 1000
+                  );
                 }, 100);
               },
               willClose: () => {
                 clearInterval(timerInterval);
-              }
+              },
             });
 
             // Memastikan navigasi terjadi setelah 5 detik, terlepas dari bagaimana SweetAlert ditutup
             setTimeout(() => {
               // Gunakan variabel lokal yang sudah disimpan
-              router.push({ name: 'verifikasi-admin', query: { email: emailForRedirect } }); // Diperbaiki: 'verifikasi-admin'
+              router.push({
+                name: "verifikasi-admin",
+                query: { email: emailForRedirect },
+              }); // Diperbaiki: 'verifikasi-admin'
             }, 5000); // Waktu yang sama dengan timer SweetAlert
 
             // Reset form setelah navigasi dipastikan akan terjadi
@@ -273,22 +296,28 @@ export default {
             // Check if backend explicitly provided a redirectUrl for pending requests
             if (data.redirectUrl) {
               // Simpan email ke variabel lokal sebelum form di-reset
-              const emailForRedirect = adminForm.value.email; 
+              const emailForRedirect = adminForm.value.email;
 
               Swal.fire({
                 icon: "info",
                 title: "Permintaan Verifikasi Tertunda",
-                text: data.message || "Email ini sudah memiliki permintaan verifikasi yang tertunda. Silakan cek email Anda.",
+                text:
+                  data.message ||
+                  "Email ini sudah memiliki permintaan verifikasi yang tertunda. Silakan cek email Anda.",
                 confirmButtonText: "OK",
               }).then(() => {
                 // Redirect immediately if there's a pending request and backend suggests redirection
-                router.push({ name: 'verifikasi-admin', query: { email: emailForRedirect } }); // Diperbaiki: 'verifikasi-admin'
+                router.push({
+                  name: "verifikasi-admin",
+                  query: { email: emailForRedirect },
+                }); // Diperbaiki: 'verifikasi-admin'
               });
             } else {
               Swal.fire({
                 icon: "error",
                 title: "Gagal Mendaftar",
-                text: data.error || "Terjadi kesalahan saat mendaftarkan admin.",
+                text:
+                  data.error || "Terjadi kesalahan saat mendaftarkan admin.",
                 confirmButtonText: "OK",
               });
             }
@@ -304,10 +333,10 @@ export default {
         }
       } else if (confirmationText === undefined) {
         Swal.fire({
-          icon: 'info',
-          title: 'Dibatalkan',
-          text: 'Pendaftaran admin dibatalkan.',
-          confirmButtonText: 'OK'
+          icon: "info",
+          title: "Dibatalkan",
+          text: "Pendaftaran admin dibatalkan.",
+          confirmButtonText: "OK",
         });
       }
     };
@@ -357,9 +386,11 @@ h5.card-title {
 
 /* Style for the logo inside the sidebar header */
 .sidebar-logo {
-  max-width: calc(100% - 60px); /* Batasi lebar agar ada ruang untuk tombol close, misal 60px untuk tombol dan padding */
-  height: auto;    /* Maintain aspect ratio */
-  display: block;  /* Treat it as a block element */
+  max-width: calc(
+    100% - 60px
+  ); /* Batasi lebar agar ada ruang untuk tombol close, misal 60px untuk tombol dan padding */
+  height: auto; /* Maintain aspect ratio */
+  display: block; /* Treat it as a block element */
   margin-right: auto; /* Mendorong logo ke kiri dalam flexbox */
   margin-left: -5%; /* Geser logo lebih ke kiri, sesuaikan persentase ini */
   box-sizing: border-box; /* Pastikan padding dihitung dalam total lebar elemen */
@@ -368,7 +399,12 @@ h5.card-title {
 /* Styles for the sidebar close button */
 .sidebar-close-btn {
   margin-right: 0.5rem; /* Memberi sedikit ruang dari tepi kanan sidebar */
-  background-color: rgba(255, 255, 255, 0.2); /* Sedikit transparan agar terlihat */
+  background-color: rgba(
+    255,
+    255,
+    255,
+    0.2
+  ); /* Sedikit transparan agar terlihat */
   border: 1px solid rgba(255, 255, 255, 0.3);
   color: #fdfdfd; /* Warna teks putih */
   font-weight: bold;
@@ -545,7 +581,6 @@ h5.card-title {
   padding-top: 56px; /* Adjust this to the height of your fixed navbar */
 }
 
-
 /* Styles for screens smaller than 768px (mobile/tablet) */
 @media (max-width: 767.98px) {
   .sidebar {
@@ -616,7 +651,7 @@ h5.card-title {
 /* Card styling - already mostly handled, just extra polish */
 .card {
   background-color: rgba(0, 0, 0, 0.25);
-  color: #FDFDFD;
+  color: #fdfdfd;
   border-radius: 12px;
   border: none;
 }
@@ -629,7 +664,7 @@ h5.card-title {
 /* Form input styling */
 .form-control {
   background-color: rgba(255, 255, 255, 0.1);
-  color: #FDFDFD;
+  color: #fdfdfd;
   border: 1px solid #ccc;
   border-radius: 6px;
 }
@@ -667,7 +702,7 @@ h5.card-title {
 /* Pastikan card tetap responsif */
 .card {
   background-color: rgba(0, 0, 0, 0.25);
-  color: #FDFDFD;
+  color: #fdfdfd;
   border: none;
   border-radius: 10px;
 }
@@ -680,7 +715,7 @@ h5.card-title {
 /* Input styling tetap elegan */
 .form-control {
   background-color: rgba(255, 255, 255, 0.1);
-  color: #FDFDFD;
+  color: #fdfdfd;
   border: 1px solid #ccc;
   border-radius: 6px;
 }
@@ -716,5 +751,13 @@ h5.card-title {
   .card-body {
     padding: 1.5rem;
   }
+}
+
+.sidebar-divider {
+  border-top: 2px solid #fc0; /* Ubah ke warna kuning (#fc0) */
+  margin: 1.5rem 0; /* Jarak atas dan bawah, sesuaikan jika my-3 di HTML sudah cukup */
+  padding: 0 1.5rem;
+  list-style: none; /* Pastikan tidak ada bullet point */
+  padding: 0; /* Hapus padding default li */
 }
 </style>

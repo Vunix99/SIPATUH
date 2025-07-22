@@ -4,7 +4,11 @@
       <div
         class="sidebar-header d-flex justify-content-between align-items-center"
       >
-        <img src="/src/assets/img/LogoSipatuhLong_Transparent.svg" alt="" class="sidebar-logo">
+        <img
+          src="/src/assets/img/LogoSipatuhLong_Transparent.svg"
+          alt=""
+          class="sidebar-logo"
+        />
         <button class="btn btn-sm btn-light d-md-none" @click="toggleSidebar">
           ✕
         </button>
@@ -37,7 +41,7 @@
         </li>
         <li>
           <router-link to="/pencadangan-pemulihan" class="nav-link">
-            <i class="fa-solid fa-arrows-rotate"></i> Pencadangan dan Pemulihan
+            <i class="fa-solid fa-arrows-rotate"></i> Pencadangan & Pemulihan
           </router-link>
         </li>
         <li>
@@ -45,8 +49,23 @@
             <i class="fa-solid fa-gear"></i> Pengaturan Admin
           </router-link>
         </li>
+
+        <li class="sidebar-divider my-3"></li>
+
         <li>
-          <router-link to="/logout" class="nav-link" style="color: red; font-weight: bolder;">
+          <router-link
+            to="/parking"
+            class="nav-link parkir-kendaraan-link"
+          >
+            <i class="fa-solid fa-car"></i> Parkirkan Kendaraan!
+          </router-link>
+        </li>
+        <li>
+          <router-link
+            to="/logout"
+            class="nav-link"
+            style="color: red; font-weight: bolder"
+          >
             <i class="fa-solid fa-right-from-bracket"></i> Logout
           </router-link>
         </li>
@@ -72,19 +91,29 @@
             <div class="col-lg-12 col-md-12">
               <div class="card shadow w-100 text-center">
                 <div class="card-header text-left">
-                  <h4 class="mb-0" style="color: #fdfdfd;">Verifikasi Akun Admin</h4>
+                  <h4 class="mb-0" style="color: #fdfdfd">
+                    Verifikasi Akun Admin
+                  </h4>
                 </div>
                 <div class="card-body">
-                  <i class="fa-solid fa-envelope-circle-check fa-5x mb-4" style="color: #fc0;"></i>
-                  <h5 class="card-title mb-3" style="color: #fdfdfd;">Verifikasi Email Anda</h5>
+                  <i
+                    class="fa-solid fa-envelope-circle-check fa-5x mb-4"
+                    style="color: #fc0"
+                  ></i>
+                  <h5 class="card-title mb-3" style="color: #fdfdfd">
+                    Verifikasi Email Anda
+                  </h5>
                   <p class="card-text mb-4">
                     Kami telah mengirimkan kode verifikasi ke alamat email Anda:
-                    <br><strong>{{ emailToVerify }}</strong>.
+                    <br /><strong>{{ emailToVerify }}</strong
+                    >.
                   </p>
 
                   <form @submit.prevent="verifyCode" class="mb-4">
                     <div class="mb-3">
-                      <label for="emailInput" class="form-label">Email Anda</label>
+                      <label for="emailInput" class="form-label"
+                        >Email Anda</label
+                      >
                       <input
                         type="email"
                         class="form-control text-center"
@@ -95,7 +124,9 @@
                       />
                     </div>
                     <div class="mb-3">
-                      <label for="codeInput" class="form-label">Kode Verifikasi (6 digit)</label>
+                      <label for="codeInput" class="form-label"
+                        >Kode Verifikasi (6 digit)</label
+                      >
                       <input
                         type="text"
                         class="form-control text-center"
@@ -112,16 +143,27 @@
                   </form>
 
                   <p class="card-text mb-2" v-if="!canResend">
-                    Anda dapat mengirim ulang kode dalam: <strong>{{ formattedCountdown }}</strong>
+                    Anda dapat mengirim ulang kode dalam:
+                    <strong>{{ formattedCountdown }}</strong>
                   </p>
                   <button
                     @click="resendVerification"
                     :disabled="!canResend"
-                    :class="['btn', 'mt-3', 'ms-2', canResend ? 'btn-outline-warning' : 'btn-outline-secondary']"
+                    :class="[
+                      'btn',
+                      'mt-3',
+                      'ms-2',
+                      canResend
+                        ? 'btn-outline-warning'
+                        : 'btn-outline-secondary',
+                    ]"
                   >
                     Kirim Ulang Kode Verifikasi
                   </button>
-                  <button @click="goToLogin" class="btn btn-custom-outline mt-3 ms-2">
+                  <button
+                    @click="goToLogin"
+                    class="btn btn-custom-outline mt-3 ms-2"
+                  >
                     Kembali ke Halaman Login
                   </button>
                 </div>
@@ -136,7 +178,7 @@
 
 <script>
 import { ref, onMounted, onUnmounted, computed } from "vue";
-import { useRouter, useRoute } from 'vue-router';
+import { useRouter, useRoute } from "vue-router";
 import Swal from "sweetalert2"; // Import SweetAlert2 for notifications
 import "@fortawesome/fontawesome-free/css/all.min.css";
 
@@ -144,9 +186,9 @@ export default {
   name: "VerifikasiAdmin",
   setup() {
     const sidebarOpen = ref(false);
-    const emailToVerify = ref(''); // Email displayed to the user
-    const emailInput = ref(''); // Email input for the form
-    const codeInput = ref(''); // Code input for the form
+    const emailToVerify = ref(""); // Email displayed to the user
+    const emailInput = ref(""); // Email input for the form
+    const codeInput = ref(""); // Code input for the form
     const router = useRouter();
     const route = useRoute();
 
@@ -154,7 +196,8 @@ export default {
     const canResend = ref(false);
     let countdownInterval = null;
 
-    const API_DOMAIN = import.meta.env.VITE_DOMAIN_SERVER || "http://localhost:3000";
+    const API_DOMAIN =
+      import.meta.env.VITE_DOMAIN_SERVER || "http://localhost:3000";
     const VERIFICATION_EXPIRATION_SECONDS = 5 * 60; // 5 minutes in seconds
 
     const toggleSidebar = () => {
@@ -162,13 +205,15 @@ export default {
     };
 
     const goToLogin = () => {
-      router.push('/login'); // Assuming your login route is /login
+      router.push("/login"); // Assuming your login route is /login
     };
 
     const formatTime = (seconds) => {
       const minutes = Math.floor(seconds / 60);
       const remainingSeconds = seconds % 60;
-      return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+      return `${minutes.toString().padStart(2, "0")}:${remainingSeconds
+        .toString()
+        .padStart(2, "0")}`;
     };
 
     const formattedCountdown = computed(() => formatTime(countdown.value));
@@ -193,12 +238,16 @@ export default {
 
     // New method for manual code verification via form
     const verifyCode = async () => {
-      if (!emailInput.value || !codeInput.value || codeInput.value.length !== 6) {
+      if (
+        !emailInput.value ||
+        !codeInput.value ||
+        codeInput.value.length !== 6
+      ) {
         Swal.fire({
-          icon: 'warning',
-          title: 'Input Tidak Valid',
-          text: 'Harap masukkan email dan kode verifikasi 6 digit yang valid.',
-          confirmButtonText: 'OK'
+          icon: "warning",
+          title: "Input Tidak Valid",
+          text: "Harap masukkan email dan kode verifikasi 6 digit yang valid.",
+          confirmButtonText: "OK",
         });
         return;
       }
@@ -212,60 +261,66 @@ export default {
 
       try {
         const response = await fetch(`${API_DOMAIN}/api/admin/verify_code`, {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
-          body: JSON.stringify({ email: emailInput.value, code: codeInput.value }),
+          body: JSON.stringify({
+            email: emailInput.value,
+            code: codeInput.value,
+          }),
         });
 
         const data = await response.json();
 
         if (response.ok) {
           Swal.fire({
-            icon: 'success',
-            title: 'Verifikasi Berhasil!',
-            text: data.message || 'Akun Anda berhasil diverifikasi.',
-            confirmButtonText: 'OK'
+            icon: "success",
+            title: "Verifikasi Berhasil!",
+            text: data.message || "Akun Anda berhasil diverifikasi.",
+            confirmButtonText: "OK",
           }).then(() => {
-            router.push('/login'); // Redirect to login page
+            router.push("/login"); // Redirect to login page
           });
         } else {
           Swal.fire({
-            icon: 'error',
-            title: 'Verifikasi Gagal!',
-            text: data.error || 'Kode verifikasi tidak valid atau telah kedaluwarsa.',
-            confirmButtonText: 'OK'
+            icon: "error",
+            title: "Verifikasi Gagal!",
+            text:
+              data.error ||
+              "Kode verifikasi tidak valid atau telah kedaluwarsa.",
+            confirmButtonText: "OK",
           });
         }
       } catch (error) {
-        console.error('Error during code verification:', error);
+        console.error("Error during code verification:", error);
         Swal.fire({
-          icon: 'error',
-          title: 'Kesalahan Jaringan',
-          text: 'Tidak dapat terhubung ke server. Silakan coba lagi nanti.',
-          confirmButtonText: 'OK'
+          icon: "error",
+          title: "Kesalahan Jaringan",
+          text: "Tidak dapat terhubung ke server. Silakan coba lagi nanti.",
+          confirmButtonText: "OK",
         });
       }
     };
 
     const resendVerification = async () => {
-      if (!canResend.value && countdown.value > 0) { // Added countdown.value > 0 check
+      if (!canResend.value && countdown.value > 0) {
+        // Added countdown.value > 0 check
         Swal.fire({
-          icon: 'info',
-          title: 'Tunggu Sebentar',
+          icon: "info",
+          title: "Tunggu Sebentar",
           text: `Anda dapat mengirim ulang kode dalam ${formattedCountdown.value}.`,
-          confirmButtonText: 'OK'
+          confirmButtonText: "OK",
         });
         return;
       }
 
-      if (!emailToVerify.value || emailToVerify.value === 'alamat email Anda') {
+      if (!emailToVerify.value || emailToVerify.value === "alamat email Anda") {
         Swal.fire({
-          icon: 'warning',
-          title: 'Email Tidak Ditemukan',
-          text: 'Tidak dapat mengirim ulang. Email tidak terdeteksi. Silakan kembali ke halaman pendaftaran.',
-          confirmButtonText: 'OK'
+          icon: "warning",
+          title: "Email Tidak Ditemukan",
+          text: "Tidak dapat mengirim ulang. Email tidak terdeteksi. Silakan kembali ke halaman pendaftaran.",
+          confirmButtonText: "OK",
         });
         return;
       }
@@ -284,51 +339,60 @@ export default {
         // but it won't be used to update the password for an existing pending entry.
         // The backend logic now handles deleting expired pending entries and creating new ones.
         const response = await fetch(`${API_DOMAIN}/api/admin/register`, {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
-          body: JSON.stringify({ email: emailToVerify.value, password: "dummy_password_for_resend" }),
+          body: JSON.stringify({
+            email: emailToVerify.value,
+            password: "dummy_password_for_resend",
+          }),
         });
 
         const data = await response.json();
 
         if (response.ok) {
           Swal.fire({
-            icon: 'success',
-            title: 'Berhasil!',
-            text: data.message || 'Kode verifikasi baru telah dikirim ulang.',
-            confirmButtonText: 'OK'
+            icon: "success",
+            title: "Berhasil!",
+            text: data.message || "Kode verifikasi baru telah dikirim ulang.",
+            confirmButtonText: "OK",
           });
           // After resending, fetch the new status to get the correct countdown
           fetchPendingStatus(emailToVerify.value); // Re-fetch status to update countdown
         } else {
           Swal.fire({
-            icon: 'error',
-            title: 'Gagal!',
-            text: data.error || 'Gagal mengirim ulang kode verifikasi. Pastikan email Anda benar.',
-            confirmButtonText: 'OK'
+            icon: "error",
+            title: "Gagal!",
+            text:
+              data.error ||
+              "Gagal mengirim ulang kode verifikasi. Pastikan email Anda benar.",
+            confirmButtonText: "OK",
           });
         }
       } catch (error) {
-        console.error('Error resending verification email:', error);
+        console.error("Error resending verification email:", error);
         Swal.fire({
-          icon: 'error',
-          title: 'Kesalahan Jaringan',
-          text: 'Tidak dapat terhubung ke server. Silakan coba lagi nanti.',
-          confirmButtonText: 'OK'
+          icon: "error",
+          title: "Kesalahan Jaringan",
+          text: "Tidak dapat terhubung ke server. Silakan coba lagi nanti.",
+          confirmButtonText: "OK",
         });
       }
     };
 
     // New function to fetch pending status from backend
     const fetchPendingStatus = async (email) => {
-      if (!email || email === 'alamat email Anda') {
+      if (!email || email === "alamat email Anda") {
         // No valid email to fetch status for
         return;
       }
       try {
-        const response = await fetch(`${API_DOMAIN}/api/admin/pending-status?email=${encodeURIComponent(email)}`);
+        const response = await fetch(
+          `${API_DOMAIN}/api/admin/pending-status?email=${encodeURIComponent(
+            email
+          )}`
+        );
         const data = await response.json();
 
         if (response.ok) {
@@ -339,7 +403,10 @@ export default {
           }
         } else {
           // No pending entry found or other error, allow resend
-          console.warn("Failed to fetch pending status for countdown:", data.error);
+          console.warn(
+            "Failed to fetch pending status for countdown:",
+            data.error
+          );
           canResend.value = true; // Allow resend if no pending status found
           countdown.value = 0; // Set countdown to 0
         }
@@ -350,34 +417,33 @@ export default {
       }
     };
 
-
     // Handle initial load: check for email and code in URL
     onMounted(async () => {
       // Get the email from route query parameters (from TambahAdmin or direct link)
       if (route.query.email) {
         emailToVerify.value = decodeURIComponent(route.query.email);
         emailInput.value = decodeURIComponent(route.query.email); // Pre-fill email input
-        
+
         // Fetch pending status to get the accurate countdown
         await fetchPendingStatus(emailToVerify.value);
-
       } else {
-        emailToVerify.value = 'alamat email Anda';
+        emailToVerify.value = "alamat email Anda";
         canResend.value = true; // If no email, assume no pending code, allow resend
         countdown.value = 0;
         Swal.fire({
-          icon: 'info',
-          title: 'Email Tidak Ditemukan',
-          text: 'Tidak ada email yang terdeteksi. Silakan kembali ke halaman pendaftaran untuk memulai proses verifikasi.',
-          confirmButtonText: 'OK'
+          icon: "info",
+          title: "Email Tidak Ditemukan",
+          text: "Tidak ada email yang terdeteksi. Silakan kembali ke halaman pendaftaran untuk memulai proses verifikasi.",
+          confirmButtonText: "OK",
         }).then(() => {
-          router.push('/tambah-admin'); // Redirect to registration if no email
+          router.push("/tambah-admin"); // Redirect to registration if no email
         });
         return; // Stop further execution if no email
       }
 
       // If code is also present in URL, attempt auto-verification
-      if (route.query.code) { // Only attempt if email is also present (checked above)
+      if (route.query.code) {
+        // Only attempt if email is also present (checked above)
         const emailFromUrl = decodeURIComponent(route.query.email);
         const codeFromUrl = route.query.code;
 
@@ -389,45 +455,50 @@ export default {
         });
 
         try {
-          const response = await fetch(`${API_DOMAIN}/api/admin/verify?email=${encodeURIComponent(emailFromUrl)}&code=${codeFromUrl}`, {
-            method: 'GET', // This is a GET request for link verification
-            headers: {
-              'Content-Type': 'application/json', // Note: Backend returns HTML, but we set this for consistency
-            },
-          });
+          const response = await fetch(
+            `${API_DOMAIN}/api/admin/verify?email=${encodeURIComponent(
+              emailFromUrl
+            )}&code=${codeFromUrl}`,
+            {
+              method: "GET", // This is a GET request for link verification
+              headers: {
+                "Content-Type": "application/json", // Note: Backend returns HTML, but we set this for consistency
+              },
+            }
+          );
 
           // Note: Backend /api/admin/verify (GET) returns HTML, not JSON on success/failure.
           // So, we check response.ok and then show a generic success/failure message.
           // For a more robust frontend, the backend should return JSON for API calls.
           if (response.ok) {
             Swal.fire({
-              icon: 'success',
-              title: 'Verifikasi Berhasil!',
-              text: 'Akun Anda berhasil diverifikasi. Anda dapat login sekarang.',
-              confirmButtonText: 'OK'
+              icon: "success",
+              title: "Verifikasi Berhasil!",
+              text: "Akun Anda berhasil diverifikasi. Anda dapat login sekarang.",
+              confirmButtonText: "OK",
             }).then(() => {
-              router.push('/login');
+              router.push("/login");
             });
           } else {
             const errorHtml = await response.text(); // Get the HTML error message
             // You might want to parse the HTML to extract a specific message
             // For now, let's just show a generic error or the raw HTML if needed for debugging
             Swal.fire({
-              icon: 'error',
-              title: 'Verifikasi Gagal!',
-              text: 'Tautan verifikasi tidak valid atau telah kedaluwarsa. Silakan coba masukkan kode secara manual atau minta kirim ulang.',
-              confirmButtonText: 'OK'
+              icon: "error",
+              title: "Verifikasi Gagal!",
+              text: "Tautan verifikasi tidak valid atau telah kedaluwarsa. Silakan coba masukkan kode secara manual atau minta kirim ulang.",
+              confirmButtonText: "OK",
             });
             // Re-fetch status if auto-verification failed, in case the code expired during the process
             fetchPendingStatus(emailToVerify.value);
           }
         } catch (error) {
-          console.error('Error during auto-verification:', error);
+          console.error("Error during auto-verification:", error);
           Swal.fire({
-            icon: 'error',
-            title: 'Kesalahan Jaringan',
-            text: 'Tidak dapat terhubung ke server untuk verifikasi otomatis. Silakan coba masukkan kode secara manual.',
-            confirmButtonText: 'OK'
+            icon: "error",
+            title: "Kesalahan Jaringan",
+            text: "Tidak dapat terhubung ke server untuk verifikasi otomatis. Silakan coba masukkan kode secara manual.",
+            confirmButtonText: "OK",
           });
           // Re-fetch status if auto-verification failed due to network error
           fetchPendingStatus(emailToVerify.value);
@@ -458,7 +529,6 @@ export default {
   },
 };
 </script>
-
 
 <style scoped>
 /* Main background for body and content */
@@ -494,9 +564,11 @@ h5.card-title {
 
 /* Style for the logo inside the sidebar header */
 .sidebar-logo {
-  max-width: calc(100% - 60px); /* Batasi lebar agar ada ruang untuk tombol close, misal 60px untuk tombol dan padding */
-  height: auto;    /* Maintain aspect ratio */
-  display: block;  /* Treat it as a block element */
+  max-width: calc(
+    100% - 60px
+  ); /* Batasi lebar agar ada ruang untuk tombol close, misal 60px untuk tombol dan padding */
+  height: auto; /* Maintain aspect ratio */
+  display: block; /* Treat it as a block element */
   margin-right: auto; /* Mendorong logo ke kiri dalam flexbox */
   margin-left: -5%; /* Geser logo lebih ke kiri, sesuaikan persentase ini */
   box-sizing: border-box; /* Pastikan padding dihitung dalam total lebar elemen */
@@ -505,7 +577,12 @@ h5.card-title {
 /* Styles for the sidebar close button */
 .sidebar-close-btn {
   margin-right: 0.5rem; /* Memberi sedikit ruang dari tepi kanan sidebar */
-  background-color: rgba(255, 255, 255, 0.2); /* Sedikit transparan agar terlihat */
+  background-color: rgba(
+    255,
+    255,
+    255,
+    0.2
+  ); /* Sedikit transparan agar terlihat */
   border: 1px solid rgba(255, 255, 255, 0.3);
   color: #fdfdfd; /* Warna teks putih */
   font-weight: bold;
@@ -631,7 +708,6 @@ h5.card-title {
   color: #fc0;
 }
 
-
 /* Table style */
 .table {
   color: #fdfdfd; /* Ensure table text is FDFDFD */
@@ -694,7 +770,6 @@ h5.card-title {
 .content-wrapper {
   padding-top: 56px; /* Adjust this to the height of your fixed navbar */
 }
-
 
 /* Styles for screens smaller than 768px (mobile/tablet) */
 @media (max-width: 767.98px) {
@@ -763,7 +838,7 @@ h5.card-title {
 /* Card styling - already mostly handled, just extra polish */
 .card {
   background-color: rgba(0, 0, 0, 0.25);
-  color: #FDFDFD;
+  color: #fdfdfd;
   border-radius: 12px;
   border: none;
 }
@@ -776,7 +851,7 @@ h5.card-title {
 /* Form input styling */
 .form-control {
   background-color: rgba(255, 255, 255, 0.1);
-  color: #FDFDFD;
+  color: #fdfdfd;
   border: 1px solid #ccc;
   border-radius: 6px;
 }
@@ -814,7 +889,7 @@ h5.card-title {
 /* Pastikan card tetap responsif */
 .card {
   background-color: rgba(0, 0, 0, 0.25);
-  color: #FDFDFD;
+  color: #fdfdfd;
   border: none;
   border-radius: 10px;
 }
@@ -827,7 +902,7 @@ h5.card-title {
 /* Input styling tetap elegan */
 .form-control {
   background-color: rgba(255, 255, 255, 0.1);
-  color: #FDFDFD;
+  color: #fdfdfd;
   border: 1px solid #ccc;
   border-radius: 6px;
 }
@@ -865,8 +940,16 @@ h5.card-title {
   }
 }
 .form-control.text-center {
-    text-align: center;
-    font-size: 1.25rem; /* Larger font for code input */
-    letter-spacing: 0.2em; /* Spacing between digits */
+  text-align: center;
+  font-size: 1.25rem; /* Larger font for code input */
+  letter-spacing: 0.2em; /* Spacing between digits */
+}
+
+.sidebar-divider {
+  border-top: 2px solid #fc0; /* Ubah ke warna kuning (#fc0) */
+  margin: 1.5rem 0; /* Jarak atas dan bawah, sesuaikan jika my-3 di HTML sudah cukup */
+  padding: 0 1.5rem;
+  list-style: none; /* Pastikan tidak ada bullet point */
+  padding: 0; /* Hapus padding default li */
 }
 </style>

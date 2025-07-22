@@ -4,7 +4,11 @@
       <div
         class="sidebar-header d-flex justify-content-between align-items-center"
       >
-        <img src="/src/assets/img/LogoSipatuhLong_Transparent.svg" alt="" class="sidebar-logo">
+        <img
+          src="/src/assets/img/LogoSipatuhLong_Transparent.svg"
+          alt=""
+          class="sidebar-logo"
+        />
         <button class="btn btn-sm btn-light d-md-none" @click="toggleSidebar">
           ✕
         </button>
@@ -37,7 +41,7 @@
         </li>
         <li>
           <router-link to="/pencadangan-pemulihan" class="nav-link">
-            <i class="fa-solid fa-arrows-rotate"></i> Pencadangan dan Pemulihan
+            <i class="fa-solid fa-arrows-rotate"></i> Pencadangan & Pemulihan
           </router-link>
         </li>
         <li>
@@ -45,8 +49,23 @@
             <i class="fa-solid fa-gear"></i> Pengaturan Admin
           </router-link>
         </li>
+
+        <li class="sidebar-divider my-3"></li>
+
         <li>
-          <router-link to="/logout" class="nav-link" style="color: red; font-weight: bolder;">
+          <router-link
+            to="/parking"
+            class="nav-link parkir-kendaraan-link"
+          >
+            <i class="fa-solid fa-car"></i> Parkirkan Kendaraan!
+          </router-link>
+        </li>
+        <li>
+          <router-link
+            to="/logout"
+            class="nav-link"
+            style="color: red; font-weight: bolder"
+          >
             <i class="fa-solid fa-right-from-bracket"></i> Logout
           </router-link>
         </li>
@@ -147,7 +166,7 @@
         <div class="modal-content custom-modal-content">
           <div class="modal-header custom-modal-header">
             <h5 class="modal-title" id="incomeModalLabel">
-              {{ isEditing ? 'Edit Pemasukan' : 'Tambah Pemasukan Baru' }}
+              {{ isEditing ? "Edit Pemasukan" : "Tambah Pemasukan Baru" }}
             </h5>
             <button
               type="button"
@@ -191,7 +210,7 @@
               </p>
               <div class="d-grid gap-2">
                 <button type="submit" class="btn btn-custom">
-                  {{ isEditing ? 'Update Pemasukan' : 'Simpan Pemasukan' }}
+                  {{ isEditing ? "Update Pemasukan" : "Simpan Pemasukan" }}
                 </button>
               </div>
             </form>
@@ -210,7 +229,7 @@ import axios from "axios";
 import Swal from "sweetalert2";
 import { Modal } from "bootstrap";
 // NEW: Import Chart from chart.js
-import { Chart, registerables } from 'chart.js';
+import { Chart, registerables } from "chart.js";
 Chart.register(...registerables); // Register all Chart.js components
 
 export default {
@@ -238,7 +257,10 @@ export default {
 
     // KONSISTEN: Nominal bersih tetap dihitung di frontend untuk tampilan pratinjau
     const calculatedNominalBersih = computed(() => {
-      return newIncome.value.nominal_pemasukan - (newIncome.value.nominal_pemasukan * 0.20);
+      return (
+        newIncome.value.nominal_pemasukan -
+        newIncome.value.nominal_pemasukan * 0.2
+      );
     });
 
     const API_DOMAIN =
@@ -246,25 +268,25 @@ export default {
 
     // --- Fungsi Helper untuk Formatter ---
     const formatCurrency = (value) => {
-        return "Rp " + parseFloat(value).toLocaleString("id-ID");
+      return "Rp " + parseFloat(value).toLocaleString("id-ID");
     };
 
     const formatDateOnly = (value) => {
-        const date = new Date(value);
-        return date.toLocaleDateString("id-ID", {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-        });
+      const date = new Date(value);
+      return date.toLocaleDateString("id-ID", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
     };
 
     const formatStatusBadge = (status) => {
-        if (status === "active") {
-            return '<span class="badge bg-success">Aktif</span>';
-        } else if (status === "completed") {
-            return '<span class="badge bg-secondary">Selesai</span>';
-        }
-        return status;
+      if (status === "active") {
+        return '<span class="badge bg-success">Aktif</span>';
+      } else if (status === "completed") {
+        return '<span class="badge bg-secondary">Selesai</span>';
+      }
+      return status;
     };
     // --- Akhir Fungsi Helper ---
 
@@ -293,23 +315,30 @@ export default {
     // NEW: Function to fetch data for the monthly revenue chart
     const fetchMonthlyRevenueData = async () => {
       try {
-        const response = await axios.get(`${API_DOMAIN}/api/pemasukanMingguan`, { withCredentials: true });
-        
+        const response = await axios.get(
+          `${API_DOMAIN}/api/pemasukanMingguan`,
+          { withCredentials: true }
+        );
+
         const currentYear = new Date().getFullYear();
         const monthlyAggregatedData = {}; // { month_index: total_nominal_bersih }
 
-        response.data.forEach(item => {
-            const date = new Date(item.tanggal_pemasukan);
-            if (date.getFullYear() === currentYear) {
-                const monthIndex = date.getMonth(); // 0-indexed (Jan=0, Feb=1, ...)
-                monthlyAggregatedData[monthIndex] = (monthlyAggregatedData[monthIndex] || 0) + parseFloat(item.nominal_bersih) || 0;
-            }
+        response.data.forEach((item) => {
+          const date = new Date(item.tanggal_pemasukan);
+          if (date.getFullYear() === currentYear) {
+            const monthIndex = date.getMonth(); // 0-indexed (Jan=0, Feb=1, ...)
+            monthlyAggregatedData[monthIndex] =
+              (monthlyAggregatedData[monthIndex] || 0) +
+                parseFloat(item.nominal_bersih) || 0;
+          }
         });
 
-        return monthlyAggregatedData; 
-
+        return monthlyAggregatedData;
       } catch (error) {
-        console.error("Error fetching and aggregating monthly revenue data:", error);
+        console.error(
+          "Error fetching and aggregating monthly revenue data:",
+          error
+        );
         return {}; // Return empty object on error
       }
     };
@@ -322,7 +351,9 @@ export default {
         return;
       }
 
-      const isMobile = window.matchMedia(`(max-width: ${mobileBreakpoint - 1}px)`).matches;
+      const isMobile = window.matchMedia(
+        `(max-width: ${mobileBreakpoint - 1}px)`
+      ).matches;
 
       if (tabulatorInstance) {
         tabulatorInstance.destroy();
@@ -380,13 +411,17 @@ export default {
             const container = document.createElement("div");
             container.innerHTML = editBtn + deleteBtn;
 
-            container.querySelector(".btn-info").addEventListener("click", () => {
-              editIncome(id);
-            });
+            container
+              .querySelector(".btn-info")
+              .addEventListener("click", () => {
+                editIncome(id);
+              });
 
-            container.querySelector(".btn-danger").addEventListener("click", () => {
-              deleteIncome(id);
-            });
+            container
+              .querySelector(".btn-danger")
+              .addEventListener("click", () => {
+                deleteIncome(id);
+              });
             return container;
           },
           headerSort: false,
@@ -417,10 +452,10 @@ export default {
             field: "id",
             formatter: "html",
             headerSort: false,
-            resizable: false
-          }
+            resizable: false,
+          },
         ];
-        tabulatorOptions.rowFormatter = function(row){
+        tabulatorOptions.rowFormatter = function (row) {
           const data = row.getData();
           const element = row.getElement();
 
@@ -437,41 +472,59 @@ export default {
             </div>
             <div class="custom-mobile-card-field"  style="margin-bottom: 8px;">
                 <span class="custom-mobile-card-label" style="font-weight: bold; color: #fc0">Tanggal:</span>
-                <span class="custom-mobile-card-value">${formatDateOnly(data.tanggal_pemasukan)}</span>
+                <span class="custom-mobile-card-value">${formatDateOnly(
+                  data.tanggal_pemasukan
+                )}</span>
             </div>
             <div class="custom-mobile-card-field" style="margin-bottom: 8px;">
                 <span class="custom-mobile-card-label" style="font-weight: bold; color: #fc0">Nominal:</span>
-                <span class="custom-mobile-card-value">${formatCurrency(data.nominal_pemasukan)}</span>
+                <span class="custom-mobile-card-value">${formatCurrency(
+                  data.nominal_pemasukan
+                )}</span>
             </div>
             <div class="custom-mobile-card-field" style="margin-bottom: 8px;">
                 <span class="custom-mobile-card-label" style="font-weight: bold; color: #fc0">Bersih:</span>
-                <span class="custom-mobile-card-value">${formatCurrency(data.nominal_bersih)}</span>
+                <span class="custom-mobile-card-value">${formatCurrency(
+                  data.nominal_bersih
+                )}</span>
             </div>
             <div class="custom-mobile-card-field" style="margin-bottom: 8px;">
                 <span class="custom-mobile-card-label" style="font-weight: bold; color: #fc0">Aksi:</span>
                 <span class="custom-mobile-card-value d-flex gap-1">
-                    <button class="btn btn-sm btn-info edit-btn" data-id="${data.id}"><i class="fas fa-edit"></i></button>
-                    <button class="btn btn-sm btn-danger delete-btn" data-id="${data.id}"><i class="fas fa-trash"></i></button>
+                    <button class="btn btn-sm btn-info edit-btn" data-id="${
+                      data.id
+                    }"><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-sm btn-danger delete-btn" data-id="${
+                      data.id
+                    }"><i class="fas fa-trash"></i></button>
                 </span>
             </div>
           `;
           element.appendChild(rowContent);
 
           // Re-attach listeners for buttons within the custom row
-          rowContent.querySelector('.edit-btn').addEventListener('click', (e) => {
-            e.stopPropagation();
-            editIncome(data.id);
-          });
-          rowContent.querySelector('.delete-btn').addEventListener('click', (e) => {
-            e.stopPropagation();
-            deleteIncome(data.id);
-          });
+          rowContent
+            .querySelector(".edit-btn")
+            .addEventListener("click", (e) => {
+              e.stopPropagation();
+              editIncome(data.id);
+            });
+          rowContent
+            .querySelector(".delete-btn")
+            .addEventListener("click", (e) => {
+              e.stopPropagation();
+              deleteIncome(data.id);
+            });
         };
       } else {
         // Mode desktop: gunakan fitColumns dan responsiveLayout collapse
         tabulatorOptions.layout = "fitColumns"; // Desktop: fitColumns
         tabulatorOptions.responsiveLayout = "collapse";
-        tabulatorOptions.rowHeader = {formatter:"responsiveCollapse", width:30, hozAlign:"center"};
+        tabulatorOptions.rowHeader = {
+          formatter: "responsiveCollapse",
+          width: 30,
+          hozAlign: "center",
+        };
         tabulatorOptions.columns = baseColumns;
         tabulatorOptions.rowFormatter = null; // Hapus formatter jika kembali ke desktop
         pemasukanTable.value.removeAttribute("data-mobile-card-active"); // Hapus atribut CSS
@@ -484,7 +537,18 @@ export default {
       const monthlyAggregatedData = await fetchMonthlyRevenueData();
 
       const labels = [
-        "Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Ags", "Sep", "Okt", "Nov", "Des"
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "Mei",
+        "Jun",
+        "Jul",
+        "Ags",
+        "Sep",
+        "Okt",
+        "Nov",
+        "Des",
       ];
       const dataValues = [];
 
@@ -609,11 +673,16 @@ export default {
     const editIncome = async (id) => {
       isEditing.value = true; // Set to edit mode
       try {
-        const response = await axios.get(`${API_DOMAIN}/api/pemasukanMingguan/${id}`, { withCredentials: true });
+        const response = await axios.get(
+          `${API_DOMAIN}/api/pemasukanMingguan/${id}`,
+          { withCredentials: true }
+        );
         const incomeData = response.data;
         newIncome.value = {
           id: incomeData.id,
-          tanggal_pemasukan: new Date(incomeData.tanggal_pemasukan).toISOString().substring(0, 10),
+          tanggal_pemasukan: new Date(incomeData.tanggal_pemasukan)
+            .toISOString()
+            .substring(0, 10),
           nominal_pemasukan: incomeData.nominal_pemasukan,
         };
         openModal();
@@ -622,12 +691,13 @@ export default {
         Swal.fire({
           icon: "error",
           title: "Gagal Memuat Data",
-          text: error.response?.data?.error || "Terjadi kesalahan saat memuat data untuk diedit.",
+          text:
+            error.response?.data?.error ||
+            "Terjadi kesalahan saat memuat data untuk diedit.",
           confirmButtonColor: "#fc0",
         });
       }
     };
-
 
     const submitIncomeForm = async () => {
       if (isEditing.value) {
@@ -865,7 +935,8 @@ input[type="date"] {
 }
 
 /* If you previously had custom styles for .date-input-container-modal or .calendar-icon-modal, you can remove them */
-.date-input-container-modal, .calendar-icon-modal {
+.date-input-container-modal,
+.calendar-icon-modal {
   display: none !important; /* Hide them if they somehow persist */
 }
 
@@ -937,9 +1008,11 @@ h5.card-title {
 
 /* Style for the logo inside the sidebar header */
 .sidebar-logo {
-  max-width: calc(100% - 60px); /* Batasi lebar agar ada ruang untuk tombol close, misal 60px untuk tombol dan padding */
-  height: auto;    /* Maintain aspect ratio */
-  display: block;  /* Treat it as a block element */
+  max-width: calc(
+    100% - 60px
+  ); /* Batasi lebar agar ada ruang untuk tombol close, misal 60px untuk tombol dan padding */
+  height: auto; /* Maintain aspect ratio */
+  display: block; /* Treat it as a block element */
   margin-right: auto; /* Mendorong logo ke kiri dalam flexbox */
   margin-left: -5%; /* Geser logo lebih ke kiri, sesuaikan persentase ini */
   box-sizing: border-box; /* Pastikan padding dihitung dalam total lebar elemen */
@@ -961,9 +1034,11 @@ h5.card-title {
 
 /* Style for the logo inside the sidebar header */
 .sidebar-logo {
-  max-width: calc(100% - 60px); /* Batasi lebar agar ada ruang untuk tombol close, misal 60px untuk tombol dan padding */
-  height: auto;    /* Maintain aspect ratio */
-  display: block;  /* Treat it as a block element */
+  max-width: calc(
+    100% - 60px
+  ); /* Batasi lebar agar ada ruang untuk tombol close, misal 60px untuk tombol dan padding */
+  height: auto; /* Maintain aspect ratio */
+  display: block; /* Treat it as a block element */
   margin-right: auto; /* Mendorong logo ke kiri dalam flexbox */
   margin-left: -5%; /* Geser logo lebih ke kiri, sesuaikan persentase ini */
   box-sizing: border-box; /* Pastikan padding dihitung dalam total lebar elemen */
@@ -972,7 +1047,12 @@ h5.card-title {
 /* Styles for the sidebar close button */
 .sidebar-close-btn {
   margin-right: 0.5rem; /* Memberi sedikit ruang dari tepi kanan sidebar */
-  background-color: rgba(255, 255, 255, 0.2); /* Sedikit transparan agar terlihat */
+  background-color: rgba(
+    255,
+    255,
+    255,
+    0.2
+  ); /* Sedikit transparan agar terlihat */
   border: 1px solid rgba(255, 255, 255, 0.3);
   color: #fdfdfd; /* Warna teks putih */
   font-weight: bold;
@@ -1017,9 +1097,9 @@ h5.card-title {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); /* Add a subtle shadow */
   /* Make the navbar fixed at the top */
   position: fixed; /* NEW: Membuat navbar melayang */
-  top: 0;          /* NEW: Menempel di bagian atas */
-  width: 100%;     /* NEW: Memenuhi lebar layar */
-  z-index: 1030;   /* NEW: Higher than sidebar's default content, but lower than modals etc. */
+  top: 0; /* NEW: Menempel di bagian atas */
+  width: 100%; /* NEW: Memenuhi lebar layar */
+  z-index: 1030; /* NEW: Higher than sidebar's default content, but lower than modals etc. */
   transition: padding-left 0.3s; /* NEW: Smooth transition for padding when sidebar opens/closes */
 }
 
@@ -1148,7 +1228,6 @@ h5.card-title {
 .content-wrapper {
   padding-top: 56px; /* Adjust this to the height of your fixed navbar */
 }
-
 
 /* Styles for screens smaller than 768px (mobile/tablet) */
 @media (max-width: 767.98px) {
@@ -1464,6 +1543,14 @@ body.modal-open {
   border-color: #fc0 !important;
 }
 
+.sidebar-divider {
+  border-top: 2px solid #fc0; /* Ubah ke warna kuning (#fc0) */
+  margin: 1.5rem 0; /* Jarak atas dan bawah, sesuaikan jika my-3 di HTML sudah cukup */
+  padding: 0 1.5rem;
+  list-style: none; /* Pastikan tidak ada bullet point */
+  padding: 0; /* Hapus padding default li */
+}
+
 .tabulator.tabulator-dark-theme .tabulator-pages button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -1491,7 +1578,6 @@ body.modal-open {
   color: #fdfdfd; /* Or specific icon color */
 }
 
-
 /* --- Custom Tabulator Resizer Overrides --- */
 
 /* Target the column resizer element */
@@ -1512,7 +1598,6 @@ body.modal-open {
 
 /* Also target the general table resize handle, though you've set resizeable:false */
 .tabulator .tabulator-footer .tabulator-resize-handle {
-    display: none !important; /* Hide footer resize handle */
+  display: none !important; /* Hide footer resize handle */
 }
-
 </style>

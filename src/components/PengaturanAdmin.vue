@@ -41,12 +41,23 @@
         </li>
         <li>
           <router-link to="/pencadangan-pemulihan" class="nav-link">
-            <i class="fa-solid fa-arrows-rotate"></i> Pencadangan dan Pemulihan
+            <i class="fa-solid fa-arrows-rotate"></i> Pencadangan & Pemulihan
           </router-link>
         </li>
         <li>
           <router-link to="/pengaturan-admin" class="nav-link">
             <i class="fa-solid fa-gear"></i> Pengaturan Admin
+          </router-link>
+        </li>
+
+        <li class="sidebar-divider my-3"></li>
+
+        <li>
+          <router-link
+            to="/parking"
+            class="nav-link parkir-kendaraan-link"
+          >
+            <i class="fa-solid fa-car"></i> Parkirkan Kendaraan!
           </router-link>
         </li>
         <li>
@@ -195,7 +206,9 @@
                     sekali.
                   </p>
                   <div v-if="autoBackupEnabled" class="mb-3">
-                    <label for="autoBackupEmail" class="form-label">Email Penerima Backup</label>
+                    <label for="autoBackupEmail" class="form-label"
+                      >Email Penerima Backup</label
+                    >
                     <input
                       type="email"
                       class="form-control"
@@ -205,20 +218,27 @@
                       placeholder="Masukkan email penerima backup"
                     />
                     <small class="form-text text-muted">
-                      Backup akan dikirim ke email ini. Jika kosong, akan menggunakan email akun Anda.
+                      Backup akan dikirim ke email ini. Jika kosong, akan
+                      menggunakan email akun Anda.
                     </small>
                   </div>
 
                   <div v-if="autoBackupEnabled" class="mb-3 text-center">
                     <p class="text-warning small mb-2">
-                        <i class="fa-solid fa-shield-halved me-1"></i> Harap centang reCAPTCHA untuk mengaktifkan.
+                      <i class="fa-solid fa-shield-halved me-1"></i> Harap
+                      centang reCAPTCHA untuk mengaktifkan.
                     </p>
-                    <div id="recaptcha-checkbox-container" class="d-inline-block" ref="recaptchaContainerRef"></div>
+                    <div
+                      id="recaptcha-checkbox-container"
+                      class="d-inline-block"
+                      ref="recaptchaContainerRef"
+                    ></div>
                     <small class="form-text text-muted d-block mt-2">
-                      Verifikasi reCAPTCHA diperlukan untuk mengaktifkan backup otomatis.
+                      Verifikasi reCAPTCHA diperlukan untuk mengaktifkan backup
+                      otomatis.
                     </small>
                   </div>
-                  
+
                   <button
                     @click="saveAutoBackupSetting"
                     :disabled="autoBackupEnabled && !recaptchaVerified"
@@ -459,10 +479,13 @@ export default {
           text: "Harap centang kotak 'Saya bukan robot' terlebih dahulu.",
           confirmButtonText: "OK",
         });
-        
+
         // NEW: Scroll to reCAPTCHA if it's not visible
         if (recaptchaContainerRef.value) {
-          recaptchaContainerRef.value.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          recaptchaContainerRef.value.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
         }
         return;
       }
@@ -475,7 +498,8 @@ export default {
       });
 
       try {
-        const targetEmailToSave = autoBackupTargetEmail.value || resetPassForm.value.email;
+        const targetEmailToSave =
+          autoBackupTargetEmail.value || resetPassForm.value.email;
 
         // Send 'auto_backup_enabled' setting
         await axios.put(`${API_DOMAIN}/api/admin-settings`, {
@@ -492,7 +516,7 @@ export default {
             setting_value: targetEmailToSave,
           });
         }
-        
+
         Swal.fire({
           icon: "success",
           title: "Pengaturan Tersimpan!",
@@ -519,7 +543,7 @@ export default {
         }
       }
     };
-    
+
     // Removed triggerSaveAutoBackupSetting as the button directly calls saveAutoBackupSetting now.
 
     const confirmDeleteAccount = async () => {
@@ -637,17 +661,22 @@ export default {
     const renderRecaptchaWidget = () => {
       if (recaptchaLoaded.value && recaptchaWidgetId.value === null) {
         nextTick(() => {
-          const recaptchaContainer = recaptchaContainerRef.value; 
+          const recaptchaContainer = recaptchaContainerRef.value;
           if (recaptchaContainer && RECAPTCHA_SITE_KEY) {
             recaptchaWidgetId.value = grecaptcha.render(recaptchaContainer, {
-              'sitekey': RECAPTCHA_SITE_KEY,
-              'callback': 'onRecaptchaSuccessCallback', // Global callback function name
-              'expired-callback': 'onRecaptchaExpiredCallback', // Global callback for expiration
-              'error-callback': 'onRecaptchaErrorCallback', // Global callback for error
+              sitekey: RECAPTCHA_SITE_KEY,
+              callback: "onRecaptchaSuccessCallback", // Global callback function name
+              "expired-callback": "onRecaptchaExpiredCallback", // Global callback for expiration
+              "error-callback": "onRecaptchaErrorCallback", // Global callback for error
             });
-            console.log("reCAPTCHA v2 Checkbox widget rendered:", recaptchaWidgetId.value);
+            console.log(
+              "reCAPTCHA v2 Checkbox widget rendered:",
+              recaptchaWidgetId.value
+            );
           } else {
-            console.warn("reCAPTCHA container div not found or SITE_KEY missing. Cannot render widget.");
+            console.warn(
+              "reCAPTCHA container div not found or SITE_KEY missing. Cannot render widget."
+            );
           }
         });
       }
@@ -659,22 +688,27 @@ export default {
         autoBackupTargetEmail.value = resetPassForm.value.email;
       }
 
-      if (newValue) { // When enabling auto backup
+      if (newValue) {
+        // When enabling auto backup
         renderRecaptchaWidget();
         recaptchaVerified.value = false; // Reset verification status when enabling
         recaptchaToken.value = null;
         // NEW: Scroll to reCAPTCHA when it's enabled and rendered
         nextTick(() => {
-            if (recaptchaContainerRef.value) {
-                recaptchaContainerRef.value.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
+          if (recaptchaContainerRef.value) {
+            recaptchaContainerRef.value.scrollIntoView({
+              behavior: "smooth",
+              block: "center",
+            });
+          }
         });
-      } else { // When disabling auto backup
+      } else {
+        // When disabling auto backup
         // Reset reCAPTCHA and its state
         if (recaptchaLoaded.value && recaptchaWidgetId.value !== null) {
           grecaptcha.reset(recaptchaWidgetId.value);
         }
-        recaptchaVerified.value = false; 
+        recaptchaVerified.value = false;
         recaptchaToken.value = null;
         // If it was just disabled, trigger save directly as no recaptcha is needed
         if (oldValue === true && newValue === false) {
@@ -682,7 +716,6 @@ export default {
         }
       }
     });
-
 
     onMounted(async () => {
       // 1. Fetch logged-in admin's email to pre-fill reset password form
@@ -702,7 +735,9 @@ export default {
 
       // 2. Fetch admin settings (including auto backup settings)
       try {
-        const settingsResponse = await axios.get(`${API_DOMAIN}/api/admin-settings`);
+        const settingsResponse = await axios.get(
+          `${API_DOMAIN}/api/admin-settings`
+        );
         if (settingsResponse.status === 200) {
           const settings = settingsResponse.data;
           autoBackupEnabled.value = settings.auto_backup_enabled;
@@ -736,9 +771,14 @@ export default {
 
       // Fallback if onRecaptchaLoad somehow already fired before onMounted
       // (e.g., if script is very fast or component mounts late)
-      if (typeof grecaptcha !== 'undefined' && typeof grecaptcha.render === 'function') {
+      if (
+        typeof grecaptcha !== "undefined" &&
+        typeof grecaptcha.render === "function"
+      ) {
         recaptchaLoaded.value = true;
-        console.log("reCAPTCHA already loaded before onMounted. Rendering if needed.");
+        console.log(
+          "reCAPTCHA already loaded before onMounted. Rendering if needed."
+        );
         if (autoBackupEnabled.value) {
           renderRecaptchaWidget();
         }
@@ -757,7 +797,7 @@ export default {
       requestPasswordReset,
       saveAutoBackupSetting, // Now directly linked to button
       confirmDeleteAccount,
-      recaptchaContainerRef // Make the ref available in the template
+      recaptchaContainerRef, // Make the ref available in the template
     };
   },
 };
@@ -1090,6 +1130,14 @@ h5.card-title {
   .card {
     margin-left: 16px;
   }
+}
+
+.sidebar-divider {
+  border-top: 2px solid #fc0; /* Ubah ke warna kuning (#fc0) */
+  margin: 1.5rem 0; /* Jarak atas dan bawah, sesuaikan jika my-3 di HTML sudah cukup */
+  padding: 0 1.5rem;
+  list-style: none; /* Pastikan tidak ada bullet point */
+  padding: 0; /* Hapus padding default li */
 }
 
 .content {
