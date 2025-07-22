@@ -1049,7 +1049,7 @@ async function startServer(rebuild = false) {
                 <table align="center" border="0" cellpadding="0" cellspacing="0" width="600" class="main-table">
                     <tr>
                         <td class="content-area">
-                            <img src="${VITE_DOMAIN_SERVER}/backend/uploads/LogoSipatuhLong_WH_BG.svg" alt="Logo SIPATUH HMTB" width="230" height="auto" class="logo"/>
+                            <img src="${VITE_DOMAIN_SERVER}/backend/uploads/LogoSipatuhLong_Transparent.png" alt="Logo SIPATUH HMTB" width="230" height="auto" class="logo"/>
                             <h1 class="heading">Verifikasi Akun Anda</h1>
                             <p class="paragraph">
                                 Halo ${email.split('@')[0]},
