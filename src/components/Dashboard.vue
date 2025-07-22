@@ -4,11 +4,7 @@
       <div
         class="sidebar-header d-flex justify-content-between align-items-center"
       >
-        <img
-          src="/src/assets/img/LogoSipatuhLong_Transparent.svg"
-          alt=""
-          class="sidebar-logo"
-        />
+        <img src="/src/assets/img/LogoSipatuhLong_Transparent.svg" alt="" class="sidebar-logo">
         <button class="btn btn-sm btn-light d-md-none" @click="toggleSidebar">
           ✕
         </button>
@@ -45,11 +41,12 @@
           </router-link>
         </li>
         <li>
-          <router-link
-            to="/logout"
-            class="nav-link"
-            style="color: red; font-weight: bolder"
-          >
+          <router-link to="/pengaturan-admin" class="nav-link">
+            <i class="fa-solid fa-gear"></i> Pengaturan Admin
+          </router-link>
+        </li>
+        <li>
+          <router-link to="/logout" class="nav-link" style="color: red; font-weight: bolder;">
             <i class="fa-solid fa-right-from-bracket"></i> Logout
           </router-link>
         </li>

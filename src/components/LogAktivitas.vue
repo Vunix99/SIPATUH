@@ -41,11 +41,12 @@
           </router-link>
         </li>
         <li>
-          <router-link
-            to="/logout"
-            class="nav-link"
-            style="color: red; font-weight: bolder"
-          >
+          <router-link to="/pengaturan-admin" class="nav-link">
+            <i class="fa-solid fa-gear"></i> Pengaturan Admin
+          </router-link>
+        </li>
+        <li>
+          <router-link to="/logout" class="nav-link" style="color: red; font-weight: bolder;">
             <i class="fa-solid fa-right-from-bracket"></i> Logout
           </router-link>
         </li>
@@ -66,9 +67,8 @@
       </nav>
 
       <div class="content-wrapper">
-        <div class="container-fluid pt-4 px-3 form-wrapper-top">
           <div class="container-fluid mt-3">
-            <div class="row g-4">
+            <div class="row g-3">
               <div class="col-md-6 col-lg-4">
                 <div class="card shadow h-100">
                   <div class="card-header">
@@ -238,7 +238,6 @@
               </div>
             </div>
           </div>
-        </div>
       </div>
     </div>
   </div>

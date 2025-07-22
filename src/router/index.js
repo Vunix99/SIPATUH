@@ -11,6 +11,8 @@ import DataParkir from '../components/DataParkir.vue'; // Komponen Data Parkir A
 import LogAktivitas from '../components/LogAktivitas.vue'; // Komponen Data Parkir Anda yang sudah ada
 import PencadanganPemulihan from '../components/PencadanganPemulihan.vue'; // Komponen Pencadangan Pemulihan Anda yang sudah ada
 import VerifikasiAdmin from '../components/VerifikasiAdmin.vue';
+import PengaturanAdmin from '../components/PengaturanAdmin.vue';
+import ResetPassword from '../components/ResetPassword.vue'; // Komponen Reset Password Anda yang sudah ada
 
 // 2. Definisikan routes Anda
 const routes = [
@@ -68,10 +70,22 @@ const routes = [
     meta: { requiresAuth: true } // Rute ini MEMERLUKAN otentikasi
   },
   {
+    path: '/reset-password',
+    name: 'reset-password',
+    component: ResetPassword, // Menggunakan komponen ResetPassword Anda
+    meta: { requiresAuth: false } // Rute ini TIDAK memerlukan otentikasi
+  },
+  {
     path: '/verifikasi-admin',
     name: 'verifikasi-admin',
     component: VerifikasiAdmin,
     props: true, // Menggunakan komponen VerifikasiAdmin Anda
+    meta: { requiresAuth: true } // Rute ini MEMERLUKAN otentikasi
+  },
+    {
+    path: '/pengaturan-admin',
+    name: 'pengaturan-admin',
+    component: PengaturanAdmin, // Menggunakan komponen PencadanganPemulihan Anda
     meta: { requiresAuth: true } // Rute ini MEMERLUKAN otentikasi
   },
   {

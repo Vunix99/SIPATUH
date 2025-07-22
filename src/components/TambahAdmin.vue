@@ -41,6 +41,11 @@
           </router-link>
         </li>
         <li>
+          <router-link to="/pengaturan-admin" class="nav-link">
+            <i class="fa-solid fa-gear"></i> Pengaturan Admin
+          </router-link>
+        </li>
+        <li>
           <router-link to="/logout" class="nav-link" style="color: red; font-weight: bolder;">
             <i class="fa-solid fa-right-from-bracket"></i> Logout
           </router-link>
@@ -66,8 +71,8 @@
           <div class="row justify-content-center align-items-center h-100">
             <div class="col-lg-12 col-md-12">
               <div class="card shadow w-100">
-                <div class="card-header text-left">
-                  <h4 class="mb-0" style="color: #fdfdfd;">Registrasi Admin Baru</h4>
+                <div class="card-header">
+                  <strong>👨🏿‍💻 Registrasi Admin Baru</strong>
                 </div>
                 <div class="card-body">
                   <form @submit.prevent="registerAdmin">
@@ -584,6 +589,9 @@ h5.card-title {
   }
   .sidebar-close-btn {
     display: none !important; /* Sembunyikan tombol close di desktop */
+  }
+  .card {
+    margin-left: 16px;
   }
 }
 
