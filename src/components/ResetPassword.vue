@@ -11,7 +11,7 @@
       <div class="content-wrapper">
         <div class="container-fluid pt-4 px-3 form-wrapper-top">
           <div class="row justify-content-center align-items-center h-100">
-            <div class="col-lg-6 col-md-8 col-sm-10">
+            <div class="col-lg-12 col-md-12 col-sm-12">
               <div class="card shadow w-100 text-center">
                 <div class="card-header text-left">
                   <h4 class="mb-0" style="color: #fdfdfd;">Atur Password Baru Anda</h4>

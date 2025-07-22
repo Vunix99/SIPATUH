@@ -41,6 +41,7 @@ const {
 } = process.env;
 
 const mail_image_logo = VITE_DOMAIN_SERVER + GMAIL_IMAGE_BRANDING;
+
 // Log environment variables for debugging purposes (especially during deployment)
 console.log("=== ENVIRONMENT VARIABLES ===");
 console.log("DB_HOST:", process.env.DB_HOST);
