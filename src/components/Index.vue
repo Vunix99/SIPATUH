@@ -4,7 +4,12 @@
       <div class="row">
         <div class="col-5">
           <a href="#">
-            <img src="/src/assets/img/logo.svg" alt="" width="50" height="55" />
+            <img
+              src="/src/assets/img/LogoSipatuhSmall_WH_BG.svg"
+              alt=""
+              width="75"
+              height="75"
+            />
           </a>
         </div>
       </div>
@@ -18,7 +23,12 @@
           <div class="col-xl-5 col-lg-6 col-md-8 col-sm-10">
             <div id="wizard_container">
               <div class="main_title_1 text-center">
-                <h3>Login SIPATUH</h3>
+                <img
+                  src="/src/assets/img/LogoSipatuhLong_Transparent.svg"
+                  alt="SIPATUH Logo"
+                  class="img-fluid sipatuh-long-logo"
+                  style="max-width: 290px; width: 100%; height: auto"
+                />
                 <p>Masuk untuk Mengelola Parkir</p>
               </div>
               <form @submit.prevent="handleLogin" autocomplete="off">
@@ -80,23 +90,20 @@
             margin-bottom: 6px;
           "
         >
-            ©2025 Dari OMK untuk Bersama - Dibangun dengan Vue dan Express JS
+          ©2025 Dari OMK untuk Bersama - Dibangun dengan Vue dan Express JS
         </div>
       </div>
     </div>
   </footer>
 </template>
 
-
-
 <script>
-
 // --- Impor File JS Kustom Anda ---
 // Pastikan urutan impor JS benar jika ada dependensi
-import '../assets/js/jquery-3.7.1.min.js'; // JQuery biasanya diimpor sebelum script lain yang mungkin menggunakannya
-import '../assets/js/bootstrap.bundle.min.js'; // Bootstrap JS bundle
-import '../assets/js/common_scripts.min.js';
-import '../assets/js/functions.js';
+import "../assets/js/jquery-3.7.1.min.js"; // JQuery biasanya diimpor sebelum script lain yang mungkin menggunakannya
+import "../assets/js/bootstrap.bundle.min.js"; // Bootstrap JS bundle
+import "../assets/js/common_scripts.min.js";
+import "../assets/js/functions.js";
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import Swal from "sweetalert2";
@@ -143,7 +150,7 @@ export default {
             email: loginForm.value.email,
             password: loginForm.value.password,
           }),
-          credentials: 'include'
+          credentials: "include",
         });
 
         // Selalu coba parse response.json() untuk mendapatkan detail error dari server
@@ -161,7 +168,9 @@ export default {
           router.push("/parking");
         } else {
           // Jika respons tidak OK (misal: 400, 500), lempar error dengan pesan dari server
-          throw new Error(data.error || "Login gagal. Terjadi kesalahan yang tidak diketahui.");
+          throw new Error(
+            data.error || "Login gagal. Terjadi kesalahan yang tidak diketahui."
+          );
         }
       } catch (error) {
         console.error("Login error:", error);
@@ -198,7 +207,12 @@ export default {
   font-size: 1.1rem;
 }
 #wizard_container {
-  background-color: rgba(51, 51, 51, 0.7); /* Latar belakang form dengan transparansi */
+  background-color: rgba(
+    51,
+    51,
+    51,
+    0.7
+  ); /* Latar belakang form dengan transparansi */
   border-radius: 8px;
   padding: 30px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
@@ -207,6 +221,17 @@ export default {
   color: #eee; /* Warna label */
   margin-bottom: 5px;
 }
+.sipatuh-long-logo {
+  max-width: 290px; /* Lebar maksimum yang diizinkan untuk logo */
+  width: 100%;       /* Pastikan logo mengambil 100% lebar kontainernya jika lebih kecil dari max-width */
+  height: auto;      /* Pertahankan rasio aspek */
+  display: block;    /* Agar margin auto bekerja dengan baik */
+  margin-left: auto; /* Pusatkan logo */
+  margin-right: auto; /* Pusatkan logo */
+  padding: 0 15px;    /* Tambahkan padding horizontal agar tidak terlalu mepet tepi pada layar kecil */
+  box-sizing: border-box; /* Pastikan padding dihitung dalam total lebar */
+}
+
 .form-control {
   background-color: #444; /* Warna input field */
   border: 1px solid #555;
@@ -233,7 +258,11 @@ export default {
   width: 100%; /* Agar tombol full width */
 }
 #bottom-wizard .submit:hover {
-  background-color: rgb(220, 170, 0); /* Warna tombol login saat hover (sedikit lebih gelap) */
+  background-color: rgb(
+    220,
+    170,
+    0
+  ); /* Warna tombol login saat hover (sedikit lebih gelap) */
 }
 .wrapper_centering {
   display: flex;
