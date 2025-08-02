@@ -53,10 +53,7 @@
         <li class="sidebar-divider my-3"></li>
 
         <li>
-          <router-link
-            to="/parking"
-            class="nav-link parkir-kendaraan-link"
-          >
+          <router-link to="/parking" class="nav-link parkir-kendaraan-link">
             <i class="fa-solid fa-car"></i> Parkirkan Kendaraan!
           </router-link>
         </li>
@@ -281,10 +278,24 @@ export default {
     const API_DOMAIN =
       import.meta.env.VITE_DOMAIN_SERVER || "http://localhost:3000";
 
+    // File: src/components/LogAktivitas.vue
+
     const formatTimeAgo = (dateString) => {
-      const cleanDateString = dateString.replace("Z", "");
-      const past = new Date(cleanDateString);
+      // --- PERBAIKAN: Gunakan string tanggal dari backend secara langsung ---
+      // Backend Anda sudah mengonversi waktu ke format UTC (ISO 8601) yang benar.
+      // JavaScript Date Object secara otomatis akan menginterpretasikan format ini.
+      if (!dateString) {
+        return "Tidak ada informasi waktu";
+      }
+
+      const past = new Date(dateString); // Cukup gunakan string tanggal yang sudah benar
       const now = new Date();
+
+      // --- Perbaikan: Cek apakah objek Date valid, untuk berjaga-jaga ---
+      if (isNaN(past.getTime())) {
+        console.error("Tanggal tidak valid:", dateString);
+        return "Tanggal tidak valid";
+      }
 
       const diffMilliseconds = now.getTime() - past.getTime();
       const diffSeconds = Math.floor(diffMilliseconds / 1000);
@@ -396,6 +407,7 @@ export default {
 
       // Menerima semua log pesan dari backend
       socket.on("logMessagesUpdate", (data) => {
+        console.log("Data mentah dari backend:", data); // Tambahkan ini
         allLogMessages.value = data;
       });
     });
