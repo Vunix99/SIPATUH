@@ -207,7 +207,7 @@
                             <button
                               type="button"
                               class="submit-secondary"
-                              @click="toggleCamera"
+                              @click="initCamera"
                               v-if="!showCamera"
                               style="height: 48px; width: 100%"
                             >
@@ -401,6 +401,11 @@ export default {
     const initCamera = async () => {
       console.log("Initializing camera...");
       const video = document.getElementById("video");
+      
+      // Stop any existing stream first
+      if (videoStream.value) {
+        stopCamera();
+      }
 
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         try {
@@ -414,15 +419,17 @@ export default {
           showCamera.value = true;
         } catch (err) {
           console.error("Failed to access camera:", err);
+          showCamera.value = false; // Ensure button is shown if camera access fails
           Swal.fire({
             icon: "error",
             title: "Akses Kamera Gagal",
-            text: "Izin kamera ditolak atau tidak tersedia.",
+            text: "Izin kamera ditolak atau tidak tersedia. Anda bisa mencoba lagi.",
             confirmButtonText: "Tutup",
           });
         }
       } else {
         console.error("getUserMedia API not supported in this browser");
+        showCamera.value = false;
         Swal.fire({
           icon: "error",
           title: "Browser Tidak Didukung",
@@ -431,21 +438,18 @@ export default {
         });
       }
     };
-
-    const toggleCamera = () => {
-      if (showCamera.value) {
-        // Stop camera
-        if (videoStream.value) {
-          videoStream.value.getTracks().forEach((track) => {
-            track.stop();
-          });
-          videoStream.value = null;
-        }
-        showCamera.value = false;
-      } else {
-        // Start camera
-        initCamera();
+    
+    // Fungsi untuk menghentikan kamera
+    const stopCamera = () => {
+      if (videoStream.value) {
+        videoStream.value.getTracks().forEach((track) => {
+          track.stop();
+        });
+        videoStream.value = null;
       }
+      showCamera.value = false;
+      capturedPhoto.value = ""; // Hapus foto yang sudah diambil
+      selectedImage.value = null;
     };
 
     const resizeImage = (canvasElement, maxWidth = 900, maxHeight = 1200) => {
@@ -814,34 +818,25 @@ export default {
       console.log("API Domain:", API_DOMAIN);
       document.body.classList.add("style_2");
 
-      const tabElms = document.querySelectorAll(
-        "#nav-masuk-tab, #nav-keluar-tab, #nav-dashboard-tab" // Include dashboard tab
-      );
-      tabElms.forEach((tab) => {
-        tab.addEventListener("click", function () {
-          // Removed event parameter as it's not used directly
-          if (videoStream.value) {
-            videoStream.value.getTracks().forEach((track) => {
-              track.stop();
-            });
-            videoStream.value = null;
-            showCamera.value = false;
-          }
-        });
+      // Coba aktifkan kamera secara otomatis saat komponen pertama kali di-mount
+      // ini akan berjalan sekali, dan jika izin sudah ada, kamera akan langsung aktif
+      initCamera();
+
+      // Atur event listener untuk mematikan kamera saat tab berubah
+      const tabElms = document.querySelectorAll("#nav-keluar-tab, #nav-dashboard-tab");
+      tabElms.forEach(tab => {
+        tab.addEventListener("shown.bs.tab", stopCamera);
       });
 
       window.addEventListener("load", () => {
-        console.log("Window loaded");
         const loader = document.querySelector('[data-loader="circle-side"]');
         if (loader) {
           loader.style.display = "none";
         }
-
         const loaderForm = document.getElementById("loader_form");
         if (loaderForm) {
           loaderForm.style.display = "none";
         }
-
         document.body.style.overflow = "visible";
       });
     });
@@ -869,7 +864,7 @@ export default {
       isFormKeluarValid,
       handleImageUpload,
       triggerFileInput,
-      toggleCamera,
+      initCamera, // initCamera dikembalikan ke template untuk tombol manual
       capturePhoto,
       handleSubmitMasuk,
       handleSubmitKeluar,
