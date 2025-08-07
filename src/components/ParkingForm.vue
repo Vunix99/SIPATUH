@@ -4,7 +4,12 @@
       <div class="row">
         <div class="col-5">
           <a href="#">
-            <img src="/src/assets/img/LogoSipatuhSmall_WH_BG.svg" alt="" width="75" height="75" />
+            <img
+              src="/src/assets/img/LogoSipatuhSmall_WH_BG.svg"
+              alt=""
+              width="75"
+              height="75"
+            />
           </a>
         </div>
       </div>
@@ -26,11 +31,12 @@
                 SIPATUH (Sistem Parkir Tertib untuk Umat HMTB) hadir sebagai
                 solusi digital untuk mengoptimalkan manajemen parkir di
                 lingkungan Gereja HMTB. Aplikasi ini memberdayakan petugas
-                parkir OMK(Orang Muda Katolik Cicurug) dengan kemampuan untuk mencatat setiap kendaraan yang
-                masuk dan keluar secara akurat, memantau pendapatan parkir
-                secara transparan, serta menjaga efisiensi pengelolaan tiket.
-                Dengan SIPATUH, terciptalah sistem parkir yang lebih aman,
-                teratur, dan memberikan ketenangan bagi jemaat dan pengelola.
+                parkir OMK(Orang Muda Katolik Cicurug) dengan kemampuan untuk
+                mencatat setiap kendaraan yang masuk dan keluar secara akurat,
+                memantau pendapatan parkir secara transparan, serta menjaga
+                efisiensi pengelolaan tiket. Dengan SIPATUH, terciptalah sistem
+                parkir yang lebih aman, teratur, dan memberikan ketenangan bagi
+                jemaat dan pengelola.
               </p>
             </div>
           </div>
@@ -88,7 +94,13 @@
                     autocomplete="off"
                     style="margin-bottom: 24px; height: 100%; width: 100%"
                   >
-                    <input id="website" name="website" type="text" value="" style="display: none;" /> 
+                    <input
+                      id="website"
+                      name="website"
+                      type="text"
+                      value=""
+                      style="display: none"
+                    />
 
                     <div id="middle-wizard">
                       <div class="submit step">
@@ -170,7 +182,7 @@
                           <video
                             id="video"
                             width="100%"
-                            height="240"
+                            height="auto"
                             autoplay
                             muted
                             playsinline
@@ -215,7 +227,7 @@
                             :src="capturedPhoto"
                             style="
                               width: 100%;
-                              max-height: 200px;
+                              max-height: auto;
                               object-fit: cover;
                             "
                           />
@@ -240,7 +252,13 @@
                     autocomplete="off"
                     style="margin-bottom: 24px; height: 100%; width: 100%"
                   >
-                    <input id="website" name="website" type="text" value="" style="display: none;" /> 
+                    <input
+                      id="website"
+                      name="website"
+                      type="text"
+                      value=""
+                      style="display: none"
+                    />
                     <div id="middle-wizard">
                       <div class="exit">
                         <h3 class="main_question">
@@ -431,28 +449,36 @@ export default {
     };
 
     const resizeImage = (canvasElement, maxWidth = 900, maxHeight = 1200) => {
-      const { width, height } = canvasElement;
+      const { width: originalWidth, height: originalHeight } = canvasElement;
 
-      let newWidth = width;
-      let newHeight = height;
+      let newWidth = originalWidth;
+      let newHeight = originalHeight;
 
-      if (width > height) {
-        if (width > maxWidth) {
-          newHeight = (height * maxWidth) / width;
-          newWidth = maxWidth;
-        }
-      } else {
-        if (height > maxHeight) {
-          newWidth = (width * maxHeight) / height;
-          newHeight = maxHeight;
-        }
+      if (originalWidth > maxWidth) {
+        newWidth = maxWidth;
+        newHeight = (originalHeight * maxWidth) / originalWidth;
+      }
+
+      if (newHeight > maxHeight) {
+        newHeight = maxHeight;
+        newWidth = (originalWidth * maxHeight) / originalHeight;
       }
 
       const resizedCanvas = document.createElement("canvas");
       const ctx = resizedCanvas.getContext("2d");
       resizedCanvas.width = newWidth;
       resizedCanvas.height = newHeight;
-      ctx.drawImage(canvasElement, 0, 0, newWidth, newHeight);
+      ctx.drawImage(
+        canvasElement,
+        0,
+        0,
+        originalWidth,
+        originalHeight,
+        0,
+        0,
+        newWidth,
+        newHeight
+      );
 
       return resizedCanvas;
     };
@@ -463,9 +489,11 @@ export default {
       const canvasElement = canvas.value;
 
       if (video && canvasElement) {
-        const context = canvasElement.getContext("2d");
+        // Set canvas dimensions to match video dimensions
         canvasElement.width = video.videoWidth;
         canvasElement.height = video.videoHeight;
+
+        const context = canvasElement.getContext("2d");
         context.drawImage(
           video,
           0,
@@ -474,13 +502,30 @@ export default {
           canvasElement.height
         );
 
+        // Resize the captured image (optional but recommended for size management)
         const resizedCanvas = resizeImage(canvasElement, 900, 1200);
         const imageData = resizedCanvas.toDataURL("image/jpeg", 0.9); // Quality set to 0.9
         capturedPhoto.value = imageData;
         selectedImage.value = imageData;
 
         console.log("Photo captured and compressed successfully");
-        console.log("Image size:", Math.round(imageData.length / 1024), "KB");
+        console.log(
+          "Original capture size:",
+          canvasElement.width,
+          "x",
+          canvasElement.height
+        );
+        console.log(
+          "Resized image size:",
+          resizedCanvas.width,
+          "x",
+          resizedCanvas.height
+        );
+        console.log(
+          "Image data length:",
+          Math.round(imageData.length / 1024),
+          "KB"
+        );
 
         Swal.fire({
           icon: "success",
@@ -494,17 +539,18 @@ export default {
     const handleImageUpload = (event) => {
       const file = event.target.files[0];
       if (file) {
-        if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        if (file.size > 5 * 1024 * 1024) {
+          // 5MB limit
           Swal.fire({
             icon: "error",
             title: "File Terlalu Besar",
             text: "Ukuran file maksimal 5MB.",
           });
           // Reset file input to allow re-selection
-          event.target.value = ''; 
-          selectedFileName.value = '';
+          event.target.value = "";
+          selectedFileName.value = "";
           selectedImage.value = null;
-          capturedPhoto.value = '';
+          capturedPhoto.value = "";
           return;
         }
 
@@ -537,7 +583,10 @@ export default {
             canvasElement.height = height;
 
             ctx.drawImage(img, 0, 0, width, height);
-            const compressedDataUrl = canvasElement.toDataURL("image/jpeg", 0.9); // Quality 0.9
+            const compressedDataUrl = canvasElement.toDataURL(
+              "image/jpeg",
+              0.9
+            ); // Quality 0.9
 
             selectedImage.value = compressedDataUrl;
             capturedPhoto.value = compressedDataUrl;
@@ -592,10 +641,12 @@ export default {
           credentials: "include",
         };
 
-        if (selectedImage.value) { // Check if any image (captured or uploaded) is selected
+        if (selectedImage.value) {
+          // Check if any image (captured or uploaded) is selected
           if (selectedImage.value.startsWith("data:")) {
             // For base64 data (camera capture or resized uploaded image)
-            if (selectedImage.value.length > 10 * 1024 * 1024) { // 10MB limit for base64 string
+            if (selectedImage.value.length > 10 * 1024 * 1024) {
+              // 10MB limit for base64 string
               throw new Error(
                 "Ukuran gambar terlalu besar. Silakan coba lagi atau gunakan gambar yang lebih kecil."
               );
@@ -765,9 +816,10 @@ export default {
 
       const tabElms = document.querySelectorAll(
         "#nav-masuk-tab, #nav-keluar-tab, #nav-dashboard-tab" // Include dashboard tab
-      ); 
+      );
       tabElms.forEach((tab) => {
-        tab.addEventListener("click", function () { // Removed event parameter as it's not used directly
+        tab.addEventListener("click", function () {
+          // Removed event parameter as it's not used directly
           if (videoStream.value) {
             videoStream.value.getTracks().forEach((track) => {
               track.stop();
