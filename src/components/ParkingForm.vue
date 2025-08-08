@@ -401,7 +401,7 @@ export default {
     const initCamera = async () => {
       console.log("Initializing camera...");
       const video = document.getElementById("video");
-      
+
       // Stop any existing stream first
       if (videoStream.value) {
         stopCamera();
@@ -438,7 +438,7 @@ export default {
         });
       }
     };
-    
+
     // Fungsi untuk menghentikan kamera
     const stopCamera = () => {
       if (videoStream.value) {
@@ -756,50 +756,83 @@ export default {
         return;
       }
 
-      Swal.fire({
-        title: "Memproses...",
-        text: "Mohon tunggu sebentar",
-        allowOutsideClick: false,
-        didOpen: () => Swal.showLoading(),
-      });
-
       try {
-        const requestData = {
-          nomor_tiket: formKeluar.value.nomor_tiket.trim().toUpperCase(),
-        };
-
-        console.log(
-          `Sending request to ${API_DOMAIN}/api/parkirKeluar:`,
-          requestData
+        // Step 1: Fetch parking data based on the ticket number
+        const nomor_tiket_formatted = formKeluar.value.nomor_tiket
+          .trim()
+          .toUpperCase();
+        const checkResponse = await fetch(
+          `${API_DOMAIN}/api/parkirKeluarCheck/${nomor_tiket_formatted}`,
+          {
+            method: "GET",
+            credentials: "include",
+          }
         );
 
-        const response = await fetch(`${API_DOMAIN}/api/parkirKeluar`, {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(requestData),
-        });
+        const parkingData = await checkResponse.json();
 
-        const data = await response.json();
-        console.log("Response:", data);
-
-        if (!response.ok) {
-          throw new Error(data.error || "Gagal memproses data");
+        if (!checkResponse.ok) {
+          throw new Error(
+            parkingData.error ||
+              "Nomor tiket tidak ditemukan atau sudah keluar."
+          );
         }
 
+        // Step 2: Display SweetAlert confirmation with the retrieved data
         Swal.fire({
-          icon: "success",
-          title: "Berhasil",
-          text: "Waktu keluar berhasil dicatat.",
+          title: "Konfirmasi Pengeluaran Kendaraan",
+          html: `
+        <p><strong>Nomor Tiket:</strong> ${parkingData.nomor_tiket}</p>
+        <p><strong>Plat Nomor:</strong> ${parkingData.plat_nomor}</p>
+        <img src="${parkingData.foto_masuk}" alt="Foto Kendaraan" style="max-width: 100%; height: auto; border-radius: 8px; margin-top: 15px;">
+        <p style="margin-top: 15px;">Apakah Anda yakin ingin mengeluarkan kendaraan ini?</p>
+      `,
+          icon: "warning",
+          showCancelButton: true,
+          confirmButtonColor: "#fc0",
+          cancelButtonColor: "#d33",
+          confirmButtonText: "Ya, Keluarkan!",
+          cancelButtonText: "Batal",
+          showLoaderOnConfirm: true,
+          preConfirm: async () => {
+            // Step 3: Process the "check-out" request if confirmed
+            try {
+              const requestData = {
+                nomor_tiket: nomor_tiket_formatted,
+              };
+
+              const response = await fetch(`${API_DOMAIN}/api/parkirKeluar`, {
+                method: "POST",
+                credentials: "include",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify(requestData),
+              });
+
+              const data = await response.json();
+
+              if (!response.ok) {
+                throw new Error(data.error || "Gagal memproses data");
+              }
+
+              return data;
+            } catch (error) {
+              Swal.showValidationMessage(`Permintaan gagal: ${error.message}`);
+            }
+          },
+          allowOutsideClick: () => !Swal.isLoading(),
+        }).then((result) => {
+          if (result.isConfirmed) {
+            Swal.fire({
+              icon: "success",
+              title: "Berhasil",
+              text: "Waktu keluar berhasil dicatat.",
+            });
+            // Reset form after successful confirmation
+            formKeluar.value.nomor_tiket = "";
+          }
         });
-
-        // Reset form
-        formKeluar.value.nomor_tiket = "";
-
-        // No need to call fetchLogParkir
-        // await fetchLogParkir();
       } catch (err) {
         console.error("Error in handleSubmitKeluar:", err);
         Swal.fire({
@@ -823,8 +856,10 @@ export default {
       initCamera();
 
       // Atur event listener untuk mematikan kamera saat tab berubah
-      const tabElms = document.querySelectorAll("#nav-keluar-tab, #nav-dashboard-tab");
-      tabElms.forEach(tab => {
+      const tabElms = document.querySelectorAll(
+        "#nav-keluar-tab, #nav-dashboard-tab"
+      );
+      tabElms.forEach((tab) => {
         tab.addEventListener("shown.bs.tab", stopCamera);
       });
 

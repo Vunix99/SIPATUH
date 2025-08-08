@@ -796,6 +796,49 @@ async function startServer(rebuild = false) {
       }
     });
 
+    // A new backend endpoint to get single parking log details by ticket number
+    app.get(
+      "/api/parkirKeluarCheck/:nomor_tiket",
+      authenticateToken,
+      async (req, res) => {
+        const { nomor_tiket } = req.params;
+        try {
+          const [results] = await dbPool.query(
+            `
+      SELECT
+          lp.id,
+          k.plat_nomor,
+          t.nomor_tiket,
+          CONCAT('${VITE_DOMAIN_SERVER}/backend/uploads/', lp.foto_masuk) AS foto_masuk,
+          lp.waktu_masuk,
+          lp.waktu_keluar
+      FROM Log_Parkir lp
+      JOIN Kendaraan k ON lp.id_kendaraan = k.id
+      JOIN Tiket t ON lp.id_tiket = t.id
+      WHERE t.nomor_tiket = ? AND lp.waktu_keluar IS NULL
+      LIMIT 1
+      `,
+            [nomor_tiket]
+          );
+
+          if (results.length === 0) {
+            return res
+              .status(404)
+              .json({
+                error: "Nomor tiket tidak ditemukan atau sudah keluar.",
+              });
+          }
+
+          res.json(results[0]);
+        } catch (err) {
+          console.error("Error fetching parking log by ticket:", err);
+          return res
+            .status(500)
+            .json({ error: "Failed to fetch parking log: " + err.message });
+        }
+      }
+    );
+
     app.post(
       "/api/parkirMasuk",
       authenticateToken,
