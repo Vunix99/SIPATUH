@@ -132,7 +132,7 @@
 <script>
 import { ref, onMounted, watch } from "vue";
 import { TabulatorFull as Tabulator } from "tabulator-tables";
-import "tabulator-tables/dist/css/tabulator_midnight.min.css"; // Tetap gunakan tema dasar ini
+import "tabulator-tables/dist/css/tabulator_midnight.min.css";
 import axios from "axios";
 import Swal from "sweetalert2";
 
@@ -150,15 +150,15 @@ export default {
 
     const parkirTable = ref(null);
     let tabulatorInstance = null;
-    let lightboxInstance = null; // GLightbox instance
+    let lightboxInstance = null;
     const filterDateParkir = ref("");
 
     const API_DOMAIN =
       import.meta.env.VITE_DOMAIN_SERVER || "http://localhost:3000";
 
     const mobileBreakpoint = 768; // Misalnya, di bawah 768px dianggap mobile
+    const isMobileMode = ref(false); // Ref baru untuk melacak mode tampilan
 
-    // --- Fungsi Helper untuk Formatter ---
     const formatDateTime = (value) => {
       if (value) {
         const date = new Date(value);
@@ -182,10 +182,8 @@ export default {
       return status;
     };
 
-    // MODIFIKASI FUNGSI INI: menerima parameter isMobileView
     const formatFotoMasuk = (imageUrl, isMobileView = false) => {
       if (imageUrl) {
-        // Konten tombol akan berbeda tergantung isMobileView
         const buttonContent = isMobileView
           ? "Lihat Gambar"
           : '<i class="fa-solid fa-eye"></i>';
@@ -193,7 +191,6 @@ export default {
       }
       return "Tidak Ada Foto";
     };
-    // --- Akhir Fungsi Helper ---
 
     const fetchParkingData = async () => {
       try {
@@ -216,17 +213,11 @@ export default {
       }
     };
 
-    // Fungsi utama untuk inisialisasi/ulang inisialisasi Tabulator
     const initializeTabulator = async () => {
       if (!parkirTable.value) {
         console.error("Elemen tabel tidak ditemukan.");
         return;
       }
-
-      // Deteksi apakah layar adalah mobile
-      const isMobile = window.matchMedia(
-        `(max-width: ${mobileBreakpoint - 1}px)`
-      ).matches;
 
       // Hancurkan instance Tabulator yang ada jika ada
       if (tabulatorInstance) {
@@ -236,7 +227,6 @@ export default {
       const data = await fetchParkingData();
 
       const baseColumns = [
-        // Kolom untuk Desktop View
         {
           title: "ID",
           field: "id",
@@ -245,7 +235,7 @@ export default {
           width: 50,
           headerFilter: false,
           resizable: false,
-          responsive: 0, // Selalu tampil
+          responsive: 0,
         },
         {
           title: "Plat Kendaraan",
@@ -254,7 +244,7 @@ export default {
           hozAlign: "center",
           headerFilter: false,
           resizable: false,
-          responsive: 0, // Selalu tampil
+          responsive: 0,
         },
         {
           title: "Nomor Tiket",
@@ -263,7 +253,7 @@ export default {
           hozAlign: "center",
           headerFilter: false,
           resizable: false,
-          responsive: 1, // Prioritas sembunyi/collapse
+          responsive: 1,
         },
         {
           title: "Waktu Masuk",
@@ -273,7 +263,7 @@ export default {
           formatter: (cell) => formatDateTime(cell.getValue()),
           headerFilter: false,
           resizable: false,
-          responsive: 2, // Prioritas sembunyi/collapse
+          responsive: 2,
         },
         {
           title: "Waktu Keluar",
@@ -282,7 +272,7 @@ export default {
           formatter: (cell) => formatDateTime(cell.getValue()),
           headerFilter: false,
           resizable: false,
-          responsive: 3, // Prioritas sembunyi/collapse
+          responsive: 3,
         },
         {
           title: "Status",
@@ -292,7 +282,7 @@ export default {
           formatter: (cell) => formatStatus(cell.getValue()),
           headerFilter: false,
           resizable: false,
-          responsive: 0, // Selalu tampil
+          responsive: 0,
         },
         {
           title: "Foto Masuk",
@@ -301,7 +291,6 @@ export default {
           headerWordWrap: true,
           headerSort: false,
           resizable: false,
-          // Panggil formatter dengan isMobileView = false untuk desktop
           formatter: (cell) => formatFotoMasuk(cell.getValue(), false),
           cellClick: function (e, cell) {
             const button = e.target.closest(".view-photo-btn");
@@ -323,7 +312,7 @@ export default {
               }
             }
           },
-          responsive: 1, // Prioritas sembunyi/collapse
+          responsive: 1,
         },
       ];
 
@@ -336,20 +325,18 @@ export default {
         resizableColumns: false,
         resizeableRows: false,
         placeholder: "Tidak ada data parkir",
-        cssClass: "tabulator-dark-theme", // Ini sudah diterapkan oleh import tabulator_midnight.min.css
+        cssClass: "tabulator-dark-theme",
       };
 
-      if (isMobile) {
-        // Mode mobile: gunakan fitDataFill dan rowFormatter (tampilan kartu)
-        tabulatorOptions.layout = "fitDataFill"; // Atur layout untuk mobile
-        tabulatorOptions.responsiveLayout = false; // Nonaktifkan responsiveLayout bawaan
-        tabulatorOptions.rowHeader = false; // Sembunyikan rowHeader jika ada
+      if (isMobileMode.value) {
+        tabulatorOptions.layout = "fitDataFill";
+        tabulatorOptions.responsiveLayout = false;
+        tabulatorOptions.rowHeader = false;
         tabulatorOptions.columns = [
-          // Kolom dummy untuk mode rowFormatter
           {
             title: "",
-            field: "id", // Bisa field apa saja, yang penting ada 1 kolom
-            formatter: "html", // Penting: agar bisa merender HTML kustom
+            field: "id",
+            formatter: "html",
             headerSort: false,
             resizable: false,
           },
@@ -358,10 +345,7 @@ export default {
           const data = row.getData();
           const element = row.getElement();
 
-          // Tambahkan atribut untuk CSS agar header bisa disembunyikan
           parkirTable.value.setAttribute("data-mobile-card-active", "true");
-
-          // Kosongkan konten default sel Tabulator
           element.innerHTML = "";
 
           const rowContent = document.createElement("div");
@@ -410,7 +394,6 @@ export default {
           `;
           element.appendChild(rowContent);
 
-          // Re-attach cellClick listener for the photo button in the custom row
           const photoButton = rowContent.querySelector(".view-photo-btn");
           if (photoButton) {
             photoButton.addEventListener("click", (e) => {
@@ -433,8 +416,7 @@ export default {
           }
         };
       } else {
-        // Mode desktop: gunakan fitColumns dan responsiveLayout collapse
-        tabulatorOptions.layout = "fitColumns"; // Atur layout untuk desktop
+        tabulatorOptions.layout = "fitColumns";
         tabulatorOptions.responsiveLayout = "collapse";
         tabulatorOptions.rowHeader = {
           formatter: "responsiveCollapse",
@@ -442,8 +424,7 @@ export default {
           hozAlign: "center",
         };
         tabulatorOptions.columns = baseColumns;
-        tabulatorOptions.rowFormatter = null; // Hapus formatter jika kembali ke desktop
-        // Hapus atribut untuk CSS agar header kembali terlihat
+        tabulatorOptions.rowFormatter = null;
         parkirTable.value.removeAttribute("data-mobile-card-active");
       }
 
@@ -481,6 +462,20 @@ export default {
         console.log("Parking data filter cleared.");
       }
     };
+    
+    // Fungsi untuk memeriksa dan memperbarui isMobileMode
+    const checkMobileMode = () => {
+      isMobileMode.value = window.matchMedia(
+        `(max-width: ${mobileBreakpoint - 1}px)`
+      ).matches;
+    };
+
+    // Panggil watch untuk isMobileMode. Ketika nilainya berubah, panggil initializeTabulator
+    watch(isMobileMode, (newValue, oldValue) => {
+      if (newValue !== oldValue) {
+        initializeTabulator();
+      }
+    });
 
     watch(filterDateParkir, (newValue, oldValue) => {
       if (newValue !== oldValue) {
@@ -488,17 +483,15 @@ export default {
       }
     });
 
-    // Inisialisasi awal dan tambahkan listener resize
     onMounted(() => {
+      checkMobileMode(); // Inisialisasi status mode mobile
       initializeTabulator();
 
       // Tambahkan event listener untuk perubahan ukuran layar dengan debounce
       let resizeTimeout;
       window.addEventListener("resize", () => {
         clearTimeout(resizeTimeout);
-        resizeTimeout = setTimeout(() => {
-          initializeTabulator();
-        }, 200); // Tunggu 200ms setelah resize selesai
+        resizeTimeout = setTimeout(checkMobileMode, 200);
       });
     });
 
