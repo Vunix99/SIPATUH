@@ -134,10 +134,29 @@
                             type="text"
                             id="platnomor"
                             v-model="formMasuk.plat_nomor"
+                            @input="handlePlatNomorInput"
                             class="form-control"
+                            placeholder="Contoh: B 1234 AAA"
                             required
                           />
                         </div>
+                        <div v-if="isSearching" class="search-status">
+                          <span>Mencari...</span>
+                        </div>
+                        <ul
+                          v-if="searchResults.length > 0"
+                          class="list-group search-results"
+                        >
+                          <li
+                            v-for="plat in searchResults"
+                            :key="plat"
+                            @click="selectPlatNomor(plat)"
+                            class="list-group-item list-group-item-action"
+                            style="cursor: pointer"
+                          >
+                            {{ plat }}
+                          </li>
+                        </ul>
 
                         <div class="form-group">
                           <label for="pilihfoto">Unggah foto dari galeri</label>
@@ -336,7 +355,7 @@ import "../assets/js/bootstrap.bundle.min.js";
 import "../assets/js/common_scripts.min.js";
 import "../assets/js/functions.js";
 
-import { ref, onMounted, onBeforeUnmount, computed } from "vue";
+import { ref, onMounted, onBeforeUnmount, computed, nextTick } from "vue";
 import Swal from "sweetalert2";
 import "@fortawesome/fontawesome-free/css/all.min.css";
 import { useRouter } from "vue-router";
@@ -363,7 +382,9 @@ export default {
     const showCamera = ref(false);
     const capturedPhoto = ref("");
 
-    // Get API domain from environment variable or use default
+    const searchResults = ref([]);
+    const isSearching = ref(false);
+
     const API_DOMAIN =
       import.meta.env.VITE_DOMAIN_SERVER || "http://localhost:3000";
 
@@ -379,30 +400,125 @@ export default {
     });
 
     const handleTicketNumberInput = (event, formName, fieldName) => {
-      let value = event.target.value.replace(/\D/g, ""); // Remove non-digits
+      let value = event.target.value.replace(/\D/g, "");
 
-      // Limit to 3 digits
       if (value.length > 3) {
         value = value.substring(0, 3);
       }
-
-      // Pad with leading zeros if less than 3 digits
       const paddedValue = value.padStart(3, "0");
 
-      // Update the reactive model and the input field
       if (formName === "formMasuk") {
         formMasuk.value[fieldName] = paddedValue;
       } else if (formName === "formKeluar") {
         formKeluar.value[fieldName] = paddedValue;
       }
-      event.target.value = paddedValue; // Ensure displayed value is padded
+      event.target.value = paddedValue;
     };
+
+let searchTimeout = null;
+
+    const handlePlatNomorInput = (event) => {
+      let value = event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+      let formattedValue = "";
+
+      let part1 = "";
+      let part2 = "";
+      let part3 = "";
+
+      let i = 0;
+
+      // Bagian Huruf Depan (maksimal 2)
+      while (i < value.length && /[A-Z]/.test(value[i]) && part1.length < 2) {
+        part1 += value[i];
+        i++;
+      }
+
+      // Bagian Angka (maksimal 4)
+      while (i < value.length && /[0-9]/.test(value[i]) && part2.length < 4) {
+        part2 += value[i];
+        i++;
+      }
+
+      // Bagian Huruf Belakang (maksimal 3)
+      while (i < value.length && /[A-Z]/.test(value[i]) && part3.length < 3) {
+        part3 += value[i];
+        i++;
+      }
+
+      // Membentuk string dengan spasi
+      formattedValue = part1;
+      if (part2.length > 0) {
+        formattedValue += " " + part2;
+      } else if (part1.length > 0) {
+        formattedValue += part2;
+      }
+
+      if (part3.length > 0) {
+        if (part2.length > 0 || part1.length === 2) {
+          formattedValue += " " + part3;
+        } else {
+          formattedValue += part3;
+        }
+      }
+
+      formMasuk.value.plat_nomor = formattedValue.trim();
+
+      nextTick(() => {
+        const input = event.target;
+        const caretPos = formMasuk.value.plat_nomor.length;
+        input.setSelectionRange(caretPos, caretPos);
+      });
+
+      // Clear previous timeout to avoid multiple searches
+      clearTimeout(searchTimeout);
+
+      if (formattedValue.trim().length >= 1) {
+        isSearching.value = true;
+        searchTimeout = setTimeout(async () => {
+          try {
+            const response = await fetch(
+              `${API_DOMAIN}/api/searchPlatNomor?query=${formattedValue.trim()}`,
+              {
+                method: "GET",
+                credentials: "include",
+              }
+            );
+
+            const data = await response.json();
+            if (response.ok) {
+              searchResults.value = data; // Assuming the API returns an array of matching plates
+            } else {
+              console.error("Search API error:", data.error);
+              searchResults.value = [];
+            }
+          } catch (err) {
+            console.error("Failed to fetch search results:", err);
+            searchResults.value = [];
+          } finally {
+            isSearching.value = false;
+          }
+        }, 500); // 500ms debounce
+      } else {
+        searchResults.value = [];
+        isSearching.value = false;
+      }
+    };
+
+    const selectPlatNomor = (plat) => {
+      formMasuk.value.plat_nomor = plat;
+      searchResults.value = []; // Hide the results list
+    };
+
+    const isPlatNomorValid = computed(() => {
+      const platNomor = formMasuk.value.plat_nomor.trim();
+      const regex = /^[A-Z]{1,2}\s\d{1,4}\s[A-Z]{1,3}$/;
+      return regex.test(platNomor);
+    });
 
     const initCamera = async () => {
       console.log("Initializing camera...");
       const video = document.getElementById("video");
 
-      // Stop any existing stream first
       if (videoStream.value) {
         stopCamera();
       }
@@ -419,7 +535,7 @@ export default {
           showCamera.value = true;
         } catch (err) {
           console.error("Failed to access camera:", err);
-          showCamera.value = false; // Ensure button is shown if camera access fails
+          showCamera.value = false;
           Swal.fire({
             icon: "error",
             title: "Akses Kamera Gagal",
@@ -439,7 +555,6 @@ export default {
       }
     };
 
-    // Fungsi untuk menghentikan kamera
     const stopCamera = () => {
       if (videoStream.value) {
         videoStream.value.getTracks().forEach((track) => {
@@ -448,7 +563,7 @@ export default {
         videoStream.value = null;
       }
       showCamera.value = false;
-      capturedPhoto.value = ""; // Hapus foto yang sudah diambil
+      capturedPhoto.value = "";
       selectedImage.value = null;
     };
 
@@ -493,7 +608,6 @@ export default {
       const canvasElement = canvas.value;
 
       if (video && canvasElement) {
-        // Set canvas dimensions to match video dimensions
         canvasElement.width = video.videoWidth;
         canvasElement.height = video.videoHeight;
 
@@ -506,9 +620,8 @@ export default {
           canvasElement.height
         );
 
-        // Resize the captured image (optional but recommended for size management)
         const resizedCanvas = resizeImage(canvasElement, 900, 1200);
-        const imageData = resizedCanvas.toDataURL("image/jpeg", 0.9); // Quality set to 0.9
+        const imageData = resizedCanvas.toDataURL("image/jpeg", 0.9);
         capturedPhoto.value = imageData;
         selectedImage.value = imageData;
 
@@ -544,13 +657,11 @@ export default {
       const file = event.target.files[0];
       if (file) {
         if (file.size > 5 * 1024 * 1024) {
-          // 5MB limit
           Swal.fire({
             icon: "error",
             title: "File Terlalu Besar",
             text: "Ukuran file maksimal 5MB.",
           });
-          // Reset file input to allow re-selection
           event.target.value = "";
           selectedFileName.value = "";
           selectedImage.value = null;
@@ -559,7 +670,6 @@ export default {
         }
 
         selectedFileName.value = file.name;
-
         const reader = new FileReader();
         reader.onload = (e) => {
           const img = new Image();
@@ -585,16 +695,14 @@ export default {
 
             canvasElement.width = width;
             canvasElement.height = height;
-
             ctx.drawImage(img, 0, 0, width, height);
             const compressedDataUrl = canvasElement.toDataURL(
               "image/jpeg",
               0.9
-            ); // Quality 0.9
+            );
 
             selectedImage.value = compressedDataUrl;
             capturedPhoto.value = compressedDataUrl;
-
             console.log(
               "Image uploaded and compressed, size:",
               Math.round(compressedDataUrl.length / 1024),
@@ -631,6 +739,8 @@ export default {
         return;
       }
 
+      const platNomorRaw = formMasuk.value.plat_nomor.trim();
+      
       Swal.fire({
         title: "Memproses...",
         text: "Mohon tunggu sebentar",
@@ -646,11 +756,8 @@ export default {
         };
 
         if (selectedImage.value) {
-          // Check if any image (captured or uploaded) is selected
           if (selectedImage.value.startsWith("data:")) {
-            // For base64 data (camera capture or resized uploaded image)
             if (selectedImage.value.length > 10 * 1024 * 1024) {
-              // 10MB limit for base64 string
               throw new Error(
                 "Ukuran gambar terlalu besar. Silakan coba lagi atau gunakan gambar yang lebih kecil."
               );
@@ -658,7 +765,7 @@ export default {
 
             requestData = {
               nomor_tiket: formMasuk.value.nomor_tiket.trim().toUpperCase(),
-              plat_nomor: formMasuk.value.plat_nomor.trim().toUpperCase(),
+              plat_nomor: platNomorRaw.toUpperCase(),
               foto_base64: selectedImage.value,
             };
 
@@ -667,24 +774,16 @@ export default {
             };
             requestOptions.body = JSON.stringify(requestData);
           } else {
-            // This block is theoretically not reachable if handleImageUpload
-            // always converts to base64, but kept for robustness.
-            // If raw file upload via `fileInput` is desired, this branch would be used.
             const formData = new FormData();
             formData.append("nomor_tiket", formMasuk.value.nomor_tiket);
-            formData.append(
-              "plat_nomor",
-              formMasuk.value.plat_nomor.trim().toUpperCase()
-            );
+            formData.append("plat_nomor", platNomorRaw.toUpperCase());
             formData.append("foto_masuk", fileInput.value.files[0]);
-
             requestOptions.body = formData;
           }
         } else {
-          // No image provided
           requestData = {
             nomor_tiket: formMasuk.value.nomor_tiket.trim().toUpperCase(),
-            plat_nomor: formMasuk.value.plat_nomor.trim().toUpperCase(),
+            plat_nomor: platNomorRaw.toUpperCase(),
           };
 
           requestOptions.headers = {
@@ -723,19 +822,14 @@ export default {
           text: "Data parkir masuk berhasil ditambahkan.",
         });
 
-        // Reset form
         formMasuk.value.nomor_tiket = "";
         formMasuk.value.plat_nomor = "";
         selectedImage.value = null;
         selectedFileName.value = "";
         capturedPhoto.value = "";
         if (fileInput.value) {
-          fileInput.value.value = ""; // Clear file input
+          fileInput.value.value = "";
         }
-
-        // No need to call fetchLogParkir if dashboard is separate
-        // If you still want to manage logParkir state locally for other reasons, keep this.
-        // await fetchLogParkir();
       } catch (err) {
         console.error("Error in handleSubmitMasuk:", err);
         Swal.fire({
@@ -757,7 +851,6 @@ export default {
       }
 
       try {
-        // Step 1: Fetch parking data based on the ticket number
         const nomor_tiket_formatted = formKeluar.value.nomor_tiket
           .trim()
           .toUpperCase();
@@ -778,15 +871,14 @@ export default {
           );
         }
 
-        // Step 2: Display SweetAlert confirmation with the retrieved data
         Swal.fire({
           title: "Konfirmasi Pengeluaran Kendaraan",
           html: `
-        <p><strong>Nomor Tiket:</strong> ${parkingData.nomor_tiket}</p>
-        <p><strong>Plat Nomor:</strong> ${parkingData.plat_nomor}</p>
-        <img src="${parkingData.foto_masuk}" alt="Foto Kendaraan" style="max-width: 100%; height: auto; border-radius: 8px; margin-top: 15px;">
-        <p style="margin-top: 15px;">Apakah Anda yakin ingin mengeluarkan kendaraan ini?</p>
-      `,
+            <p><strong>Nomor Tiket:</strong> ${parkingData.nomor_tiket}</p>
+            <p><strong>Plat Nomor:</strong> ${parkingData.plat_nomor}</p>
+            <img src="${parkingData.foto_masuk}" alt="Foto Kendaraan" style="max-width: 100%; height: auto; border-radius: 8px; margin-top: 15px;">
+            <p style="margin-top: 15px;">Apakah Anda yakin ingin mengeluarkan kendaraan ini?</p>
+          `,
           icon: "warning",
           showCancelButton: true,
           confirmButtonColor: "#fc0",
@@ -795,7 +887,6 @@ export default {
           cancelButtonText: "Batal",
           showLoaderOnConfirm: true,
           preConfirm: async () => {
-            // Step 3: Process the "check-out" request if confirmed
             try {
               const requestData = {
                 nomor_tiket: nomor_tiket_formatted,
@@ -829,7 +920,6 @@ export default {
               title: "Berhasil",
               text: "Waktu keluar berhasil dicatat.",
             });
-            // Reset form after successful confirmation
             formKeluar.value.nomor_tiket = "";
           }
         });
@@ -843,19 +933,13 @@ export default {
       }
     };
 
-    // Removed fetchLogParkir as it's not directly used for display in this component anymore.
-    // If you need it for background operations, consider moving it or re-evaluating its necessity here.
-
     onMounted(() => {
       console.log("Component mounted");
       console.log("API Domain:", API_DOMAIN);
       document.body.classList.add("style_2");
 
-      // Coba aktifkan kamera secara otomatis saat komponen pertama kali di-mount
-      // ini akan berjalan sekali, dan jika izin sudah ada, kamera akan langsung aktif
       initCamera();
 
-      // Atur event listener untuk mematikan kamera saat tab berubah
       const tabElms = document.querySelectorAll(
         "#nav-keluar-tab, #nav-dashboard-tab"
       );
@@ -895,15 +979,19 @@ export default {
       selectedFileName,
       showCamera,
       capturedPhoto,
+      searchResults,
+      isSearching,
       isFormMasukValid,
       isFormKeluarValid,
       handleImageUpload,
       triggerFileInput,
-      initCamera, // initCamera dikembalikan ke template untuk tombol manual
+      initCamera,
       capturePhoto,
       handleSubmitMasuk,
       handleSubmitKeluar,
       handleTicketNumberInput,
+      handlePlatNomorInput,
+      selectPlatNomor,
     };
   },
 };

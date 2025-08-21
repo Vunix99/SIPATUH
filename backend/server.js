@@ -796,6 +796,39 @@ async function startServer(rebuild = false) {
       }
     });
 
+    // NEW ENDPOINT: Search for existing license plates
+    app.get("/api/searchPlatNomor", authenticateToken, async (req, res) => {
+      const { query } = req.query;
+
+      // Izinkan pencarian dengan 1 karakter jika itu huruf, jika tidak, minimal 2 karakter
+      if (
+        !query ||
+        query.trim().length < 1 ||
+        (query.trim().length < 2 && !/^[A-Z]$/.test(query.trim().toUpperCase()))
+      ) {
+        return res.json([]);
+      }
+
+      try {
+        const cleanedQuery = query.replace(/\s/g, ""); // Hapus spasi dari input pengguna
+        const searchQuery = `${cleanedQuery}%`; // Ubah ini: `searchQuery = %${cleanedQuery}%` -> `searchQuery = ${cleanedQuery}%`
+
+        // Mencari plat_nomor di mana versi tanpa spasi dari plat nomor tersebut
+        // berawal dengan string pencarian yang juga tanpa spasi
+        const [results] = await dbPool.query(
+          `SELECT plat_nomor FROM Kendaraan WHERE REPLACE(plat_nomor, ' ', '') LIKE ? LIMIT 10`,
+          [searchQuery]
+        );
+
+        const formattedResults = results.map((row) => row.plat_nomor);
+        res.json(formattedResults);
+      } catch (err) {
+        console.error("Error searching for license plates:", err);
+        res
+          .status(500)
+          .json({ error: "Gagal mencari plat nomor: " + err.message });
+      }
+    });
     // A new backend endpoint to get single parking log details by ticket number
     app.get(
       "/api/parkirKeluarCheck/:nomor_tiket",
@@ -822,11 +855,9 @@ async function startServer(rebuild = false) {
           );
 
           if (results.length === 0) {
-            return res
-              .status(404)
-              .json({
-                error: "Nomor tiket tidak ditemukan atau sudah keluar.",
-              });
+            return res.status(404).json({
+              error: "Nomor tiket tidak ditemukan atau sudah keluar.",
+            });
           }
 
           res.json(results[0]);
