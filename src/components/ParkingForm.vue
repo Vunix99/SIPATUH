@@ -874,10 +874,10 @@ let searchTimeout = null;
         Swal.fire({
           title: "Konfirmasi Pengeluaran Kendaraan",
           html: `
-            <p><strong>Nomor Tiket:</strong> ${parkingData.nomor_tiket}</p>
-            <p><strong>Plat Nomor:</strong> ${parkingData.plat_nomor}</p>
-            <img src="${parkingData.foto_masuk}" alt="Foto Kendaraan" style="max-width: 100%; height: auto; border-radius: 8px; margin-top: 15px;">
-            <p style="margin-top: 15px;">Apakah Anda yakin ingin mengeluarkan kendaraan ini?</p>
+            <p style="margin-top:0px; margin-bottom:4px;"><strong>Nomor Tiket:</strong> ${parkingData.nomor_tiket}</p>
+            <p style="margin-top:0px; margin-bottom:4px;"><strong>Plat Nomor:</strong> ${parkingData.plat_nomor}</p>
+            <img src="${parkingData.foto_masuk}" alt="Foto Kendaraan" style="max-width: 100%; height: auto; border-radius: 8px; margin-top: 4px; margin-bottom:4px;">
+            <p style="margin-top:0px; margin-bottom:4px;">Apakah Anda yakin ingin mengeluarkan kendaraan ini?</p>
           `,
           icon: "warning",
           showCancelButton: true,
