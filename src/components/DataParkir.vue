@@ -53,10 +53,7 @@
         <li class="sidebar-divider my-3"></li>
 
         <li>
-          <router-link
-            to="/parking"
-            class="nav-link parkir-kendaraan-link"
-          >
+          <router-link to="/parking" class="nav-link parkir-kendaraan-link">
             <i class="fa-solid fa-car"></i> Parkirkan Kendaraan!
           </router-link>
         </li>
@@ -92,10 +89,8 @@
               <strong>📋 Data Log Parkir</strong>
             </div>
             <div class="card-body">
-              <div
-                class="d-flex justify-content-between align-items-center mb-3"
-              >
-                <div class="form-group flex-grow-1 me-3">
+              <div class="d-flex flex-column align-items-start mb-3">
+                <div class="form-group mb-3 w-100">
                   <label for="filterDateParkir" class="form-label text-white-50"
                     >Filter Tanggal:</label
                   >
@@ -119,6 +114,20 @@
                     </button>
                   </div>
                 </div>
+
+                <div class="form-group w-100">
+                  <label for="searchQuery" class="form-label text-white-50"
+                    >Cari (Nomor Tiket / Plat Nomor):</label
+                  >
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="searchQuery"
+                    v-model="searchQuery"
+                    @input="applySearchFilter"
+                    placeholder="Contoh: 001 atau B 1234 ABC"
+                  />
+                </div>
               </div>
               <div ref="parkirTable" class="tabulator-table-container"></div>
             </div>
@@ -135,8 +144,6 @@ import { TabulatorFull as Tabulator } from "tabulator-tables";
 import "tabulator-tables/dist/css/tabulator_midnight.min.css";
 import axios from "axios";
 import Swal from "sweetalert2";
-
-// GLightbox imports
 import GLightbox from "glightbox";
 import "glightbox/dist/css/glightbox.min.css";
 
@@ -152,12 +159,14 @@ export default {
     let tabulatorInstance = null;
     let lightboxInstance = null;
     const filterDateParkir = ref("");
+    // Tambahkan ref untuk query pencarian
+    const searchQuery = ref("");
 
     const API_DOMAIN =
       import.meta.env.VITE_DOMAIN_SERVER || "http://localhost:3000";
 
-    const mobileBreakpoint = 768; // Misalnya, di bawah 768px dianggap mobile
-    const isMobileMode = ref(false); // Ref baru untuk melacak mode tampilan
+    const mobileBreakpoint = 768;
+    const isMobileMode = ref(false);
 
     const formatDateTime = (value) => {
       if (value) {
@@ -219,7 +228,6 @@ export default {
         return;
       }
 
-      // Hancurkan instance Tabulator yang ada jika ada
       if (tabulatorInstance) {
         tabulatorInstance.destroy();
       }
@@ -303,7 +311,12 @@ export default {
                     lightboxInstance.destroy();
                   }
                   lightboxInstance = GLightbox({
-                    elements: [{ href: imageUrl, type: "image" }],
+                    elements: [
+                      {
+                        href: imageUrl,
+                        type: "image",
+                      },
+                    ],
                   });
                   lightboxInstance.open();
                 } else {
@@ -405,7 +418,12 @@ export default {
                     lightboxInstance.destroy();
                   }
                   lightboxInstance = GLightbox({
-                    elements: [{ href: imageUrl, type: "image" }],
+                    elements: [
+                      {
+                        href: imageUrl,
+                        type: "image",
+                      },
+                    ],
                   });
                   lightboxInstance.open();
                 } else {
@@ -431,46 +449,58 @@ export default {
       tabulatorInstance = new Tabulator(parkirTable.value, tabulatorOptions);
     };
 
-    const applyDayFilter = () => {
+    const applySearchFilter = () => {
       if (!tabulatorInstance) return;
 
-      const dateInput = filterDateParkir.value;
-      console.log("Date input for filtering parking data:", dateInput);
+      const query = searchQuery.value.trim().toLowerCase();
 
+      // Clear any existing global filters
       tabulatorInstance.clearFilter();
 
-      if (dateInput) {
-        const filterDay = new Date(dateInput);
+      // Apply the date filter first if it exists
+      if (filterDateParkir.value) {
+        const filterDay = new Date(filterDateParkir.value);
         filterDay.setHours(0, 0, 0, 0);
 
         tabulatorInstance.setFilter((row) => {
           const rowRawDate = row.waktu_masuk;
+          if (!rowRawDate) return false;
           const rowDate = new Date(rowRawDate);
           rowDate.setHours(0, 0, 0, 0);
-
           return rowDate.getTime() === filterDay.getTime();
         });
-      } else {
-        console.log("Filter date is empty, clearing filter.");
       }
+
+      // Apply the search filter on top of the date filter if a query exists
+      if (query) {
+        tabulatorInstance.setFilter((row) => {
+          const ticketNumber = String(row.nomor_tiket).toLowerCase();
+          const platNumber = String(row.plat_nomor).toLowerCase();
+          return ticketNumber.includes(query) || platNumber.includes(query);
+        });
+      }
+    };
+
+    // Fungsi ini sekarang digabungkan dengan applySearchFilter
+    const applyDayFilter = () => {
+      if (!tabulatorInstance) return;
+      applySearchFilter(); // Panggil fungsi pencarian utama untuk menggabungkan filter
     };
 
     const clearDayFilter = () => {
       filterDateParkir.value = "";
       if (tabulatorInstance) {
-        tabulatorInstance.clearFilter();
+        applySearchFilter(); // Panggil fungsi pencarian untuk menghapus filter tanggal
         console.log("Parking data filter cleared.");
       }
     };
-    
-    // Fungsi untuk memeriksa dan memperbarui isMobileMode
+
     const checkMobileMode = () => {
       isMobileMode.value = window.matchMedia(
         `(max-width: ${mobileBreakpoint - 1}px)`
       ).matches;
     };
 
-    // Panggil watch untuk isMobileMode. Ketika nilainya berubah, panggil initializeTabulator
     watch(isMobileMode, (newValue, oldValue) => {
       if (newValue !== oldValue) {
         initializeTabulator();
@@ -483,11 +513,20 @@ export default {
       }
     });
 
+    // Perhatikan: watch untuk searchQuery sudah tidak diperlukan karena `@input` di template langsung memanggil `applySearchFilter`
+    // Namun, jika Anda ingin menggunakan `watch` untuk debounce, Anda bisa mengganti `@input` dengan `watch`
+    // Contohnya:
+    // watch(searchQuery, (newValue) => {
+    //   clearTimeout(searchTimeout);
+    //   searchTimeout = setTimeout(() => {
+    //     applySearchFilter();
+    //   }, 300); // Debounce 300ms
+    // });
+
     onMounted(() => {
-      checkMobileMode(); // Inisialisasi status mode mobile
+      checkMobileMode();
       initializeTabulator();
 
-      // Tambahkan event listener untuk perubahan ukuran layar dengan debounce
       let resizeTimeout;
       window.addEventListener("resize", () => {
         clearTimeout(resizeTimeout);
@@ -501,6 +540,8 @@ export default {
       parkirTable,
       filterDateParkir,
       clearDayFilter,
+      searchQuery,
+      applySearchFilter,
     };
   },
 };
