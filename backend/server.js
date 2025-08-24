@@ -9,22 +9,31 @@ import dotenv from "dotenv";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
-import { fileURLToPath } from "url";
+import {
+  fileURLToPath
+} from "url";
 import jwt from "jsonwebtoken";
 import cookieParser from "cookie-parser";
 import crypto from "crypto";
 import http from "http";
-import { Server } from "socket.io";
-import { exec } from "child_process"; // Import exec from child_process
-import nodemailer from "nodemailer"; // Import nodemailer
-import cron from "node-cron"; // Import node-cron
+import {
+  Server
+} from "socket.io";
+import {
+  exec
+} from "child_process";
+import nodemailer from "nodemailer";
+import cron from "node-cron";
 
 // Polyfill for __filename and __dirname in ES Modules
-const __filename = fileURLToPath(import.meta.url);
+const __filename = fileURLToPath(
+  import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Load environment variables from .env file
-dotenv.config({ path: path.join(__dirname, ".env") });
+dotenv.config({
+  path: path.join(__dirname, ".env")
+});
 
 // Destructure environment variables
 const {
@@ -32,15 +41,15 @@ const {
   DB_USER,
   DB_PASS,
   DB_NAME,
-  TIME_ZONE, // Note: TIME_ZONE from .env isn't directly used in dbPool currently, but good to have
+  TIME_ZONE,
   JWT_SECRET,
-  VITE_DOMAIN_SERVER, // This is crucial for CORS and Socket.IO origin
-  GMAIL_USER, // NEW: Gmail user for SMTP
-  GMAIL_APP_PASSWORD, // NEW: Gmail App Password
-  EMAIL_SENDER_NAME, // NEW: Sender name for emails
+  VITE_DOMAIN_SERVER,
+  GMAIL_USER,
+  GMAIL_APP_PASSWORD,
+  EMAIL_SENDER_NAME,
   GMAIL_IMAGE_BRANDING,
-  RECAPTCHA_SECRET_KEY, // NEW: ReCAPTCHA Secret Key
-  ADMIN_AUTO_BACKUP_RECIPIENT_EMAIL, // NEW: Default admin email for auto backup
+  RECAPTCHA_SECRET_KEY,
+  ADMIN_AUTO_BACKUP_RECIPIENT_EMAIL,
 } = process.env;
 
 const mail_image_logo = VITE_DOMAIN_SERVER + GMAIL_IMAGE_BRANDING;
@@ -49,22 +58,22 @@ const mail_image_logo = VITE_DOMAIN_SERVER + GMAIL_IMAGE_BRANDING;
 console.log("=== ENVIRONMENT VARIABLES ===");
 console.log("DB_HOST:", process.env.DB_HOST);
 console.log("DB_USER:", process.env.DB_USER);
-console.log("DB_PASS (present):", !!process.env.DB_PASS); // Mask password
+console.log("DB_PASS (present):", !!process.env.DB_PASS);
 console.log("DB_NAME:", process.env.DB_NAME);
 console.log("JWT_SECRET (present):", !!process.env.JWT_SECRET);
 console.log("VITE_DOMAIN_SERVER:", process.env.VITE_DOMAIN_SERVER);
 console.log("TIME_ZONE (from .env):", process.env.TIME_ZONE);
-console.log("GMAIL_USER:", process.env.GMAIL_USER); // Log new Gmail user
-console.log("GMAIL_APP_PASSWORD (present):", !!process.env.GMAIL_APP_PASSWORD); // Log presence of App Password
-console.log("EMAIL_SENDER_NAME:", process.env.EMAIL_SENDER_NAME); // Log sender name
+console.log("GMAIL_USER:", process.env.GMAIL_USER);
+console.log("GMAIL_APP_PASSWORD (present):", !!process.env.GMAIL_APP_PASSWORD);
+console.log("EMAIL_SENDER_NAME:", process.env.EMAIL_SENDER_NAME);
 console.log(
   "RECAPTCHA_SECRET_KEY (present):",
   !!process.env.RECAPTCHA_SECRET_KEY
-); // Log presence of ReCAPTCHA key
+);
 console.log(
   "ADMIN_AUTO_BACKUP_RECIPIENT_EMAIL:",
   process.env.ADMIN_AUTO_BACKUP_RECIPIENT_EMAIL
-); // Log default auto backup email
+);
 console.log("=============================");
 
 // Initialize Express app and HTTP server
@@ -72,10 +81,9 @@ const app = express();
 const server = http.createServer(app);
 
 // Initialize Socket.IO server with CORS configuration
-// The 'origin' here MUST match the exact domain of your frontend application when deployed
 const io = new Server(server, {
   cors: {
-    origin: VITE_DOMAIN_SERVER, // This line correctly uses the environment variable
+    origin: VITE_DOMAIN_SERVER,
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -84,14 +92,18 @@ const io = new Server(server, {
 // Create 'uploads' directory if it doesn't exist
 const uploadsDir = path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
+  fs.mkdirSync(uploadsDir, {
+    recursive: true
+  });
   console.log("Created uploads directory:", uploadsDir);
 }
 
 // Create 'backups' directory if it doesn't exist
 const backupsDir = path.join(__dirname, "backups");
 if (!fs.existsSync(backupsDir)) {
-  fs.mkdirSync(backupsDir, { recursive: true });
+  fs.mkdirSync(backupsDir, {
+    recursive: true
+  });
   console.log("Created backups directory:", backupsDir);
 }
 
@@ -106,7 +118,9 @@ const storage = multer.diskStorage({
 });
 const upload = multer({
   storage,
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
+  limits: {
+    fileSize: 50 * 1024 * 1024
+  },
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith("image/")) cb(null, true);
     else cb(new Error("Only image files are allowed!"), false);
@@ -115,7 +129,7 @@ const upload = multer({
 
 // Multer storage for SQL files (for database restore)
 const sqlStorage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadsDir), // Store temporarily in uploads
+  destination: (req, file, cb) => cb(null, uploadsDir),
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
     const ext = path.extname(file.originalname);
@@ -127,7 +141,9 @@ const sqlStorage = multer.diskStorage({
 });
 const uploadSql = multer({
   storage: sqlStorage,
-  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB limit
+  limits: {
+    fileSize: 20 * 1024 * 1024
+  },
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
     if (ext === ".sql" || file.mimetype === "application/x-sql") {
@@ -139,7 +155,6 @@ const uploadSql = multer({
 });
 
 // CORS middleware for Express (HTTP requests)
-// This also uses the VITE_DOMAIN_SERVER for origin control
 app.use(
   cors({
     origin: VITE_DOMAIN_SERVER,
@@ -148,7 +163,10 @@ app.use(
 );
 
 // Body-parser middleware for JSON and URL-encoded data
-app.use(bodyParser.json({ limit: "50mb", parameterLimit: 50000 }));
+app.use(bodyParser.json({
+  limit: "50mb",
+  parameterLimit: 50000
+}));
 app.use(
   bodyParser.urlencoded({
     limit: "50mb",
@@ -156,9 +174,14 @@ app.use(
     parameterLimit: 50000,
   })
 );
-// Express built-in body-parser (can replace body-parser package if not using specific features)
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ limit: "50mb", extended: true }));
+// Express built-in body-parser
+app.use(express.json({
+  limit: "50mb"
+}));
+app.use(express.urlencoded({
+  limit: "50mb",
+  extended: true
+}));
 
 // Cookie-parser middleware for handling cookies
 app.use(cookieParser());
@@ -182,23 +205,18 @@ if (!RECAPTCHA_SECRET_KEY) {
   console.error(
     "WARNING: RECAPTCHA_SECRET_KEY is not defined in .env file. ReCAPTCHA verification will not work."
   );
-  // process.exit(1); // Decide if this should be a fatal error
 }
 
 // Nodemailer transporter setup
-// This transporter will be used to send emails via Gmail SMTP
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
   port: 587,
-  secure: false, // Use STARTTLS
+  secure: false,
   auth: {
     user: GMAIL_USER,
     pass: GMAIL_APP_PASSWORD,
   },
-  tls: {
-    // Do not fail on invalid certs, useful for development but not recommended for production
-    // rejectUnauthorized: false
-  },
+  tls: {},
 });
 
 // Helper function to save Base64 images
@@ -227,7 +245,9 @@ const authenticateToken = (req, res, next) => {
   if (!token) {
     return res
       .status(401)
-      .json({ message: "Akses ditolak. Tidak ada token otentikasi." });
+      .json({
+        message: "Akses ditolak. Tidak ada token otentikasi."
+      });
   }
 
   try {
@@ -237,11 +257,13 @@ const authenticateToken = (req, res, next) => {
   } catch (err) {
     return res
       .status(403)
-      .json({ message: "Token tidak valid atau kadaluarsa." });
+      .json({
+        message: "Token tidak valid atau kadaluarsa."
+      });
   }
 };
 
-let dbPool; // Database connection pool
+let dbPool;
 
 // Helper function to create log messages and emit updates
 const createLogMessage = async (message, adminId, adminEmail) => {
@@ -258,15 +280,13 @@ const createLogMessage = async (message, adminId, adminEmail) => {
     await dbPool.query(sql, [formattedMessage, adminId || null]);
     console.log(`LogMessages recorded: ${formattedMessage}`);
 
-    // Emit WebSocket update for log messages
-    emitDashboardUpdate("logMessages");
+    io.emit("logMessagesUpdate");
   } catch (err) {
     console.error("Error creating log message:", err);
   }
 };
 
 // --- WebSocket Emit Helper Function ---
-// This function fetches data and emits it to all connected WebSocket clients
 const emitDashboardUpdate = async (type) => {
   try {
     let data;
@@ -277,7 +297,6 @@ const emitDashboardUpdate = async (type) => {
             lp.id,
             k.plat_nomor,
             t.nomor_tiket,
-            -- Ambil langsung waktu karena DB sekarang akan menyimpan dalam WIB
             lp.waktu_masuk,
             lp.waktu_keluar,
             CONCAT('${VITE_DOMAIN_SERVER}/backend/uploads/', lp.foto_masuk) AS foto_masuk,
@@ -357,8 +376,6 @@ const emitDashboardUpdate = async (type) => {
       case "weeklyParkingTrend":
         const [weeklyParkingDataRaw] = await dbPool.query(`
           SELECT
-              -- MySQL's WEEK(date, mode) function. Mode 0 means Sunday is the first day of the week.
-              -- This calculates week number within the month.
               WEEK(lp.waktu_masuk, 0) -
               WEEK(DATE_FORMAT(lp.waktu_masuk, '%Y-%m-01'), 0) + 1 AS week_in_month,
               COUNT(*) AS total_vehicles
@@ -390,14 +407,12 @@ const emitDashboardUpdate = async (type) => {
           }
         });
 
-        // Limit to 4 weeks, as typically a month has 4 full weeks. Adjust if needed.
         data = formattedWeeklyData.slice(0, 4);
         break;
       default:
         console.warn("Unknown dashboard update type:", type);
         return;
     }
-    // Emit the data to all connected clients
     io.emit(type + "Update", data);
     console.log(`Emitted ${type}Update WebSocket event.`);
   } catch (error) {
@@ -422,7 +437,7 @@ async function createDefaultTickets(db) {
 
     const values = [];
     for (let i = 1; i <= 100; i++) {
-      values.push([i.toString().padStart(3, "0")]); // Format as 001, 002, etc.
+      values.push([i.toString().padStart(3, "0")]);
     }
 
     const sql = `INSERT INTO Tiket (nomor_tiket) VALUES ?`;
@@ -470,7 +485,6 @@ async function createTables(db) {
         password VARCHAR(255) NOT NULL
       );
 
-      -- NEW TABLE: For storing pending admin registrations
       CREATE TABLE IF NOT EXISTS PendingAdmins (
         id INT AUTO_INCREMENT PRIMARY KEY,
         email VARCHAR(50) NOT NULL UNIQUE,
@@ -479,7 +493,6 @@ async function createTables(db) {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
 
-      -- NEW TABLE: For storing password reset tokens
       CREATE TABLE IF NOT EXISTS PasswordResetTokens (
         id INT AUTO_INCREMENT PRIMARY KEY,
         admin_id INT NOT NULL,
@@ -518,14 +531,13 @@ async function createTables(db) {
         FOREIGN KEY (id_admin) REFERENCES Admin(id) ON DELETE CASCADE
       );
 
-      -- MODIFIED TABLE: For admin-specific settings like auto backup (formerly SystemSettings)
       CREATE TABLE IF NOT EXISTS AdminSettings (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        id_admin INT NOT NULL, -- Each admin has one settings row
+        id_admin INT NOT NULL,
         setting_name VARCHAR(100) NOT NULL,
         setting_value TEXT,
         FOREIGN KEY (id_admin) REFERENCES Admin(id) ON DELETE CASCADE,
-        UNIQUE (id_admin, setting_name) -- Ensure unique setting per admin
+        UNIQUE (id_admin, setting_name)
       );
     `
     );
@@ -537,22 +549,27 @@ async function createTables(db) {
 }
 
 // Function to add default AdminSettings for a new admin
-// MODIFIED: Now accepts 'db' parameter
 async function addDefaultAdminSettings(db, adminId, adminEmail) {
   try {
     console.log(
       `Adding default settings for new admin ${adminEmail} (ID: ${adminId}).`
     );
-    // Default: auto_backup_enabled = FALSE, auto_backup_email = NULL
-    const settings = [
-      { name: "auto_backup_enabled", value: "false" }, // Stored as string 'true'/'false'
-      { name: "auto_backup_email", value: "" }, // Stored as string, empty means null/not set
-      { name: "last_auto_backup_timestamp", value: "" }, // To track last auto backup time
+    const settings = [{
+      name: "auto_backup_enabled",
+      value: "false"
+    },
+    {
+      name: "auto_backup_email",
+      value: ""
+    },
+    {
+      name: "last_auto_backup_timestamp",
+      value: ""
+    },
     ];
 
     for (const setting of settings) {
       await db.query(
-        // Use the passed 'db' object here
         `INSERT INTO AdminSettings (id_admin, setting_name, setting_value) VALUES (?, ?, ?)`,
         [adminId, setting.name, setting.value]
       );
@@ -560,14 +577,12 @@ async function addDefaultAdminSettings(db, adminId, adminEmail) {
     console.log(`Default settings added for admin ${adminId}.`);
   } catch (error) {
     console.error(`Error adding default settings for admin ${adminId}:`, error);
-    // It's crucial not to block admin creation if settings fail, but log the error
   }
 }
 
 // Main function to start the server
 async function startServer(rebuild = false) {
   try {
-    // Connect to MySQL without specifying database to create it if not exists
     const tempDb = await mysql.createConnection({
       host: DB_HOST,
       user: DB_USER,
@@ -578,7 +593,6 @@ async function startServer(rebuild = false) {
     console.log(`Database ${DB_NAME} siap digunakan`);
     await tempDb.end();
 
-    // Create a connection pool to the specified database
     dbPool = mysql.createPool({
       host: DB_HOST,
       user: DB_USER,
@@ -611,20 +625,20 @@ async function startServer(rebuild = false) {
         console.log("Rebuild mode: dropping and recreating tables...");
         await initialConnection.query(
           `
-            SET FOREIGN_KEY_CHECKS = 0;
-            DROP TABLE IF EXISTS Log_Backup;
-            DROP TABLE IF EXISTS Log_Parkir;
-            DROP TABLE IF EXISTS PemasukanMingguan;
-            DROP TABLE IF EXISTS Tiket;
-            DROP TABLE IF EXISTS AdminSettings; -- Drop AdminSettings first
-            DROP TABLE IF EXISTS Admin;
-            DROP TABLE IF EXISTS Kendaraan;
-            DROP TABLE IF EXISTS LogMessages;
-            DROP TABLE IF EXISTS LogPemulihan;
-            DROP TABLE IF EXISTS PendingAdmins;
-            DROP TABLE IF EXISTS PasswordResetTokens;
-            SET FOREIGN_KEY_CHECKS = 1;
-          `
+          SET FOREIGN_KEY_CHECKS = 0;
+          DROP TABLE IF EXISTS Log_Backup;
+          DROP TABLE IF EXISTS Log_Parkir;
+          DROP TABLE IF EXISTS PemasukanMingguan;
+          DROP TABLE IF EXISTS Tiket;
+          DROP TABLE IF EXISTS AdminSettings;
+          DROP TABLE IF EXISTS Admin;
+          DROP TABLE IF EXISTS Kendaraan;
+          DROP TABLE IF EXISTS LogMessages;
+          DROP TABLE IF EXISTS LogPemulihan;
+          DROP TABLE IF EXISTS PendingAdmins;
+          DROP TABLE IF EXISTS PasswordResetTokens;
+          SET FOREIGN_KEY_CHECKS = 1;
+        `
         );
         console.log("Dropped existing tables.");
 
@@ -642,7 +656,6 @@ async function startServer(rebuild = false) {
     io.on("connection", (socket) => {
       console.log("A client connected via WebSocket:", socket.id);
 
-      // Emit initial data to the newly connected client
       emitDashboardUpdate("parkingLogs");
       emitDashboardUpdate("availableTickets");
       emitDashboardUpdate("totalAvailableTickets");
@@ -659,11 +672,18 @@ async function startServer(rebuild = false) {
     // === API ENDPOINTS ===
 
     app.post("/api/tiket", authenticateToken, async (req, res) => {
-      const { nomor_tiket } = req.body;
-      const { id: adminId, email: adminEmail } = req.admin;
+      const {
+        nomor_tiket
+      } = req.body;
+      const {
+        id: adminId,
+        email: adminEmail
+      } = req.admin;
 
       if (!nomor_tiket) {
-        return res.status(400).json({ error: "nomor_tiket is required" });
+        return res.status(400).json({
+          error: "nomor_tiket is required"
+        });
       }
 
       try {
@@ -678,12 +698,19 @@ async function startServer(rebuild = false) {
         emitDashboardUpdate("availableTickets");
         emitDashboardUpdate("totalAvailableTickets");
 
-        res.json({ message: "Tiket berhasil dibuat", id: result.insertId });
+        res.json({
+          message: "Tiket berhasil dibuat",
+          id: result.insertId
+        });
       } catch (err) {
         if (err.code === "ER_DUP_ENTRY") {
-          return res.status(400).json({ error: "Nomor tiket sudah ada" });
+          return res.status(400).json({
+            error: "Nomor tiket sudah ada"
+          });
         }
-        return res.status(500).json({ error: err.message });
+        return res.status(500).json({
+          error: err.message
+        });
       }
     });
 
@@ -694,7 +721,9 @@ async function startServer(rebuild = false) {
         );
         res.json(results);
       } catch (err) {
-        return res.status(500).json({ error: err.message });
+        return res.status(500).json({
+          error: err.message
+        });
       }
     });
 
@@ -705,19 +734,30 @@ async function startServer(rebuild = false) {
         );
         res.json(results);
       } catch (err) {
-        return res.status(500).json({ error: err.message });
+        return res.status(500).json({
+          error: err.message
+        });
       }
     });
 
     app.put("/api/tiket/:id/tersedia", authenticateToken, async (req, res) => {
-      const { id } = req.params;
-      const { tersedia } = req.body;
-      const { id: adminId, email: adminEmail } = req.admin;
+      const {
+        id
+      } = req.params;
+      const {
+        tersedia
+      } = req.body;
+      const {
+        id: adminId,
+        email: adminEmail
+      } = req.admin;
 
       if (typeof tersedia !== "boolean") {
         return res
           .status(400)
-          .json({ error: "tersedia must be boolean (true/false)" });
+          .json({
+            error: "tersedia must be boolean (true/false)"
+          });
       }
 
       try {
@@ -726,14 +766,18 @@ async function startServer(rebuild = false) {
           [id]
         );
         if (ticketData.length === 0) {
-          return res.status(404).json({ error: "Tiket tidak ditemukan" });
+          return res.status(404).json({
+            error: "Tiket tidak ditemukan"
+          });
         }
         const nomor_tiket = ticketData[0].nomor_tiket;
 
         const sql = `UPDATE Tiket SET tersedia = ? WHERE id = ?`;
         const [result] = await dbPool.query(sql, [tersedia, id]);
         if (result.affectedRows === 0) {
-          return res.status(404).json({ error: "Tiket tidak ditemukan" });
+          return res.status(404).json({
+            error: "Tiket tidak ditemukan"
+          });
         }
 
         await createLogMessage(
@@ -750,22 +794,33 @@ async function startServer(rebuild = false) {
           message: `Tiket ${tersedia ? "diaktifkan" : "dinonaktifkan"}`,
         });
       } catch (err) {
-        return res.status(500).json({ error: err.message });
+        return res.status(500).json({
+          error: err.message
+        });
       }
     });
 
     app.post("/api/kendaraan", authenticateToken, async (req, res) => {
-      const { plat_nomor } = req.body;
+      const {
+        plat_nomor
+      } = req.body;
       const sql = `INSERT INTO Kendaraan (plat_nomor) VALUES (?)`;
 
       try {
         const [result] = await dbPool.query(sql, [plat_nomor]);
-        res.json({ message: "Kendaraan ditambahkan", id: result.insertId });
+        res.json({
+          message: "Kendaraan ditambahkan",
+          id: result.insertId
+        });
       } catch (err) {
         if (err.code === "ER_DUP_ENTRY") {
-          return res.status(400).json({ error: "Plat nomor sudah terdaftar" });
+          return res.status(400).json({
+            error: "Plat nomor sudah terdaftar"
+          });
         }
-        return res.status(500).json({ error: err.message });
+        return res.status(500).json({
+          error: err.message
+        });
       }
     });
 
@@ -792,15 +847,17 @@ async function startServer(rebuild = false) {
         console.error("Error fetching parking logs:", err);
         return res
           .status(500)
-          .json({ error: "Failed to fetch parking logs: " + err.message });
+          .json({
+            error: "Failed to fetch parking logs: " + err.message
+          });
       }
     });
 
-    // NEW ENDPOINT: Search for existing license plates
     app.get("/api/searchPlatNomor", authenticateToken, async (req, res) => {
-      const { query } = req.query;
+      const {
+        query
+      } = req.query;
 
-      // Izinkan pencarian dengan 1 karakter jika itu huruf, jika tidak, minimal 2 karakter
       if (
         !query ||
         query.trim().length < 1 ||
@@ -810,11 +867,9 @@ async function startServer(rebuild = false) {
       }
 
       try {
-        const cleanedQuery = query.replace(/\s/g, ""); // Hapus spasi dari input pengguna
-        const searchQuery = `${cleanedQuery}%`; // Ubah ini: `searchQuery = %${cleanedQuery}%` -> `searchQuery = ${cleanedQuery}%`
+        const cleanedQuery = query.replace(/\s/g, "");
+        const searchQuery = `${cleanedQuery}%`;
 
-        // Mencari plat_nomor di mana versi tanpa spasi dari plat nomor tersebut
-        // berawal dengan string pencarian yang juga tanpa spasi
         const [results] = await dbPool.query(
           `SELECT plat_nomor FROM Kendaraan WHERE REPLACE(plat_nomor, ' ', '') LIKE ? LIMIT 10`,
           [searchQuery]
@@ -826,25 +881,29 @@ async function startServer(rebuild = false) {
         console.error("Error searching for license plates:", err);
         res
           .status(500)
-          .json({ error: "Gagal mencari plat nomor: " + err.message });
+          .json({
+            error: "Gagal mencari plat nomor: " + err.message
+          });
       }
     });
-    // A new backend endpoint to get single parking log details by ticket number
+
     app.get(
       "/api/parkirKeluarCheck/:nomor_tiket",
       authenticateToken,
       async (req, res) => {
-        const { nomor_tiket } = req.params;
+        const {
+          nomor_tiket
+        } = req.params;
         try {
           const [results] = await dbPool.query(
             `
       SELECT
-          lp.id,
-          k.plat_nomor,
-          t.nomor_tiket,
-          CONCAT('${VITE_DOMAIN_SERVER}/backend/uploads/', lp.foto_masuk) AS foto_masuk,
-          lp.waktu_masuk,
-          lp.waktu_keluar
+        lp.id,
+        k.plat_nomor,
+        t.nomor_tiket,
+        CONCAT('${VITE_DOMAIN_SERVER}/backend/uploads/', lp.foto_masuk) AS foto_masuk,
+        lp.waktu_masuk,
+        lp.waktu_keluar
       FROM Log_Parkir lp
       JOIN Kendaraan k ON lp.id_kendaraan = k.id
       JOIN Tiket t ON lp.id_tiket = t.id
@@ -865,7 +924,9 @@ async function startServer(rebuild = false) {
           console.error("Error fetching parking log by ticket:", err);
           return res
             .status(500)
-            .json({ error: "Failed to fetch parking log: " + err.message });
+            .json({
+              error: "Failed to fetch parking log: " + err.message
+            });
         }
       }
     );
@@ -882,8 +943,15 @@ async function startServer(rebuild = false) {
           req.file ? req.file.filename : "No file via Multer"
         );
 
-        const { plat_nomor, nomor_tiket, foto_base64 } = req.body;
-        const { id: adminId, email: adminEmail } = req.admin;
+        const {
+          plat_nomor,
+          nomor_tiket,
+          foto_base64
+        } = req.body;
+        const {
+          id: adminId,
+          email: adminEmail
+        } = req.admin;
 
         if (!plat_nomor || !nomor_tiket) {
           return res.status(400).json({
@@ -992,21 +1060,32 @@ async function startServer(rebuild = false) {
         } catch (error) {
           console.error("Error processing /api/parkirMasuk request:", error);
           if (error.message.includes("Only image files are allowed!")) {
-            return res.status(400).json({ error: error.message });
+            return res.status(400).json({
+              error: error.message
+            });
           }
           return res
             .status(500)
-            .json({ error: "Failed to process request: " + error.message });
+            .json({
+              error: "Failed to process request: " + error.message
+            });
         }
       }
     );
 
     app.post("/api/parkirKeluar", authenticateToken, async (req, res) => {
-      const { nomor_tiket } = req.body;
-      const { id: adminId, email: adminEmail } = req.admin;
+      const {
+        nomor_tiket
+      } = req.body;
+      const {
+        id: adminId,
+        email: adminEmail
+      } = req.admin;
 
       if (!nomor_tiket) {
-        return res.status(400).json({ error: "Nomor tiket wajib diisi" });
+        return res.status(400).json({
+          error: "Nomor tiket wajib diisi"
+        });
       }
 
       const connection = await dbPool.getConnection();
@@ -1031,7 +1110,11 @@ async function startServer(rebuild = false) {
             error: "Tidak ada log parkir aktif untuk tiket ini",
           });
         }
-        const { id: logId, id_tiket, plat_nomor } = logInfo[0];
+        const {
+          id: logId,
+          id_tiket,
+          plat_nomor
+        } = logInfo[0];
 
         const [updateLogResult] = await connection.query(
           `
@@ -1069,25 +1152,30 @@ async function startServer(rebuild = false) {
         console.error("Error in parkirKeluar transaction:", err);
         return res
           .status(500)
-          .json({ error: "Gagal memproses parkir keluar: " + err.message });
+          .json({
+            error: "Gagal memproses parkir keluar: " + err.message
+          });
       } finally {
         connection.release();
       }
     });
 
-    // --- ENDPOINT UNTUK MEMULAI PENDAFTARAN ADMIN (MENGIRIM KODE VERIFIKASI) ---
     app.post("/api/admin/register", async (req, res) => {
-      const { email, password } = req.body;
+      const {
+        email,
+        password
+      } = req.body;
       if (!email || !password) {
         return res
           .status(400)
-          .json({ error: "Email dan password harus diisi" });
+          .json({
+            error: "Email dan password harus diisi"
+          });
       }
 
-      const VERIFICATION_EXPIRATION_MS = 5 * 60 * 1000; // 5 menit
+      const VERIFICATION_EXPIRATION_MS = 5 * 60 * 1000;
 
       try {
-        // Cek apakah email sudah terdaftar di tabel Admin (sudah diverifikasi)
         const [existingAdmin] = await dbPool.query(
           `SELECT id FROM Admin WHERE email = ?`,
           [email]
@@ -1098,7 +1186,6 @@ async function startServer(rebuild = false) {
           });
         }
 
-        // Cek apakah email sudah ada di tabel PendingAdmins (sedang menunggu verifikasi)
         const [existingPendingAdminRows] = await dbPool.query(
           `SELECT * FROM PendingAdmins WHERE email = ?`,
           [email]
@@ -1109,33 +1196,27 @@ async function startServer(rebuild = false) {
           const createdAtTimestamp = new Date(
             existingPendingAdmin.created_at
           ).getTime();
-          // Jika ada entri pending dan belum kedaluwarsa, kembalikan pesan bahwa sudah ada
           if (Date.now() - createdAtTimestamp < VERIFICATION_EXPIRATION_MS) {
             return res.status(400).json({
-              message:
-                "Email ini sudah memiliki permintaan verifikasi yang tertunda. Silakan cek email Anda atau coba lagi nanti.",
+              message: "Email ini sudah memiliki permintaan verifikasi yang tertunda. Silakan cek email Anda atau coba lagi nanti.",
               email: email,
               redirectUrl: `${VITE_DOMAIN_SERVER}/verifikasi-admin?email=${encodeURIComponent(
                 email
               )}`,
             });
           } else {
-            // Jika sudah kedaluwarsa, hapus entri lama
             await dbPool.query(`DELETE FROM PendingAdmins WHERE email = ?`, [
               email,
             ]);
             console.log(`Expired pending admin entry for ${email} deleted.`);
-            // Lanjutkan untuk membuat entri baru di bawah
           }
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
-        // Generate a 6-digit numeric code
         const verificationCode = Math.floor(
           100000 + Math.random() * 900000
         ).toString();
 
-        // --- SIMPAN KE TABEL PENDINGADMINS ---
         const [insertPendingResult] = await dbPool.query(
           `INSERT INTO PendingAdmins (email, verification_code, hashed_password, created_at) VALUES (?, ?, ?, NOW())`,
           [email, verificationCode, hashedPassword]
@@ -1144,14 +1225,11 @@ async function startServer(rebuild = false) {
           `Pendaftaran pending untuk ${email} disimpan di DB dengan ID: ${insertPendingResult.insertId}`
         );
 
-        // Buat link verifikasi menggunakan VITE_DOMAIN_SERVER
-        // Link ini sekarang membawa email dan kode verifikasi
         const verificationLink = `${VITE_DOMAIN_SERVER}/verifikasi-admin?email=${encodeURIComponent(
           email
         )}&code=${verificationCode}`;
-        const expirationTimeMinutes = 5; // Kode berlaku 5 menit
+        const expirationTimeMinutes = 5;
 
-        // --- HTML Email Template ---
         const htmlEmailContent = `
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
@@ -1160,41 +1238,35 @@ async function startServer(rebuild = false) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Verifikasi Akun Anda</title>
     <style type="text/css">
-        /* Basic Resets & Compatibility */
         body { margin: 0; padding: 0; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
         table { border-collapse: collapse; mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
         img { border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; }
         p { display: block; margin: 0; padding: 0; }
         a { text-decoration: none; }
-        /* Outlook-specific styles */
         .ExternalClass { width: 100%; }
         .ExternalClass, .ExternalClass p, .ExternalClass span, .ExternalClass font, .ExternalClass td, .ExternalClass div { line-height: 100%; }
-
-        /* General Styles for Desktop */
         .email-body { background-color: #f4f4f4; padding: 20px 0 30px 0; }
         .main-table { border-collapse: collapse; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.05); }
         .content-area { padding: 40px; text-align: center; }
         .logo { display: block; margin: 0 auto 20px auto; }
         .heading { font-family: Arial, sans-serif; font-size: 28px; color: #333333; margin: 0 0 20px 0; }
         .paragraph { font-family: Arial, sans-serif; font-size: 16px; line-height: 24px; color: #555555; margin: 0 0 25px 0; }
-        .code-box-table { margin: 30px auto; width: 100%; max-width: 300px; } /* Added max-width here */
+        .code-box-table { margin: 30px auto; width: 100%; max-width: 300px; }
         .code-box-cell { background-color: #e8f5e9; padding: 20px; border-radius: 8px; }
-        .code-text { font-family: 'Courier New', Courier, monospace; font-size: 32px; font-weight: bold; color: #2e7d32; letter-spacing: 5px; /* Reduced letter spacing for better fit */ margin: 0; word-break: break-all; /* Helps if placeholder text is long */ }
+        .code-text { font-family: 'Courier New', Courier, monospace; font-size: 32px; font-weight: bold; color: #2e7d32; letter-spacing: 5px; margin: 0; word-break: break-all; }
         .button-table { margin: 0 auto; }
         .button-cell { border-radius: 5px; }
         .button-link { font-size: 16px; font-family: Arial, sans-serif; color: #ffffff; text-decoration: none; border-radius: 5px; padding: 12px 25px; border: 1px solid #3498db; display: inline-block; background-color: #3498db; }
         .footer-area { padding: 30px 40px; background-color: #f0f0f0; text-align: center; }
         .footer-text { font-family: Arial, sans-serif; font-size: 12px; color: #777777; margin: 0; }
-
-        /* Media Queries for Responsive Design (Mobile) */
         @media screen and (max-width: 600px) {
             .email-body { padding: 10px 0 20px 0 !important; }
-            .main-table { width: 100% !important; border-radius: 0 !important; } /* Full width on mobile */
+            .main-table { width: 100% !important; border-radius: 0 !important; }
             .content-area { padding: 20px !important; }
             .heading { font-size: 24px !important; }
             .paragraph { font-size: 15px !important; line-height: 22px !important; }
             .code-box-table { width: 90% !important; max-width: 90% !important; }
-            .code-text { font-size: 28px !important; letter-spacing: 3px !important; } /* Adjust for smaller screens */
+            .code-text { font-size: 28px !important; letter-spacing: 3px !important; }
             .button-table { width: 100% !important; }
             .button-cell { width: 100% !important; text-align: center !important; }
             .button-link { width: calc(100% - 50px) !important; padding: 12px 0 !important; }
@@ -1260,7 +1332,6 @@ async function startServer(rebuild = false) {
 </html>
         `;
 
-        // Kirim email verifikasi menggunakan Nodemailer
         const mailOptions = {
           from: `"${EMAIL_SENDER_NAME}" <${GMAIL_USER}>`,
           to: email,
@@ -1272,21 +1343,19 @@ async function startServer(rebuild = false) {
 
         await createLogMessage(
           `Permintaan pendaftaran admin baru untuk email: ${email}. Email verifikasi dikirim.`,
-          null, // adminId null karena belum terdaftar
+          null,
           email
         );
 
         res.json({
-          message:
-            "Email verifikasi telah dikirim. Silakan cek kotak masuk Anda untuk menyelesaikan pendaftaran.",
-          email: email, // Kirim email kembali agar frontend bisa menggunakannya
+          message: "Email verifikasi telah dikirim. Silakan cek kotak masuk Anda untuk menyelesaikan pendaftaran.",
+          email: email,
           redirectUrl: `${VITE_DOMAIN_SERVER}/verifikasi-admin?email=${encodeURIComponent(
             email
-          )}`, // URL redirect
+          )}`,
         });
       } catch (err) {
         console.error("Error during admin registration initiation:", err);
-        // Tangani error spesifik dari Nodemailer atau SMTP
         let errorMessage =
           "Gagal memulai pendaftaran admin. Terjadi masalah saat mengirim email verifikasi.";
         if (err.responseCode && err.response) {
@@ -1294,14 +1363,17 @@ async function startServer(rebuild = false) {
         } else if (err.message) {
           errorMessage = err.message;
         }
-        res.status(500).json({ error: errorMessage });
+        res.status(500).json({
+          error: errorMessage
+        });
       }
     });
 
-    // --- ENDPOINT UNTUK VERIFIKASI AKUN ADMIN VIA LINK (GET) ---
-    // URL format: /api/admin/verify?email=[email_admin]&code=[6digitkode]
     app.get("/api/admin/verify", async (req, res) => {
-      const { email, code } = req.query;
+      const {
+        email,
+        code
+      } = req.query;
 
       if (!email || !code) {
         return res.status(400).send(`
@@ -1325,7 +1397,7 @@ async function startServer(rebuild = false) {
         `);
       }
 
-      const VERIFICATION_EXPIRATION_MS = 5 * 60 * 1000; // 5 menit
+      const VERIFICATION_EXPIRATION_MS = 5 * 60 * 1000;
 
       let pendingAdminData;
       try {
@@ -1333,7 +1405,7 @@ async function startServer(rebuild = false) {
           `SELECT * FROM PendingAdmins WHERE email = ?`,
           [email]
         );
-        pendingAdminData = rows[0]; // Ambil baris pertama jika ada
+        pendingAdminData = rows[0];
       } catch (dbErr) {
         console.error("Error fetching pending admin from DB:", dbErr);
         return res.status(500).send(`
@@ -1357,29 +1429,25 @@ async function startServer(rebuild = false) {
         `);
       }
 
-      // Konversi created_at dari objek Date ke timestamp milidetik untuk perbandingan
-      const createdAtTimestamp = pendingAdminData
-        ? new Date(pendingAdminData.created_at).getTime()
-        : 0;
+      const createdAtTimestamp = pendingAdminData ?
+        new Date(pendingAdminData.created_at).getTime() :
+        0;
 
       if (
         !pendingAdminData ||
         pendingAdminData.verification_code !== code ||
         Date.now() - createdAtTimestamp > VERIFICATION_EXPIRATION_MS
       ) {
-        let errorMessage =
-          "Kode verifikasi tidak valid atau telah kedaluwarsa.";
+        let errorMessage = "Kode verifikasi tidak valid atau telah kedaluwarsa.";
         if (pendingAdminData && pendingAdminData.verification_code !== code) {
           errorMessage = "Kode verifikasi tidak cocok.";
         } else if (
           pendingAdminData &&
           Date.now() - createdAtTimestamp > VERIFICATION_EXPIRATION_MS
         ) {
-          errorMessage =
-            "Kode verifikasi telah kedaluwarsa (lebih dari 5 menit). Silakan minta kirim ulang.";
+          errorMessage = "Kode verifikasi telah kedaluwarsa (lebih dari 5 menit). Silakan minta kirim ulang.";
         } else if (!pendingAdminData) {
-          errorMessage =
-            "Tidak ada permintaan verifikasi yang tertunda untuk email ini.";
+          errorMessage = "Tidak ada permintaan verifikasi yang tertunda untuk email ini.";
         }
 
         return res.status(400).send(`
@@ -1404,15 +1472,15 @@ async function startServer(rebuild = false) {
       }
 
       try {
-        const { hashed_password } = pendingAdminData;
+        const {
+          hashed_password
+        } = pendingAdminData;
 
-        // Cek lagi apakah email sudah ada di tabel Admin, untuk mencegah duplikasi jika verifikasi link sudah dilakukan
         const [existingAdmin] = await dbPool.query(
           `SELECT id FROM Admin WHERE email = ?`,
           [email]
         );
         if (existingAdmin.length > 0) {
-          // Hapus dari pending jika sudah ada di Admin (mungkin verifikasi ganda)
           await dbPool.query(`DELETE FROM PendingAdmins WHERE email = ?`, [
             email,
           ]);
@@ -1434,17 +1502,14 @@ async function startServer(rebuild = false) {
                     </div>
                 </body>
                 </html>
-            `);
+          `);
         }
 
         const sql = `INSERT INTO Admin (email, password) VALUES (?, ?)`;
         const [result] = await dbPool.query(sql, [email, hashed_password]);
 
-        // **NEW: Add default settings for the newly created admin**
-        // MODIFIED: Pass dbPool as the first argument
         await addDefaultAdminSettings(dbPool, result.insertId, email);
 
-        // Hapus data dari tabel PendingAdmins setelah berhasil disimpan ke Admin
         await dbPool.query(`DELETE FROM PendingAdmins WHERE email = ?`, [
           email,
         ]);
@@ -1484,7 +1549,6 @@ async function startServer(rebuild = false) {
         if (err.code === "ER_DUP_ENTRY") {
           errorMessage =
             "Email ini sudah terdaftar sebagai admin yang aktif. Verifikasi tidak diperlukan.";
-          // Coba hapus dari pending jika memang sudah ada di Admin
           await dbPool.query(`DELETE FROM PendingAdmins WHERE email = ?`, [
             email,
           ]);
@@ -1511,17 +1575,21 @@ async function startServer(rebuild = false) {
       }
     });
 
-    // --- ENDPOINT UNTUK VERIFIKASI AKUN ADMIN VIA FORM (POST) ---
     app.post("/api/admin/verify_code", async (req, res) => {
-      const { email, code } = req.body;
+      const {
+        email,
+        code
+      } = req.body;
 
       if (!email || !code) {
         return res
           .status(400)
-          .json({ error: "Email dan kode verifikasi wajib diisi." });
+          .json({
+            error: "Email dan kode verifikasi wajib diisi."
+          });
       }
 
-      const VERIFICATION_EXPIRATION_MS = 5 * 60 * 1000; // 5 menit
+      const VERIFICATION_EXPIRATION_MS = 5 * 60 * 1000;
 
       let pendingAdminData;
       try {
@@ -1537,36 +1605,36 @@ async function startServer(rebuild = false) {
         });
       }
 
-      const createdAtTimestamp = pendingAdminData
-        ? new Date(pendingAdminData.created_at).getTime()
-        : 0;
+      const createdAtTimestamp = pendingAdminData ?
+        new Date(pendingAdminData.created_at).getTime() :
+        0;
 
       if (
         !pendingAdminData ||
         pendingAdminData.verification_code !== code ||
         Date.now() - createdAtTimestamp > VERIFICATION_EXPIRATION_MS
       ) {
-        let errorMessage =
-          "Kode verifikasi tidak valid atau telah kedaluwarsa.";
+        let errorMessage = "Kode verifikasi tidak valid atau telah kedaluwarsa.";
         if (pendingAdminData && pendingAdminData.verification_code !== code) {
           errorMessage = "Kode verifikasi tidak cocok.";
         } else if (
           pendingAdminData &&
           Date.now() - createdAtTimestamp > VERIFICATION_EXPIRATION_MS
         ) {
-          errorMessage =
-            "Kode verifikasi telah kedaluwarsa (lebih dari 5 menit). Silakan minta kirim ulang.";
+          errorMessage = "Kode verifikasi telah kedaluwarsa (lebih dari 5 menit). Silakan minta kirim ulang.";
         } else if (!pendingAdminData) {
-          errorMessage =
-            "Tidak ada permintaan verifikasi yang tertunda untuk email ini. Silakan daftar ulang.";
+          errorMessage = "Tidak ada permintaan verifikasi yang tertunda untuk email ini. Silakan daftar ulang.";
         }
-        return res.status(400).json({ error: errorMessage });
+        return res.status(400).json({
+          error: errorMessage
+        });
       }
 
       try {
-        const { hashed_password } = pendingAdminData;
+        const {
+          hashed_password
+        } = pendingAdminData;
 
-        // Cek lagi apakah email sudah ada di tabel Admin, untuk mencegah duplikasi jika verifikasi link sudah dilakukan
         const [existingAdmin] = await dbPool.query(
           `SELECT id FROM Admin WHERE email = ?`,
           [email]
@@ -1576,19 +1644,15 @@ async function startServer(rebuild = false) {
             email,
           ]);
           return res.status(400).json({
-            error:
-              "Email ini sudah terdaftar sebagai admin yang aktif. Verifikasi tidak diperlukan.",
+            error: "Email ini sudah terdaftar sebagai admin yang aktif. Verifikasi tidak diperlukan.",
           });
         }
 
         const sql = `INSERT INTO Admin (email, password) VALUES (?, ?)`;
         const [result] = await dbPool.query(sql, [email, hashed_password]);
 
-        // **NEW: Add default settings for the newly created admin**
-        // MODIFIED: Pass dbPool as the first argument
         await addDefaultAdminSettings(dbPool, result.insertId, email);
 
-        // Hapus data dari tabel PendingAdmins setelah berhasil disimpan ke Admin
         await dbPool.query(`DELETE FROM PendingAdmins WHERE email = ?`, [
           email,
         ]);
@@ -1616,16 +1680,21 @@ async function startServer(rebuild = false) {
             email,
           ]);
         }
-        res.status(500).json({ error: errorMessage });
+        res.status(500).json({
+          error: errorMessage
+        });
       }
     });
 
-    // NEW ENDPOINT: Get pending admin status for countdown
     app.get("/api/admin/pending-status", async (req, res) => {
-      const { email } = req.query;
+      const {
+        email
+      } = req.query;
 
       if (!email) {
-        return res.status(400).json({ error: "Email is required." });
+        return res.status(400).json({
+          error: "Email is required."
+        });
       }
 
       try {
@@ -1637,18 +1706,19 @@ async function startServer(rebuild = false) {
         if (rows.length === 0) {
           return res
             .status(404)
-            .json({ error: "No pending verification found for this email." });
+            .json({
+              error: "No pending verification found for this email."
+            });
         }
 
         const pendingEntry = rows[0];
-        const VERIFICATION_EXPIRATION_MS = 5 * 60 * 1000; // 5 minutes
+        const VERIFICATION_EXPIRATION_MS = 5 * 60 * 1000;
 
-        // Convert created_at from DB (which is a Date object) to a timestamp
         const createdAtTimestamp = new Date(pendingEntry.created_at).getTime();
 
         const remainingTimeMs =
           VERIFICATION_EXPIRATION_MS - (Date.now() - createdAtTimestamp);
-        const remainingSeconds = Math.max(0, Math.ceil(remainingTimeMs / 1000)); // Ensure non-negative and round up
+        const remainingSeconds = Math.max(0, Math.ceil(remainingTimeMs / 1000));
 
         res.json({
           email: email,
@@ -1658,19 +1728,26 @@ async function startServer(rebuild = false) {
         });
       } catch (error) {
         console.error("Error fetching pending admin status:", error);
-        res.status(500).json({ error: "Failed to fetch pending status." });
+        res.status(500).json({
+          error: "Failed to fetch pending status."
+        });
       }
     });
 
-    // NEW ENDPOINT: Change Admin Password (requires current password)
     app.put(
       "/api/admin/change-password",
       authenticateToken,
       async (req, res) => {
-        const { currentPassword, newPassword, confirmNewPassword } = req.body;
-        const { id: adminId, email: adminEmail } = req.admin; // Authenticated admin's ID and email
+        const {
+          currentPassword,
+          newPassword,
+          confirmNewPassword
+        } = req.body;
+        const {
+          id: adminId,
+          email: adminEmail
+        } = req.admin;
 
-        // Log the adminId being used for debugging
         console.log(
           `Attempting to change password for adminId: ${adminId}, email: ${adminEmail}`
         );
@@ -1678,7 +1755,9 @@ async function startServer(rebuild = false) {
         if (!currentPassword || !newPassword || !confirmNewPassword) {
           return res
             .status(400)
-            .json({ error: "Semua kolom password harus diisi." });
+            .json({
+              error: "Semua kolom password harus diisi."
+            });
         }
         if (newPassword !== confirmNewPassword) {
           return res.status(400).json({
@@ -1688,7 +1767,9 @@ async function startServer(rebuild = false) {
         if (newPassword.length < 6) {
           return res
             .status(400)
-            .json({ error: "Password baru minimal 6 karakter." });
+            .json({
+              error: "Password baru minimal 6 karakter."
+            });
         }
 
         try {
@@ -1698,13 +1779,11 @@ async function startServer(rebuild = false) {
           );
 
           if (adminRows.length === 0) {
-            // Log a more specific error if admin is not found despite authentication
             console.error(
               `Admin with ID ${adminId} not found in DB during password change. Token might be stale.`
             );
             return res.status(404).json({
-              error:
-                "Admin tidak ditemukan. Sesi Anda mungkin sudah tidak valid. Silakan login ulang.",
+              error: "Admin tidak ditemukan. Sesi Anda mungkin sudah tidak valid. Silakan login ulang.",
             });
           }
 
@@ -1712,7 +1791,9 @@ async function startServer(rebuild = false) {
           const match = await bcrypt.compare(currentPassword, admin.password);
 
           if (!match) {
-            return res.status(401).json({ error: "Password saat ini salah." });
+            return res.status(401).json({
+              error: "Password saat ini salah."
+            });
           }
 
           const hashedNewPassword = await bcrypt.hash(newPassword, 10);
@@ -1727,19 +1808,26 @@ async function startServer(rebuild = false) {
             adminEmail
           );
 
-          res.json({ message: "Password berhasil diubah." });
+          res.json({
+            message: "Password berhasil diubah."
+          });
         } catch (err) {
           console.error("Error changing admin password:", err);
-          res.status(500).json({ error: "Gagal mengubah password." });
+          res.status(500).json({
+            error: "Gagal mengubah password."
+          });
         }
       }
     );
 
-    // NEW ENDPOINT: Request Password Reset (sends email with token)
     app.post("/api/admin/request-password-reset", async (req, res) => {
-      const { email } = req.body;
+      const {
+        email
+      } = req.body;
       if (!email) {
-        return res.status(400).json({ error: "Email wajib diisi." });
+        return res.status(400).json({
+          error: "Email wajib diisi."
+        });
       }
 
       try {
@@ -1749,35 +1837,30 @@ async function startServer(rebuild = false) {
         );
 
         if (adminRows.length === 0) {
-          // Send a generic success message even if email not found to prevent enumeration attacks
           console.log(
             `Password reset requested for non-existent email: ${email}`
           );
           return res.json({
-            message:
-              "Jika email terdaftar, tautan reset password akan dikirimkan.",
+            message: "Jika email terdaftar, tautan reset password akan dikirimkan.",
           });
         }
 
         const adminId = adminRows[0].id;
-        const resetToken = crypto.randomBytes(32).toString("hex"); // Generate a random token
-        const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // Token valid for 1 hour
+        const resetToken = crypto.randomBytes(32).toString("hex");
+        const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
 
-        // Invalidate any old tokens for this admin
         await dbPool.query(
           `DELETE FROM PasswordResetTokens WHERE admin_id = ?`,
           [adminId]
         );
 
-        // Store new token in DB
         await dbPool.query(
           `INSERT INTO PasswordResetTokens (admin_id, token, expires_at) VALUES (?, ?, ?)`,
           [adminId, resetToken, expiresAt]
         );
 
-        const resetLink = `${VITE_DOMAIN_SERVER}/reset-password?token=${resetToken}`; // Frontend route for reset
+        const resetLink = `${VITE_DOMAIN_SERVER}/reset-password?token=${resetToken}`;
 
-        // --- HTML Email Template for Password Reset ---
         const resetEmailContent = `
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
@@ -1786,17 +1869,13 @@ async function startServer(rebuild = false) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Reset Password Anda</title>
     <style type="text/css">
-        /* Basic Resets & Compatibility */
         body { margin: 0; padding: 0; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
         table { border-collapse: collapse; mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
         img { border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; }
         p { display: block; margin: 0; padding: 0; }
         a { text-decoration: none; }
-        /* Outlook-specific styles */
         .ExternalClass { width: 100%; }
         .ExternalClass, .ExternalClass p, .ExternalClass span, .ExternalClass font, .ExternalClass td, .ExternalClass div { line-height: 100%; }
-
-        /* General Styles for Desktop */
         .email-body { background-color: #f4f4f4; padding: 20px 0 30px 0; }
         .main-table { border-collapse: collapse; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.05); }
         .content-area { padding: 40px; text-align: center; }
@@ -1808,11 +1887,9 @@ async function startServer(rebuild = false) {
         .button-link { font-size: 16px; font-family: Arial, sans-serif; color: #ffffff; text-decoration: none; border-radius: 5px; padding: 12px 25px; border: 1px solid #3498db; display: inline-block; background-color: #3498db; }
         .footer-area { padding: 30px 40px; background-color: #f0f0f0; text-align: center; }
         .footer-text { font-family: Arial, sans-serif; font-size: 12px; color: #777777; margin: 0; }
-
-        /* Media Queries for Responsive Design (Mobile) */
         @media screen and (max-width: 600px) {
             .email-body { padding: 10px 0 20px 0 !important; }
-            .main-table { width: 100% !important; border-radius: 0 !important; } /* Full width on mobile */
+            .main-table { width: 100% !important; border-radius: 0 !important; }
             .content-area { padding: 20px !important; }
             .heading { font-size: 24px !important; }
             .paragraph { font-size: 15px !important; line-height: 22px !important; }
@@ -1883,13 +1960,12 @@ async function startServer(rebuild = false) {
 
         await createLogMessage(
           `Permintaan reset password untuk email: ${email}. Email reset dikirim.`,
-          adminId, // adminId bisa null jika dari halaman login
+          adminId,
           email
         );
 
         res.json({
-          message:
-            "Jika email terdaftar, tautan reset password akan dikirimkan.",
+          message: "Jika email terdaftar, tautan reset password akan dikirimkan.",
         });
       } catch (err) {
         console.error("Error during password reset request:", err);
@@ -1900,13 +1976,18 @@ async function startServer(rebuild = false) {
         } else if (err.message) {
           errorMessage = err.message;
         }
-        res.status(500).json({ error: errorMessage });
+        res.status(500).json({
+          error: errorMessage
+        });
       }
     });
 
-    // NEW ENDPOINT: Perform Password Reset (using token)
     app.post("/api/admin/reset-password", async (req, res) => {
-      const { token, newPassword, confirmNewPassword } = req.body;
+      const {
+        token,
+        newPassword,
+        confirmNewPassword
+      } = req.body;
 
       if (!token || !newPassword || !confirmNewPassword) {
         return res.status(400).json({
@@ -1921,7 +2002,9 @@ async function startServer(rebuild = false) {
       if (newPassword.length < 6) {
         return res
           .status(400)
-          .json({ error: "Password baru minimal 6 karakter." });
+          .json({
+            error: "Password baru minimal 6 karakter."
+          });
       }
 
       const connection = await dbPool.getConnection();
@@ -1945,7 +2028,9 @@ async function startServer(rebuild = false) {
           await connection.rollback();
           return res
             .status(400)
-            .json({ error: "Token reset password telah kedaluwarsa." });
+            .json({
+              error: "Token reset password telah kedaluwarsa."
+            });
         }
 
         const adminId = resetTokenData.admin_id;
@@ -1956,7 +2041,6 @@ async function startServer(rebuild = false) {
           adminId,
         ]);
 
-        // Invalidate/delete the used token
         await connection.query(
           `DELETE FROM PasswordResetTokens WHERE token = ?`,
           [token]
@@ -1964,7 +2048,6 @@ async function startServer(rebuild = false) {
 
         await connection.commit();
 
-        // Fetch admin email for logging
         const [adminEmailRow] = await dbPool.query(
           `SELECT email FROM Admin WHERE id = ?`,
           [adminId]
@@ -1984,21 +2067,24 @@ async function startServer(rebuild = false) {
       } catch (err) {
         await connection.rollback();
         console.error("Error during password reset:", err);
-        res.status(500).json({ error: "Gagal mereset password." });
+        res.status(500).json({
+          error: "Gagal mereset password."
+        });
       } finally {
         connection.release();
       }
     });
 
-    // NEW ENDPOINT: Delete current admin account
     app.delete(
       "/api/admin/delete-my-account",
       authenticateToken,
       async (req, res) => {
-        const { id: adminId, email: adminEmail } = req.admin; // Authenticated admin's ID and email
+        const {
+          id: adminId,
+          email: adminEmail
+        } = req.admin;
 
         try {
-          // Delete the admin account. ON DELETE CASCADE will handle related records.
           const [result] = await dbPool.query(
             `DELETE FROM Admin WHERE id = ?`,
             [adminId]
@@ -2007,10 +2093,11 @@ async function startServer(rebuild = false) {
           if (result.affectedRows === 0) {
             return res
               .status(404)
-              .json({ error: "Akun admin tidak ditemukan." }); // Should not happen if authenticated
+              .json({
+                error: "Akun admin tidak ditemukan."
+              });
           }
 
-          // Clear the token cookie as the account is deleted
           res.clearCookie("token", {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
@@ -2024,18 +2111,27 @@ async function startServer(rebuild = false) {
             adminEmail
           );
 
-          res.json({ message: "Akun admin berhasil dihapus." });
+          res.json({
+            message: "Akun admin berhasil dihapus."
+          });
         } catch (err) {
           console.error("Error deleting admin account:", err);
-          res.status(500).json({ error: "Gagal menghapus akun admin." });
+          res.status(500).json({
+            error: "Gagal menghapus akun admin."
+          });
         }
       }
     );
 
     app.post("/api/admin/login", async (req, res) => {
-      const { email, password } = req.body;
+      const {
+        email,
+        password
+      } = req.body;
       if (!email || !password) {
-        return res.status(400).json({ error: "Email atau Password Salah!" });
+        return res.status(400).json({
+          error: "Email atau Password Salah!"
+        });
       }
 
       try {
@@ -2046,24 +2142,33 @@ async function startServer(rebuild = false) {
 
         if (results.length === 0) {
           await new Promise((resolve) => setTimeout(resolve, 500));
-          return res.status(400).json({ error: "Email atau Password Salah!" });
+          return res.status(400).json({
+            error: "Email atau Password Salah!"
+          });
         }
 
         const admin = results[0];
         const match = await bcrypt.compare(password, admin.password);
 
         if (!match) {
-          return res.status(400).json({ error: "Email atau Password Salah!" });
+          return res.status(400).json({
+            error: "Email atau Password Salah!"
+          });
         }
 
-        const payload = { id: admin.id, email: admin.email };
-        const token = jwt.sign(payload, JWT_SECRET, { expiresIn: "1d" });
+        const payload = {
+          id: admin.id,
+          email: admin.email
+        };
+        const token = jwt.sign(payload, JWT_SECRET, {
+          expiresIn: "1d"
+        });
 
         res.cookie("token", token, {
           httpOnly: true,
-          secure: process.env.NODE_ENV === "production", // Set to true in production for HTTPS
+          secure: process.env.NODE_ENV === "production",
           maxAge: 24 * 60 * 60 * 1000,
-          sameSite: "Lax", // Or 'None' with secure:true if cross-site
+          sameSite: "Lax",
         });
 
         await createLogMessage(
@@ -2072,10 +2177,15 @@ async function startServer(rebuild = false) {
           admin.email
         );
 
-        res.json({ message: "Login berhasil", id_admin: admin.id });
+        res.json({
+          message: "Login berhasil",
+          id_admin: admin.id
+        });
       } catch (err) {
         console.error("Error during login:", err);
-        res.status(500).json({ error: "Terjadi kesalahan server." });
+        res.status(500).json({
+          error: "Terjadi kesalahan server."
+        });
       }
     });
 
@@ -2088,7 +2198,10 @@ async function startServer(rebuild = false) {
     });
 
     app.post("/api/admin/logout", authenticateToken, async (req, res) => {
-      const { id: adminId, email: adminEmail } = req.admin;
+      const {
+        id: adminId,
+        email: adminEmail
+      } = req.admin;
 
       res.clearCookie("token", {
         httpOnly: true,
@@ -2098,12 +2211,20 @@ async function startServer(rebuild = false) {
       });
       await createLogMessage(`email_admin telah logout`, adminId, adminEmail);
 
-      res.json({ message: "Logout berhasil" });
+      res.json({
+        message: "Logout berhasil"
+      });
     });
 
     app.post("/api/pemasukanMingguan", authenticateToken, async (req, res) => {
-      const { tanggal_pemasukan, nominal_pemasukan } = req.body;
-      const { id: adminId, email: adminEmail } = req.admin;
+      const {
+        tanggal_pemasukan,
+        nominal_pemasukan
+      } = req.body;
+      const {
+        id: adminId,
+        email: adminEmail
+      } = req.admin;
 
       if (
         !tanggal_pemasukan ||
@@ -2111,13 +2232,12 @@ async function startServer(rebuild = false) {
         nominal_pemasukan < 0
       ) {
         return res.status(400).json({
-          error:
-            "Tanggal pemasukan dan nominal pemasukan yang valid wajib diisi.",
+          error: "Tanggal pemasukan dan nominal pemasukan yang valid wajib diisi.",
         });
       }
 
       try {
-        const nominal_bersih = nominal_pemasukan - nominal_pemasukan * 0.2; // Assuming 20% deduction
+        const nominal_bersih = nominal_pemasukan - nominal_pemasukan * 0.2;
 
         const sql = `INSERT INTO PemasukanMingguan (tanggal_pemasukan, nominal_pemasukan, nominal_bersih) VALUES (?, ?, ?)`;
         const [result] = await dbPool.query(sql, [
@@ -2143,7 +2263,9 @@ async function startServer(rebuild = false) {
         console.error("Error adding pemasukan:", err);
         res
           .status(500)
-          .json({ error: "Gagal menambahkan pemasukan: " + err.message });
+          .json({
+            error: "Gagal menambahkan pemasukan: " + err.message
+          });
       }
     });
 
@@ -2151,8 +2273,13 @@ async function startServer(rebuild = false) {
       "/api/pemasukanMingguan/:id",
       authenticateToken,
       async (req, res) => {
-        const { id } = req.params;
-        const { id: adminId, email: adminEmail } = req.admin;
+        const {
+          id
+        } = req.params;
+        const {
+          id: adminId,
+          email: adminEmail
+        } = req.admin;
 
         try {
           const [incomeData] = await dbPool.query(
@@ -2166,7 +2293,9 @@ async function startServer(rebuild = false) {
           if (result.affectedRows === 0) {
             return res
               .status(404)
-              .json({ error: "Data pemasukan tidak ditemukan." });
+              .json({
+                error: "Data pemasukan tidak ditemukan."
+              });
           }
 
           if (incomeData.length > 0) {
@@ -2186,12 +2315,16 @@ async function startServer(rebuild = false) {
           }
           emitDashboardUpdate("revenueSummary");
 
-          res.json({ message: "Data pemasukan berhasil dihapus." });
+          res.json({
+            message: "Data pemasukan berhasil dihapus."
+          });
         } catch (err) {
           console.error("Error deleting pemasukan:", err);
           res
             .status(500)
-            .json({ error: "Gagal menghapus pemasukan: " + err.message });
+            .json({
+              error: "Gagal menghapus pemasukan: " + err.message
+            });
         }
       }
     );
@@ -2200,7 +2333,9 @@ async function startServer(rebuild = false) {
       "/api/pemasukanMingguan/:id",
       authenticateToken,
       async (req, res) => {
-        const { id } = req.params;
+        const {
+          id
+        } = req.params;
 
         try {
           const [results] = await dbPool.query(
@@ -2211,7 +2346,9 @@ async function startServer(rebuild = false) {
           if (results.length === 0) {
             return res
               .status(404)
-              .json({ error: "Data pemasukan tidak ditemukan" });
+              .json({
+                error: "Data pemasukan tidak ditemukan"
+              });
           }
 
           res.json(results[0]);
@@ -2219,7 +2356,9 @@ async function startServer(rebuild = false) {
           console.error("Error fetching pemasukan by ID:", err);
           res
             .status(500)
-            .json({ error: "Gagal mengambil data pemasukan: " + err.message });
+            .json({
+              error: "Gagal mengambil data pemasukan: " + err.message
+            });
         }
       }
     );
@@ -2228,9 +2367,17 @@ async function startServer(rebuild = false) {
       "/api/pemasukanMingguan/:id",
       authenticateToken,
       async (req, res) => {
-        const { id } = req.params;
-        const { tanggal_pemasukan, nominal_pemasukan } = req.body;
-        const { id: adminId, email: adminEmail } = req.admin;
+        const {
+          id
+        } = req.params;
+        const {
+          tanggal_pemasukan,
+          nominal_pemasukan
+        } = req.body;
+        const {
+          id: adminId,
+          email: adminEmail
+        } = req.admin;
 
         if (
           !tanggal_pemasukan ||
@@ -2239,7 +2386,9 @@ async function startServer(rebuild = false) {
         ) {
           return res
             .status(400)
-            .json({ error: "Tanggal dan nominal pemasukan tidak valid." });
+            .json({
+              error: "Tanggal dan nominal pemasukan tidak valid."
+            });
         }
 
         const nominal_bersih = nominal_pemasukan - nominal_pemasukan * 0.2;
@@ -2267,7 +2416,9 @@ async function startServer(rebuild = false) {
 
           res
             .status(200)
-            .json({ message: "Data pemasukan berhasil diperbarui." });
+            .json({
+              message: "Data pemasukan berhasil diperbarui."
+            });
         } catch (err) {
           console.error("Error updating pemasukan data:", err);
           res.status(500).json({
@@ -2331,53 +2482,73 @@ async function startServer(rebuild = false) {
         console.error("Error fetching all pemasukan:", err);
         res
           .status(500)
-          .json({ error: "Gagal mengambil data pemasukan: " + err.message });
+          .json({
+            error: "Gagal mengambil data pemasukan: " + err.message
+          });
       }
     });
 
     app.get("/api/logMessages", authenticateToken, async (req, res) => {
       try {
         const [results] = await dbPool.query(`
-                SELECT
-                    lm.id,
-                    lm.tanggal_pesan,
-                    lm.isi_pesan,
-                    a.email AS admin_email
-                FROM LogMessages lm
-                LEFT JOIN Admin a ON lm.id_admin = a.id
-                ORDER BY lm.tanggal_pesan DESC
-            `);
+          SELECT
+              lm.id,
+              lm.tanggal_pesan,
+              lm.isi_pesan,
+              a.email AS admin_email
+          FROM LogMessages lm
+          LEFT JOIN Admin a ON lm.id_admin = a.id
+          ORDER BY lm.tanggal_pesan DESC
+        `);
         res.json(results);
       } catch (err) {
         console.error("Error fetching log messages:", err);
         res
           .status(500)
-          .json({ error: "Gagal mengambil log pesan: " + err.message });
+          .json({
+            error: "Gagal mengambil log pesan: " + err.message
+          });
       }
     });
 
     app.post("/api/logMessages", authenticateToken, async (req, res) => {
-      const { isi_pesan } = req.body;
-      const { id: adminId, email: adminEmail } = req.admin;
+      const {
+        isi_pesan
+      } = req.body;
+      const {
+        id: adminId,
+        email: adminEmail
+      } = req.admin;
 
       if (!isi_pesan) {
-        return res.status(400).json({ error: "Isi pesan wajib diisi" });
+        return res.status(400).json({
+          error: "Isi pesan wajib diisi"
+        });
       }
 
       try {
         await createLogMessage(isi_pesan, adminId, adminEmail);
-        res.status(201).json({ message: "Pesan log berhasil ditambahkan" });
+        res.status(201).json({
+          message: "Pesan log berhasil ditambahkan"
+        });
       } catch (err) {
         console.error("Error adding log message via API:", err);
         res
           .status(500)
-          .json({ error: "Gagal menambahkan pesan log: " + err.message });
+          .json({
+            error: "Gagal menambahkan pesan log: " + err.message
+          });
       }
     });
 
     app.delete("/api/logMessages/:id", authenticateToken, async (req, res) => {
-      const { id } = req.params;
-      const { id: adminId, email: adminEmail } = req.admin;
+      const {
+        id
+      } = req.params;
+      const {
+        id: adminId,
+        email: adminEmail
+      } = req.admin;
 
       try {
         const [result] = await dbPool.query(
@@ -2385,7 +2556,9 @@ async function startServer(rebuild = false) {
           [id]
         );
         if (result.affectedRows === 0) {
-          return res.status(404).json({ error: "Pesan log tidak ditemukan" });
+          return res.status(404).json({
+            error: "Pesan log tidak ditemukan"
+          });
         }
         await createLogMessage(
           `email_admin telah menghapus pesan log (ID: ${id})`,
@@ -2393,18 +2566,25 @@ async function startServer(rebuild = false) {
           adminEmail
         );
 
-        res.json({ message: "Pesan log berhasil dihapus" });
+        res.json({
+          message: "Pesan log berhasil dihapus"
+        });
       } catch (err) {
         console.error("Error deleting log message:", err);
         res
           .status(500)
-          .json({ error: "Gagal menghapus pesan log: " + err.message });
+          .json({
+            error: "Gagal menghapus pesan log: " + err.message
+          });
       }
     });
 
     // --- BACKUP DATABASE ENDPOINT ---
     app.post("/api/backup-database", authenticateToken, async (req, res) => {
-      const { id: adminId, email: adminEmail } = req.admin;
+      const {
+        id: adminId,
+        email: adminEmail
+      } = req.admin;
       const timestamp = new Date()
         .toISOString()
         .replace(/:/g, "-")
@@ -2433,7 +2613,6 @@ async function startServer(rebuild = false) {
           });
         });
 
-        // Log the backup in the database
         const logSql = `INSERT INTO Log_Backup (waktu_backup, id_admin) VALUES (NOW(), ?)`;
         await dbPool.query(logSql, [adminId]);
 
@@ -2445,12 +2624,14 @@ async function startServer(rebuild = false) {
 
         res.status(200).json({
           message: "Pencadangan database berhasil!",
-          file_name: backupFileName, // Still provide for immediate download on frontend
-          download_url: `/backups/${backupFileName}`, // Still provide for immediate download on frontend
+          file_name: backupFileName,
+          download_url: `/backups/${backupFileName}`,
         });
       } catch (err) {
         console.error("Error during database backup:", err);
-        res.status(500).json({ error: err.message });
+        res.status(500).json({
+          error: err.message
+        });
       }
     });
 
@@ -2460,12 +2641,17 @@ async function startServer(rebuild = false) {
       authenticateToken,
       uploadSql.single("sql_file"),
       async (req, res) => {
-        const { id: adminId, email: adminEmail } = req.admin;
+        const {
+          id: adminId,
+          email: adminEmail
+        } = req.admin;
 
         if (!req.file) {
           return res
             .status(400)
-            .json({ error: "Tidak ada file SQL yang diunggah." });
+            .json({
+              error: "Tidak ada file SQL yang diunggah."
+            });
         }
 
         const uploadedFilePath = req.file.path;
@@ -2480,7 +2666,7 @@ async function startServer(rebuild = false) {
               if (error) {
                 console.error(`Restore failed: ${error.message}`);
                 if (fs.existsSync(uploadedFilePath))
-                  fs.unlinkSync(uploadedFilePath); // Delete on failure
+                  fs.unlinkSync(uploadedFilePath);
                 return reject(
                   new Error(
                     `Pemulihan database gagal: ${error.message}. Pastikan file SQL valid dan tidak korup.`
@@ -2498,7 +2684,6 @@ async function startServer(rebuild = false) {
             });
           });
 
-          // Log the restore in the database
           const logSql = `INSERT INTO LogPemulihan (waktu_pemulihan, id_admin) VALUES (NOW(), ?)`;
           await dbPool.query(logSql, [adminId]);
 
@@ -2508,7 +2693,6 @@ async function startServer(rebuild = false) {
             adminEmail
           );
 
-          // Delete the uploaded file after successful restore
           if (fs.existsSync(uploadedFilePath)) {
             fs.unlinkSync(uploadedFilePath);
             console.log(`Deleted uploaded SQL file: ${uploadedFileName}`);
@@ -2519,9 +2703,10 @@ async function startServer(rebuild = false) {
           });
         } catch (err) {
           console.error("Error during database restore:", err);
-          res.status(500).json({ error: err.message });
+          res.status(500).json({
+            error: err.message
+          });
         } finally {
-          // Ensure file is deleted even if response fails for some reason
           if (fs.existsSync(uploadedFilePath)) {
             fs.unlinkSync(uploadedFilePath);
           }
@@ -2529,7 +2714,6 @@ async function startServer(rebuild = false) {
       }
     );
 
-    // --- NEW: Helper function to send backup via email ---
     const sendBackupEmail = async (
       backupFilePath,
       backupFileName,
@@ -2636,13 +2820,11 @@ async function startServer(rebuild = false) {
             </body>
             </html>
           `,
-          attachments: [
-            {
-              filename: backupFileName,
-              path: backupFilePath,
-              contentType: "application/sql",
-            },
-          ],
+          attachments: [{
+            filename: backupFileName,
+            path: backupFilePath,
+            contentType: "application/sql",
+          }, ],
         };
         await transporter.sendMail(mailOptions);
         console.log(
@@ -2655,9 +2837,10 @@ async function startServer(rebuild = false) {
       }
     };
 
-    // --- NEW: Endpoint to get admin-specific settings (formerly SystemSettings) ---
     app.get("/api/admin-settings", authenticateToken, async (req, res) => {
-      const { id: adminId } = req.admin;
+      const {
+        id: adminId
+      } = req.admin;
       try {
         const [rows] = await dbPool.query(
           `SELECT setting_name, setting_value FROM AdminSettings WHERE id_admin = ?`,
@@ -2667,7 +2850,6 @@ async function startServer(rebuild = false) {
         rows.forEach((row) => {
           settings[row.setting_name] = row.setting_value;
         });
-        // Convert boolean-like strings to actual booleans
         if (settings.auto_backup_enabled !== undefined) {
           settings.auto_backup_enabled =
             settings.auto_backup_enabled === "true";
@@ -2675,26 +2857,35 @@ async function startServer(rebuild = false) {
         res.json(settings);
       } catch (err) {
         console.error("Error fetching admin settings:", err);
-        res.status(500).json({ error: "Failed to fetch admin settings." });
+        res.status(500).json({
+          error: "Failed to fetch admin settings."
+        });
       }
-    }); // NEW: Endpoint to update admin-specific settings ---
+    });
 
-    // --- NEW: Endpoint to update admin-specific settings ---
     app.put("/api/admin-settings", authenticateToken, async (req, res) => {
-      const { setting_name, setting_value, recaptchaToken } = req.body;
-      const { id: adminId, email: adminEmail } = req.admin;
+      const {
+        setting_name,
+        setting_value,
+        recaptchaToken
+      } = req.body;
+      const {
+        id: adminId,
+        email: adminEmail
+      } = req.admin;
 
       if (!setting_name || setting_value === undefined) {
         return res
           .status(400)
-          .json({ error: "setting_name and setting_value are required." });
-      } // Special handling for auto_backup_enabled with reCAPTCHA
+          .json({
+            error: "setting_name and setting_value are required."
+          });
+      }
 
       if (setting_name === "auto_backup_enabled" && setting_value === "true") {
         if (!recaptchaToken) {
           return res.status(400).json({
-            error:
-              "Token reCAPTCHA wajib diisi untuk mengaktifkan auto backup.",
+            error: "Token reCAPTCHA wajib diisi untuk mengaktifkan auto backup.",
           });
         }
 
@@ -2703,9 +2894,8 @@ async function startServer(rebuild = false) {
           const captchaResponse = await fetch(captchaVerificationUrl, {
             method: "POST",
           });
-          const captchaJson = await captchaResponse.json(); // --- PERUBAHAN UNTUK reCAPTCHA v2 INVISIBLE --- // reCAPTCHA v2 hanya mengembalikan 'success' (boolean)
+          const captchaJson = await captchaResponse.json();
           if (!captchaJson.success) {
-            // reCAPTCHA v2 hanya mengembalikan 'success' (boolean)
             console.warn("Verifikasi reCAPTCHA gagal:", captchaJson);
             let errorMessage = "Verifikasi reCAPTCHA gagal. Silakan coba lagi.";
             if (
@@ -2716,28 +2906,28 @@ async function startServer(rebuild = false) {
                 ", "
               )}.`;
             }
-            return res.status(400).json({ error: errorMessage });
+            return res.status(400).json({
+              error: errorMessage
+            });
           }
-          console.log(`Verifikasi reCAPTCHA berhasil.`); // Hapus pesan skor
+          console.log(`Verifikasi reCAPTCHA berhasil.`);
         } catch (error) {
           console.error("Error selama verifikasi reCAPTCHA:", error);
           return res.status(500).json({
-            error:
-              "Terjadi kesalahan saat memverifikasi reCAPTCHA. Coba lagi nanti.",
+            error: "Terjadi kesalahan saat memverifikasi reCAPTCHA. Coba lagi nanti.",
           });
         }
       }
 
       try {
-        // Convert boolean to string for storage in TEXT column
         const valueToStore =
-          typeof setting_value === "boolean"
-            ? String(setting_value)
-            : setting_value;
+          typeof setting_value === "boolean" ?
+          String(setting_value) :
+          setting_value;
 
         const [result] = await dbPool.query(
           `INSERT INTO AdminSettings (id_admin, setting_name, setting_value) VALUES (?, ?, ?)
-           ON DUPLICATE KEY UPDATE setting_value = ?`,
+          ON DUPLICATE KEY UPDATE setting_value = ?`,
           [adminId, setting_name, valueToStore, valueToStore]
         );
 
@@ -2746,14 +2936,17 @@ async function startServer(rebuild = false) {
           adminId,
           adminEmail
         );
-        res.json({ message: "Setting updated successfully." });
+        res.json({
+          message: "Setting updated successfully."
+        });
       } catch (err) {
         console.error("Error updating admin setting:", err);
-        res.status(500).json({ error: "Failed to update setting." });
+        res.status(500).json({
+          error: "Failed to update setting."
+        });
       }
     });
 
-    // --- GET BACKUP LOGS ---
     app.get("/api/backup-logs", authenticateToken, async (req, res) => {
       try {
         const [results] = await dbPool.query(`
@@ -2767,11 +2960,12 @@ async function startServer(rebuild = false) {
         console.error("Error fetching backup logs:", err);
         res
           .status(500)
-          .json({ error: "Gagal mengambil log backup: " + err.message });
+          .json({
+            error: "Gagal mengambil log backup: " + err.message
+          });
       }
     });
 
-    // --- GET RESTORE LOGS ---
     app.get("/api/restore-logs", authenticateToken, async (req, res) => {
       try {
         const [results] = await dbPool.query(`
@@ -2785,7 +2979,9 @@ async function startServer(rebuild = false) {
         console.error("Error fetching restore logs:", err);
         res
           .status(500)
-          .json({ error: "Gagal mengambil log pemulihan: " + err.message });
+          .json({
+            error: "Gagal mengambil log pemulihan: " + err.message
+          });
       }
     });
 
@@ -2799,34 +2995,32 @@ async function startServer(rebuild = false) {
         `Server API dan WebSocket berjalan di http://localhost:${PORT}`
       );
       console.log("Starting scheduled tasks...");
-    }); // --- AUTOMATED BACKUP CRON JOB --- // Runs every 5 minutes. // --- AUTOMATED BACKUP CRON JOB --- // Runs every 5 minutes.
+    });
     cron.schedule(
       "0 6 * * 1",
       async () => {
         console.log("Running automated backup check...");
         try {
-          // Fetch all admins who have auto_backup_enabled = 'true' and a valid email
           const [adminsToBackup] = await dbPool.query(
             `
-                SELECT
-                    a.id AS admin_id,
-                    a.email AS admin_email,
-                    COALESCE(TRIM(backup_email_setting.setting_value), '') AS backup_email, -- Ambil nilai email backup, COALESCE untuk NULL jadi string kosong
-                    last_backup_timestamp_setting.setting_value AS last_backup_time
-                FROM Admin a
-                JOIN AdminSettings enabled_setting ON a.id = enabled_setting.id_admin
-                    AND enabled_setting.setting_name = 'auto_backup_enabled'
-                    AND enabled_setting.setting_value = 'true'
-                LEFT JOIN AdminSettings backup_email_setting ON a.id = backup_email_setting.id_admin
-                    AND backup_email_setting.setting_name = 'auto_backup_email'
-                LEFT JOIN AdminSettings last_backup_timestamp_setting ON a.id = last_backup_timestamp_setting.id_admin
-                    AND last_backup_timestamp_setting.setting_name = 'last_auto_backup_timestamp'
-                WHERE COALESCE(TRIM(backup_email_setting.setting_value), '') != '' -- Pastikan email backup tidak kosong setelah di-trim
-                GROUP BY a.id, a.email
+              SELECT
+                  a.id AS admin_id,
+                  a.email AS admin_email,
+                  COALESCE(TRIM(backup_email_setting.setting_value), '') AS backup_email,
+                  last_backup_timestamp_setting.setting_value AS last_backup_time
+              FROM Admin a
+              JOIN AdminSettings enabled_setting ON a.id = enabled_setting.id_admin
+                  AND enabled_setting.setting_name = 'auto_backup_enabled'
+                  AND enabled_setting.setting_value = 'true'
+              LEFT JOIN AdminSettings backup_email_setting ON a.id = backup_email_setting.id_admin
+                  AND backup_email_setting.setting_name = 'auto_backup_email'
+              LEFT JOIN AdminSettings last_backup_timestamp_setting ON a.id = last_backup_timestamp_setting.id_admin
+                  AND last_backup_timestamp_setting.setting_name = 'last_auto_backup_timestamp'
+              WHERE COALESCE(TRIM(backup_email_setting.setting_value), '') != ''
+              GROUP BY a.id, a.email
             `.trim()
-          ); // Tetap gunakan .trim() untuk seluruh query string
+          );
 
-          // --- TAMBAHKAN LOG INI SEMENTARA UNTUK DEBUGGING ---
           console.log("--- DEBUGGING ADMINS TO BACKUP ---");
           console.log(
             "ADMIN_AUTO_BACKUP_RECIPIENT_EMAIL (dari .env):",
@@ -2847,15 +3041,12 @@ async function startServer(rebuild = false) {
             console.log(`  - is targetEmail falsy? ${!resolvedTargetEmail}`);
           });
           console.log("--- END DEBUGGING ---");
-          // --- AKHIR LOG DEBUGGING ---
 
           for (const admin of adminsToBackup) {
             const targetEmail =
-              admin.backup_email || ADMIN_AUTO_BACKUP_RECIPIENT_EMAIL; // Fallback to global if admin's is empty
+              admin.backup_email || ADMIN_AUTO_BACKUP_RECIPIENT_EMAIL;
 
-            // Only proceed if a target email is found
             if (!targetEmail) {
-              // Ini seharusnya tidak lagi terpicu jika query di atas sudah benar
               console.warn(
                 `Skipping auto backup for admin ${admin.admin_email}: No valid backup email configured.`
               );
@@ -2866,21 +3057,6 @@ async function startServer(rebuild = false) {
               );
               continue;
             }
-
-            // Check if last backup was less than a week ago (for weekly logic)
-            // For *testing every minute*, this check needs to be adjusted or temporarily removed.
-            // For actual weekly backup, uncomment the logic below:
-            /*
-                const lastBackupDate = admin.last_backup_time ? new Date(admin.last_backup_time) : null;
-                const oneWeekAgo = new Date();
-                oneWeekAgo.setDate(oneWeekAgo.getDate() - 7); // Subtract 7 days
-
-                if (lastBackupDate && lastBackupDate > oneWeekAgo) {
-                    console.log(`Skipping auto backup for admin ${admin.admin_email}: Backup already performed recently.`);
-                    continue; // Skip if backup was done within the last week
-                }
-                */
-            // For testing every minute, you might want to remove the above check or set it to check for 'last minute'
 
             const timestamp = new Date()
               .toISOString()
@@ -2920,21 +3096,18 @@ async function startServer(rebuild = false) {
                 });
               });
 
-              // Send email
               const emailSent = await sendBackupEmail(
                 backupFilePath,
                 backupFileName,
                 targetEmail
               );
 
-              // Log in Log_Backup table
               const logSql = `INSERT INTO Log_Backup (waktu_backup, id_admin) VALUES (NOW(), ?)`;
               await dbPool.query(logSql, [admin.admin_id]);
 
-              // Update last_auto_backup_timestamp in AdminSettings
               await dbPool.query(
                 `INSERT INTO AdminSettings (id_admin, setting_name, setting_value) VALUES (?, ?, ?)
-                         ON DUPLICATE KEY UPDATE setting_value = ?`,
+                 ON DUPLICATE KEY UPDATE setting_value = ?`,
                 [
                   admin.admin_id,
                   "last_auto_backup_timestamp",
@@ -2949,7 +3122,6 @@ async function startServer(rebuild = false) {
                 admin.admin_email
               );
 
-              // Delete the file after sending email (optional, but good practice for temporary backups)
               fs.unlink(backupFilePath, (err) => {
                 if (err)
                   console.error(
@@ -2971,7 +3143,6 @@ async function startServer(rebuild = false) {
                 admin.admin_id,
                 admin.admin_email
               );
-              // Ensure file is deleted even if email fails
               if (fs.existsSync(backupFilePath)) {
                 fs.unlink(backupFilePath, (deleteErr) => {
                   if (deleteErr)
@@ -2989,9 +3160,8 @@ async function startServer(rebuild = false) {
             error
           );
         }
-      },
-      {
-        timezone: "Asia/Jakarta", // Ensure the cron job runs in the correct timezone
+      }, {
+        timezone: "Asia/Jakarta",
       }
     );
   } catch (error) {
@@ -3000,7 +3170,7 @@ async function startServer(rebuild = false) {
   }
 }
 
-// Command-line argument handling for adding admin or generating JWT_SECRET
+// Command-line argument handling
 const args = process.argv.slice(2);
 
 if (args[0] === "--add-admin") {
@@ -3029,8 +3199,6 @@ if (args[0] === "--add-admin") {
         const sql = "INSERT INTO Admin (email, password) VALUES (?, ?)";
         const [result] = await connection.query(sql, [email, hashedPassword]);
 
-        // **NEW: Add default settings for the newly created admin via CLI**
-        // MODIFIED: Pass the 'connection' object to addDefaultAdminSettings
         await addDefaultAdminSettings(connection, result.insertId, email);
 
         console.log("✅ Admin berhasil dibuat dengan ID:", result.insertId);
@@ -3082,6 +3250,86 @@ if (args[0] === "--add-admin") {
     console.error("❌ Failed to generate or save JWT_SECRET:", err);
     process.exit(1);
   }
+} else if (args[0] === "--refactor-plat-nomor") {
+  console.log("Starting plat nomor refactoring process...");
+  let connection;
+
+  mysql
+    .createConnection({
+      host: DB_HOST,
+      user: DB_USER,
+      password: DB_PASS,
+      database: DB_NAME,
+      multipleStatements: true,
+    })
+    .then(async (conn) => {
+      connection = conn;
+      console.log(`Connected to MySQL database ${DB_NAME}.`);
+
+      try {
+        const [rows] = await connection.query(
+          `SELECT id, plat_nomor FROM Kendaraan`
+        );
+        let changesMade = 0;
+
+        for (const row of rows) {
+          const originalPlat = row.plat_nomor;
+          const cleanedPlat = originalPlat.replace(/\s+/g, "");
+
+          let formattedPlat = "";
+          let part1 = "";
+          let part2 = "";
+          let part3 = "";
+          let i = 0;
+
+          while (i < cleanedPlat.length && /[A-Z]/.test(cleanedPlat[i]) && part1.length < 2) {
+            part1 += cleanedPlat[i];
+            i++;
+          }
+
+          while (i < cleanedPlat.length && /[0-9]/.test(cleanedPlat[i]) && part2.length < 4) {
+            part2 += cleanedPlat[i];
+            i++;
+          }
+
+          while (i < cleanedPlat.length && /[A-Z]/.test(cleanedPlat[i]) && part3.length < 3) {
+            part3 += cleanedPlat[i];
+            i++;
+          }
+
+          formattedPlat = part1;
+          if (part2.length > 0) {
+            formattedPlat += " " + part2;
+          }
+          if (part3.length > 0) {
+            formattedPlat += " " + part3;
+          }
+
+          if (formattedPlat.trim() !== originalPlat.trim()) {
+            await connection.query(
+              `UPDATE Kendaraan SET plat_nomor = ? WHERE id = ?`,
+              [formattedPlat.trim(), row.id]
+            );
+            console.log(
+              `Updated ID ${row.id}: '${originalPlat}' -> '${formattedPlat.trim()}'`
+            );
+            changesMade++;
+          }
+        }
+
+        console.log(
+          `\n✅ Proses refactoring selesai. ${changesMade} plat nomor berhasil diperbarui.`
+        );
+        process.exit(0);
+      } catch (err) {
+        console.error("❌ Gagal melakukan refactoring plat nomor:", err);
+        process.exit(1);
+      }
+    })
+    .catch((err) => {
+      console.error("❌ Gagal terhubung ke database:", err);
+      process.exit(1);
+    });
 } else {
   const shouldRebuild = process.argv.includes("--rebuild");
   startServer(shouldRebuild);
